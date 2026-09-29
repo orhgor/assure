@@ -687,6 +687,24 @@
               <p class="fields-raw-empty" id="fields-raw-empty" hidden></p>
               <ul class="raw-list" id="fields-raw-list" role="list"></ul>
             </details>
+            <!-- Document fields (user decision 2026-09-29): report.dynamic_fields
+                 — every key/value pair the page states, in reading order
+                 (services/raw_candidates.dynamic_fields: Textract FORMS and the
+                 label/value discovery). The schema list below is a projection of
+                 these, so this section is open and sits above it. A pair carries
+                 no confidence and none is drawn. The filter is client-side: a
+                 form can state 70+ pairs. -->
+            <details class="fields-execution fields-dynamic" id="fields-dynamic" data-count="0" open hidden>
+              <summary><span data-i18n="shell.fields.dynamic.title">Document fields (as the page states them)</span> <span class="fields-execution-when fields-dynamic-count" id="fields-dynamic-count"></span></summary>
+              <div class="fields-dynamic-filter">
+                <input type="search" id="fields-dynamic-filter" class="fields-dynamic-filter-input" autocomplete="off"
+                       data-i18n-placeholder="shell.fields.dynamic.filter_placeholder" placeholder="Filter by label or value"
+                       data-i18n-aria="shell.fields.dynamic.filter" aria-label="Filter fields" aria-controls="fields-dynamic-list">
+              </div>
+              <p class="fields-dynamic-empty" id="fields-dynamic-empty" hidden></p>
+              <p class="fields-dynamic-empty fields-dynamic-nomatch" id="fields-dynamic-nomatch" hidden></p>
+              <ul class="dyn-list" id="fields-dynamic-list" role="list"></ul>
+            </details>
           </header>
           <!-- Pipeline activity (2026-09-28): the sibling of the execution
                panel above, outside the header so it shows with no report too —

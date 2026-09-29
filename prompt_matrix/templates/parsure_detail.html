@@ -296,6 +296,14 @@ details.tech dd { margin: 0; font-family: var(--mono); font-size: var(--fs-xs); 
 .raw-candidates .raw-quote:hover { text-decoration-color: var(--ink); }
 .raw-candidates .c-source { white-space: normal; }
 .raw-candidates .c-source .badge { margin: 0 4px 4px 0; }
+/* document fields (2026-09-29): label → value as the page states them; the schema-field note takes the projection's tone. */
+.dynamic-fields .c-value { white-space: pre-wrap; }
+.dynamic-fields tr[data-preferred="0"] .c-value { color: var(--muted); text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--partial) 60%, var(--rule)); text-underline-offset: 3px; }
+.dynamic-fields .c-schema .badge { margin: 0 4px 4px 0; }
+.dynamic-fields .raw-flag { margin-left: 4px; }
+/* the quality figures carry their computation in the title (2026-09-29) */
+.quality-help { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; margin-left: 4px; border: 1px solid var(--rule); border-radius: 50%; font-size: 11px; font-weight: 600; color: var(--muted); cursor: help; vertical-align: middle; }
+.record-quality b[title], .page-line .q[title] { cursor: help; text-decoration: underline dotted; text-decoration-color: var(--rule); text-underline-offset: 3px; }
 .fields .c-state .status { display: block; margin-top: 3px; font-size: var(--fs-xs); font-weight: 400; }
 .conf-bar { display: block; width: 64px; height: 3px; margin-top: 4px; background: var(--rule); border-radius: 2px; overflow: hidden; }
 .conf-bar-fill { display: block; height: 100%; background: var(--ink); border-radius: 2px; }
@@ -418,7 +426,10 @@ details.tech dd { margin: 0; font-family: var(--mono); font-size: var(--fs-xs); 
           · {{ record.date_label }}
         </p>
         <h1>{{ record.filename }}</h1>
-        <p class="record-quality">Quality <b>{{ record.quality_label }}</b> · {{ record.quality_sentence }}</p>
+        {#- How the score was computed (2026-09-29): the per-page basis under the lead sentence, in the title of the figure and of the "?" beside it. Nothing when no page recorded a basis. #}
+        {%- set qhelp_lead = strings.get("shell.fields.quality_help", "How this score is computed: OCR confidence × page coverage (Textract line confidence mean); grounded reads can lift it") %}
+        {%- set qhelp = (qhelp_lead ~ "\n" ~ record.execution.quality_help.lines|join("\n")) if record.execution.quality_help else "" %}
+        <p class="record-quality">Quality <b id="record-quality-score"{% if qhelp %} title="{{ qhelp }}" aria-label="Quality {{ record.quality_label }}. {{ qhelp }}"{% endif %}>{{ record.quality_label }}</b>{% if qhelp %}<span class="quality-help" id="record-quality-help" role="img" title="{{ qhelp }}" aria-label="{{ qhelp }}">?</span>{% endif %} · {{ record.quality_sentence }}</p>
       </div>
       <div class="record-actions">
         <a class="btn-tertiary" href="{{ record.export_json_href }}">Export JSON</a>
@@ -476,6 +487,37 @@ details.tech dd { margin: 0; font-family: var(--mono); font-size: var(--fs-xs); 
       — {{ strings.get("parsing.low_quality_note", "values read from these pages are not returned as reliable.") }}
     </p>
     {% endif %}
+
+    {# Document fields (2026-09-29): report.dynamic_fields — every key/value pair the
+       page states, in reading order, above the schema's projection. A pair carries no
+       confidence — no column for it. #}
+    {% set dyn = record.execution.dynamic_fields %}
+    <section class="section dynamic-fields" id="dynamic-fields" data-count="{{ dyn.count }}">
+      <div class="section-head">
+        <h2>{{ strings.get("parsing.dynamic.title", "Document fields (as the page states them)") }}</h2>
+        <span class="section-meta" id="dynamic-fields-count">{{ strings.get("parsing.dynamic.count", "{n} fields").replace("{n}", dyn.count|string) }} · {{ strings.get("parsing.dynamic.note", "every labelled pair the page states, in reading order — the schema fields are a projection of these") }}</span>
+      </div>
+      {% if not dyn.rows %}<p class="section-empty" id="dynamic-fields-empty">{{ strings.get("parsing.dynamic.empty", "The page states no labelled fields.") }}</p>
+      {% else %}
+      <div class="frame">
+        <table class="fields dynamic">
+          <thead><tr><th>{{ strings.get("parsing.dynamic.col.label", "Label") }}</th><th>{{ strings.get("parsing.dynamic.col.value", "Value") }}</th><th class="c-page">{{ strings.get("parsing.dynamic.col.page", "Page") }}</th><th>{{ strings.get("parsing.dynamic.col.source", "Source") }}</th><th>{{ strings.get("parsing.dynamic.col.schema_field", "Schema field") }}</th></tr></thead>
+          <tbody>
+          {% for d in dyn.rows %}
+            <tr class="dyn-row" data-candidate-id="{{ d.candidate_id or '' }}" data-source="{{ d.source }}" data-projection="{{ d.projection or '' }}" data-preferred="{{ 1 if d.preferred else 0 }}"{% if d.node_id %} data-node-id="{{ d.node_id }}"{% endif %}{% if d.element_id %} data-element-id="{{ d.element_id }}"{% endif %}>
+              <td class="c-label">{{ d.label }}</td>
+              <td class="c-value">{% if d.page is not none %}<a class="raw-quote" href="#page-{{ d.page }}" title="{{ strings.get("parsing.grounding.open", "Show the page this was read from") }}">{{ d.value }}</a>{% else %}{{ d.value }}{% endif %}</td>
+              <td class="c-page">{{ d.page if d.page is not none else "—" }}</td>
+              <td class="c-source"><span class="badge badge--source">{{ strings.get("shell.fields.raw.source." ~ d.source, d.source_words) }}</span>
+                {%- if not d.preferred %} <span class="badge badge--review raw-flag" data-flag="not_preferred">{{ strings.get("shell.fields.raw.not_preferred", "not preferred") }}</span>{% endif %}</td>
+              <td class="c-schema">{% if d.schema_field %}<span class="badge badge--{{ d.projection or 'none' }}" title="{{ strings.get("shell.fields.raw.outcome." ~ (d.projection or 'none'), d.projection_words) }}">{{ strings.get("shell.fields.dynamic.schema_note", "→ {field}").replace("{field}", d.schema_field) }}</span>{% else %}—{% endif %}</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endif %}
+    </section>
 
     <section class="section" id="fields">
       <div class="section-head">
@@ -828,7 +870,8 @@ details.tech dd { margin: 0; font-family: var(--mono); font-size: var(--fs-xs); 
         <article class="page" id="page-{{ p.page }}" data-page="{{ p.page }}">
           <div class="page-line">
             <b>Page {{ p.page }}</b>
-            <span class="q">Quality {{ p.score }}</span>
+            {%- set page_help = (strings.get("shell.fields.quality_help", "How this score is computed: OCR confidence × page coverage (Textract line confidence mean); grounded reads can lift it") ~ "\n" ~ "Page " ~ p.page ~ ": " ~ p.basis) if p.basis else "" %}
+            <span class="q"{% if page_help %} title="{{ page_help }}" aria-label="Quality {{ p.score }}. {{ page_help }}"{% endif %}>Quality {{ p.score }}</span>{% if page_help %}<span class="quality-help" role="img" title="{{ page_help }}" aria-label="{{ page_help }}">?</span>{% endif %}
             <span class="flags"{% if p.flags != "No issues" %} data-tone="partial"{% endif %}>{{ p.flags }}{% if p.basis %} — {{ p.basis }}{% endif %}</span>
             {% if p.text %}<span class="chars">{{ "{:,}".format(p.chars) }} characters</span>{% endif %}
           </div>

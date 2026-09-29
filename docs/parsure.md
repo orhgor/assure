@@ -983,3 +983,22 @@ document, so the workbench shows the page as a JDF source with bbox highlights.
 Measured on the customer's site-report JPEG (analyze, us-east-1): 5.0 s, 25 lines, mean
 confidence 0.9465, 13 key/value pairs (`REPORT ID → RPT-260708-E7BE23`, `GENERATED →
 8 JULY 2026`, `PROGRESS → Vehicle sustained…`).
+
+### Page quality since 2026-09-29 (user decision)
+
+An OCR-read page — every page since Textract became the parser — scores `ocr × coverage`: the
+reader's line-confidence mean times the share of the page the parse covered. The visual probe
+(blur, contrast, dpi), the density floor and the signature verdict no longer scale the score;
+they stay in `pages[].basis` as informative notes (`(visual …, signature_present_ambiguous,
+image_ratio 0.10; informative)`), and the signature verdict still reaches the signature field
+through `quality_weighted_confidence`. Why: a crisp CMS-1500 Textract read at 0.96 scored 0.58
+only because its signature box was ambiguous — not a readability fact. The grounding floor
+(`grounded reads × ocr`) still lifts a page whose coverage figure undersold what the extraction
+read. A text-layer page (no OCR figure) keeps the probe product. The workbench shows the basis
+on hover of every quality figure, so a reviewer sees "ocr 0.96 × coverage 1.00" rather than a
+bare number.
+
+The raw-candidate pool has no cap (`MAX_PER_SEGMENT = None`): the fields of an unknown form
+are whatever the page states, and `report.dynamic_fields` lists them — every Textract
+key/value pair and discovery pair with label, verbatim value, page, box, source and the schema
+field the projection mapped it to, when any. The schema `fields` remain a projection.

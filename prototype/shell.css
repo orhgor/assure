@@ -4120,6 +4120,37 @@ body.collapsed.right-hidden #resize-right { display: none; }
 .raw-row[data-preferred="0"] .raw-text { border-left-color: color-mix(in srgb, var(--partial) 60%, var(--rule)); }
 .raw-row[data-corroborated="0"] .raw-text { border-left-color: color-mix(in srgb, var(--contradicted) 60%, var(--rule)); }
 
+/* Document fields (2026-09-29): report.dynamic_fields — label → value, two
+   columns, open above the schema sections; the schema fields are a projection
+   of these. A filter box for the long forms (70+ pairs). Source chip, "→
+   field" note toned by the projection outcome, amber "not preferred" when an
+   overlapping read demoted the pair. No confidence bar: a pair carries none. */
+.fields-dynamic-filter { margin: var(--space-2) 0 0; }
+.fields-dynamic-filter[hidden] { display: none; }
+.fields-dynamic-filter-input { width: 100%; box-sizing: border-box; font: 450 var(--fs-sm)/1.4 var(--sans); color: var(--ink); background: var(--surface); border: 1px solid var(--rule); border-radius: var(--radius-card); padding: var(--space-1) var(--space-2); outline: none; }
+.fields-dynamic-filter-input:focus { border-color: var(--ink); }
+.fields-dynamic-empty { margin: var(--space-2) 0 0; font-size: var(--fs-sm); color: var(--muted); }
+.fields-dynamic-empty[hidden] { display: none; }
+.dyn-list { list-style: none; margin: var(--space-2) 0 0; padding: 0; }
+.dyn-list[hidden] { display: none; }
+.dyn-row { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: var(--space-1) var(--space-3); align-items: start; padding: var(--space-2) 0; border-bottom: 1px solid var(--rule); font-size: var(--fs-sm); min-width: 0; }
+.dyn-row[hidden] { display: none; }
+.dyn-row:last-child { border-bottom: none; }
+.dyn-row.is-locatable { cursor: pointer; }
+.dyn-row.is-locatable:hover { background: color-mix(in srgb, var(--ink) 4%, transparent); }
+.dyn-row.is-locatable:focus-visible { outline: 2px solid var(--ink); outline-offset: -2px; }
+.dyn-label { color: var(--muted); font-weight: 500; overflow-wrap: anywhere; }
+.dyn-cell { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.dyn-value { color: var(--ink); white-space: pre-wrap; overflow-wrap: anywhere; }
+.dyn-meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-2); color: var(--muted); }
+.dyn-page { font-variant-numeric: tabular-nums; }
+.dyn-row[data-preferred="0"] .dyn-value { color: var(--muted); text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--partial) 60%, var(--rule)); text-underline-offset: 3px; }
+.dyn-flag[data-flag="not_preferred"] { color: var(--partial); }
+@media (max-width: 640px) { .dyn-row { grid-template-columns: minmax(0, 1fr); } }
+/* The quality figure carries its computation in the title (2026-09-29). */
+.fields-quality[title] { cursor: help; text-decoration: underline dotted; text-decoration-color: var(--rule); text-underline-offset: 3px; }
+.field-reason[title], .evidence-value[title] { cursor: help; }
+
 /* Pipeline activity (2026-09-28): the record of what ran, painted into the
    compiler pane, the Inspector and the Fields pane from one state. The tones
    are the document's four; "no record" is muted, never green. */

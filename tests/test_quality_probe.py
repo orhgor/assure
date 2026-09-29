@@ -284,15 +284,33 @@ class TestScores:
         assert basis.startswith("visual 1.00")
 
     def test_page_quality_multiplies_available_signals(self):
+        """A text-layer page (no OCR figure) multiplies the probe's signals."""
         visual = probe_visual_quality(soft_pdf(crisp_pdf()), "blurry.pdf")[0]
         score, basis = page_quality_score(
-            visual=visual, ocr_confidence=0.8, text_density=0.9, parse_coverage=None, image_ratio=0.3, signature_quality="faint"
+            visual=visual, ocr_confidence=None, text_density=0.9, parse_coverage=None, image_ratio=0.3, signature_quality="faint"
         )
-        assert 0.0 < score < 0.8 * 0.8  # density 0.9 is above the floor: factor 1.0
-        assert "blurry" in basis and "ocr 0.80" in basis and "density 0.90→1.00" in basis
+        assert 0.0 < score < 0.8  # density 0.9 is above the floor: factor 1.0
+        assert "blurry" in basis and "density 0.90→1.00" in basis
         assert "signature_faint 0.80" in basis
         assert "image_ratio 0.30, informative" in basis
         assert "coverage" not in basis  # a missing signal is not credited
+
+    def test_an_ocr_read_page_is_scored_by_ocr_confidence_times_coverage(self):
+        """User decision 2026-09-29: the reader's own figures, not the probe's —
+        a crisp CMS-1500 read by Textract at 0.96 had scored 0.58 because its
+        signature box was ambiguous. Probe and signature stay informative."""
+        visual = probe_visual_quality(soft_pdf(crisp_pdf()), "blurry.pdf")[0]
+        score, basis = page_quality_score(
+            visual=visual, ocr_confidence=0.96, text_density=0.9, parse_coverage=1.0, image_ratio=0.1, signature_quality="present_ambiguous"
+        )
+        assert score == 0.96 and basis.startswith("ocr 0.96 × coverage 1.00")
+        assert "signature_present_ambiguous" in basis and "informative" in basis and "blurry" in basis
+        score2, basis2 = page_quality_score(
+            visual=None, ocr_confidence=0.8, text_density=None, parse_coverage=0.5, image_ratio=None, signature_quality=None
+        )
+        assert score2 == 0.4 and basis2 == "ocr 0.80 × coverage 0.50"
+        score3, _ = page_quality_score(visual=None, ocr_confidence=0.8, text_density=None, parse_coverage=None, image_ratio=None, signature_quality=None)
+        assert score3 == 0.8  # coverage unknown: not credited, not penalised
 
     def test_page_quality_density_is_a_floor_not_a_factor(self):
         """A one-paragraph page is not lower quality than a dense one (2026-09-25:

@@ -1807,6 +1807,10 @@ def _build_report_timed(
         "laya": (intake or {}).get("laya"),
         "replay": replay_state(fields, pname, pver, document_type=classification.get("document_type")),
         "raw_candidates": raw_pool,
+        # The document's own labelled facts as fields (user decision 2026-09-29:
+        # the PDFs' fields are not known in advance; Textract's key/value pairs
+        # and the discovery pairs are the field list, the schema a projection).
+        "dynamic_fields": _raw.dynamic_fields(raw_pool, execution.get("projection")),
         "projection": execution.get("projection"),
         "created_at": _now(),
         "_page_texts": texts,
@@ -2036,6 +2040,7 @@ def reextract_for_type(report: dict[str, Any], document_type: str, *, verificati
                                              forms=None, vision=report.get("vision"), documents=None)
     raw_pool, added = _raw.merge_pool(report.get("raw_candidates"), fresh_pool)
     report["raw_candidates"] = raw_pool
+    report["dynamic_fields"] = _raw.dynamic_fields(raw_pool, report.get("projection"))
     raw_stats.update(candidates=len(raw_pool), added=added, remap=True)
     if by_evidence:
         evidence = reclassify_by_evidence(document_type, None, texts)
@@ -2290,6 +2295,7 @@ def attach_vision_candidates(report: dict[str, Any]) -> int:
         new, _counts = _raw.merge_new(list(_raw.vision_candidates(report.get("vision"), texts, layout)), documents=report.get("documents"))
         pool, added = _raw.merge_pool(report.get("raw_candidates"), new)
         report["raw_candidates"] = pool
+        report["dynamic_fields"] = _raw.dynamic_fields(pool, report.get("projection"))
         stats.update(candidates=len(pool), vision_added=added,
                      corroborated_vision=sum(1 for c in pool if c.get("source_kind") == "image_vision" and c.get("corroborated")),
                      uncorroborated_vision=sum(1 for c in pool if c.get("source_kind") == "image_vision" and not c.get("corroborated")))

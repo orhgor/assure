@@ -55,7 +55,10 @@ Merge and precedence (plan Part 1.2, exact):
 * every ordering decision uses the one key ``(source_priority desc,
   corroborated desc, page asc, start_char asc, source_kind, raw_text)`` — two
   implementations of this file must produce byte-identical pools;
-* at most :data:`MAX_PER_SEGMENT` candidates per document segment;
+* no cap on deterministic candidates (:data:`MAX_PER_SEGMENT` is ``None`` since
+  2026-09-29 — user decision: the fields of an unknown form are whatever the
+  page says, and a CMS-1500 read by Textract yields 230 candidates; the plan's
+  "~60" cap dropped 11 of them). A cap, if ever set, applies per segment;
 * the pool is append-only: :func:`merge_pool` keeps every stored candidate
   as it is and only appends ones whose ``candidate_id`` is new. A rerun adds;
   it never rewrites or deletes.
@@ -93,7 +96,9 @@ SOURCE_KINDS = ("textract", "table_cell", "layout_text", "discovery", "image_vis
 #: (uncorroborated); a corroborated vision read (verbatim on the page) outranks all.
 SOURCE_PRIORITY: dict[str, int] = {"textract": 5, "table_cell": 4, "layout_text": 3, "discovery": 2, "image_vision": 1}
 CORROBORATED_VISION_PRIORITY = 6
-MAX_PER_SEGMENT = 60
+MAX_PER_SEGMENT: int | None = None
+#: Label/value pairs the heuristic discovery offers the pool (its own bound).
+DISCOVERY_LIMIT = 400
 #: A candidate without a character span sorts after every spanned one on its page.
 NO_SPAN = 10 ** 9
 SORT_KEY = ("source_priority desc", "corroborated desc", "page asc", "start_char asc", "source_kind", "raw_text")
@@ -193,7 +198,7 @@ def layout_text_candidates(texts: list[str], layout: list[list[dict]] | None) ->
 
 def discovery_candidates(texts: list[str], layout: list[list[dict]] | None) -> Iterator[dict[str, Any]]:
     """``field_discovery.discover_heuristic`` over the joined page text."""
-    for pair in fd.discover_heuristic(texts, layout, limit=MAX_PER_SEGMENT * 4):
+    for pair in fd.discover_heuristic(texts, layout, limit=DISCOVERY_LIMIT):
         span = dict(pair.get("span") or {})
         yield _candidate(name_hint=pair.get("label") or pair.get("name") or "", raw_text=pair.get("value") or "", label_anchor=pair.get("label") or "",
                          page=int(pair.get("page") or 1), span=span, source_kind="discovery",
@@ -318,11 +323,11 @@ def merge_new(candidates: Iterable[dict[str, Any]], *, documents: list[dict] | N
         page_set = {int(p) for p in pages}
         seen_pages |= page_set
         seg = [c for c in pool if c["page"] in page_set]
-        kept.extend(seg[:MAX_PER_SEGMENT])
-        capped += max(0, len(seg) - MAX_PER_SEGMENT)
+        kept.extend(seg if MAX_PER_SEGMENT is None else seg[:MAX_PER_SEGMENT])
+        capped += 0 if MAX_PER_SEGMENT is None else max(0, len(seg) - MAX_PER_SEGMENT)
     rest = [c for c in pool if c["page"] not in seen_pages]
-    kept.extend(rest[:MAX_PER_SEGMENT])
-    capped += max(0, len(rest) - MAX_PER_SEGMENT)
+    kept.extend(rest if MAX_PER_SEGMENT is None else rest[:MAX_PER_SEGMENT])
+    capped += 0 if MAX_PER_SEGMENT is None else max(0, len(rest) - MAX_PER_SEGMENT)
     kept.sort(key=sort_key)
     for c in kept:
         c["candidate_id"] = candidate_id(c)
@@ -495,6 +500,13 @@ def project_candidates(
     ``report["conflicts"]``. Table cells map only when every matching cell
     agrees (``table_extraction`` owns the total-row judgement). Candidates are
     never removed from the pool. Returns the fields and the projection log."""
+    # Textract's line-confidence mean is the parser's confidence for an OCR
+    # parse (as extract_fields already treats it, 2026-09-29): a candidate
+    # mapped from the pool otherwise fell to parser_default[textract] 0.80 while
+    # the reader had reported 0.95 — the user read that as "Textract says 100 %,
+    # the UI says 10 %".
+    if parse_confidence is None and ocr_confidence is not None:
+        parse_confidence = float(ocr_confidence)
     specs = [s for s in (fx.FIELD_TAXONOMY.get(document_type) or []) if s.field_type != "signature"]
     pool = sorted([c for c in (candidates or []) if isinstance(c, dict)], key=sort_key)
     by_name = {f.get("name"): f for f in fields if isinstance(f, dict)}
@@ -684,4 +696,50 @@ def grounding_success_by_page(fields: list[dict[str, Any]], *, discovered: list[
     out: list[float | None] = []
     for v, s in zip(valid, suspect):
         out.append(round(v / (v + s), 3) if (v + s) else None)
+    return out
+
+
+#: Sources whose candidates are a document's own labelled facts — the reading
+#: of a key/value pair on the page, not a model's inference.
+DYNAMIC_FIELD_SOURCES = ("textract", "discovery")
+
+
+def dynamic_fields(pool: list[dict[str, Any]], projection: dict[str, Any] | None = None) -> list[dict[str, Any]]:
+    """The document's fields as the page states them, schema or no schema.
+
+    User decision 2026-09-29: the PDFs have no known field list, so the
+    key/value pairs Textract's FORMS analysis and the label/value discovery read
+    are fields in their own right — every one, in reading order, beside the
+    schema's projection. Each carries the verbatim label and value, the page,
+    the box, the source and, when the projection mapped the candidate onto a
+    schema field, that field's name and outcome. Nothing here is inferred and
+    nothing carries a confidence the reader did not report (Textract's own
+    pair confidence rides in ``trace`` when the source kept it).
+    """
+    log = (projection or {}).get("candidates_log") if isinstance(projection, dict) else None
+    out: list[dict[str, Any]] = []
+    for c in pool or []:
+        if c.get("source_kind") not in DYNAMIC_FIELD_SOURCES:
+            continue
+        label = str(c.get("label_anchor") or c.get("name_hint") or "").strip()
+        value = str(c.get("raw_text") or "").strip()
+        if not label or not value:
+            continue
+        span = c.get("source_span") if isinstance(c.get("source_span"), dict) else {}
+        mapped = (log or {}).get(c.get("candidate_id")) if isinstance(log, dict) else None
+        out.append({
+            "label": label,
+            "value": value,
+            "name_hint": c.get("name_hint"),
+            "page": c.get("page"),
+            "bbox": span.get("bbox") or c.get("bbox"),
+            "source": c.get("source_kind"),
+            "preferred": c.get("preferred", True),
+            "candidate_id": c.get("candidate_id"),
+            "element_id": c.get("element_id"),
+            "node_id": c.get("node_id"),
+            "trace": c.get("trace"),
+            "schema_field": (mapped or {}).get("field"),
+            "projection": (mapped or {}).get("outcome"),
+        })
     return out

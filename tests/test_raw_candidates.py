@@ -103,11 +103,19 @@ def test_table_cells_and_textract_forms_are_sources_with_their_priorities():
     assert stats["by_source"]["table_cell"] == 4 and stats["by_source"]["textract"] == 1
 
 
-def test_cap_per_segment_is_sixty():
+def test_the_pool_keeps_every_deterministic_candidate():
+    """User decision 2026-09-29: no cap — an unknown form's fields are whatever
+    the page says (a Textract-read CMS-1500 yields 230; the old cap of 60
+    dropped 11 of them)."""
     lines = [f"Field {i}: value {i}" for i in range(150)]
     text = "\n".join(lines)
     pool, stats = rc.build_pool([text], _layout(text))
-    assert len(pool) == rc.MAX_PER_SEGMENT == 60 and stats["capped"] > 0
+    assert rc.MAX_PER_SEGMENT is None and len(pool) >= 150 and stats["capped"] == 0
+    dyn = rc.dynamic_fields(pool)
+    assert len(dyn) >= 150 and dyn[0]["label"] == "Field 0" and dyn[0]["value"] == "value 0" and dyn[0]["source"] == "discovery"
+    assert all("confidence" not in d for d in dyn) and dyn[0]["page"] == 1 and dyn[0]["candidate_id"]
+    mapped = rc.dynamic_fields(pool, {"candidates_log": {dyn[0]["candidate_id"]: {"field": "policy_number", "outcome": "mapped"}}})
+    assert mapped[0]["schema_field"] == "policy_number" and mapped[0]["projection"] == "mapped" and mapped[1]["schema_field"] is None
 
 
 def test_merge_pool_is_append_only():
@@ -186,14 +194,16 @@ def test_review_needed_is_a_log_label_never_a_field_state():
 
 def test_grounding_floor_lifts_a_read_page_and_leaves_a_debris_page_low():
     readable = {"flags": ["low_res", "low_contrast"], "dpi_estimate": 60.0, "blur_variance": 900.0, "contrast_std": 20.0, "contrast_range": 40.0}
-    score, basis = qp.page_quality_score(visual=readable, ocr_confidence=0.8, text_density=0.6, parse_coverage=1.0, image_ratio=None, signature_quality=None)
-    assert score < 0.2, (score, basis)  # the probe alone reads a readable phone photo as near-unreadable
-    lifted, basis2 = qp.page_quality_score(visual=readable, ocr_confidence=0.8, text_density=0.6, parse_coverage=1.0, image_ratio=None,
+    # Since 2026-09-29 an OCR-read page is scored ocr × coverage; a page the
+    # parse covered only in part is lifted by what the extraction proved it read.
+    score, basis = qp.page_quality_score(visual=readable, ocr_confidence=0.8, text_density=0.6, parse_coverage=0.25, image_ratio=None, signature_quality=None)
+    assert score == 0.2, (score, basis)
+    lifted, basis2 = qp.page_quality_score(visual=readable, ocr_confidence=0.8, text_density=0.6, parse_coverage=0.25, image_ratio=None,
                                            signature_quality=None, grounding_success=1.0)
     assert lifted == 0.8 >= 0.5 and "lifted to grounded reads 1.00 × ocr 0.80 = floor 0.80" in basis2
     debris, basis3 = qp.page_quality_score(visual=readable, ocr_confidence=0.45, text_density=0.6, parse_coverage=1.0, image_ratio=None,
                                            signature_quality=None, grounding_success=0.0)
-    assert debris < 0.2 and "below the probe score" in basis3
+    assert debris == 0.45 and "below the ocr score" in basis3
     untouched, _ = qp.page_quality_score(visual=readable, ocr_confidence=0.45, text_density=0.6, parse_coverage=1.0, image_ratio=None, signature_quality=None,
                                          grounding_success=None)
     assert untouched == score if False else untouched < 0.2

@@ -100,8 +100,8 @@ def test_styles_for_the_raw_rows_exist() -> None:
 
 
 def test_ui_cache_bumped_for_the_raw_pool() -> None:
-    assert APP_CSS == "assure-116"
-    assert APP_JS == "assure-116"
+    assert APP_CSS == "assure-117"
+    assert APP_JS == "assure-117"
 
 
 # ---------------------------------------------------------------------------

@@ -101,9 +101,10 @@
         <div class="card-status">
           <span class="status status--{{ doc.status }}">{{ doc.status_label }}</span>
           {% if doc.section_counts %}
-          <span class="card-counts" data-review="{{ doc.section_counts.review }}" data-found="{{ doc.section_counts.found }}" data-not-found="{{ doc.section_counts.not_found }}">
+          <span class="card-counts" data-review="{{ doc.section_counts.review }}" data-found="{{ doc.section_counts.found }}" data-not-found="{{ doc.section_counts.not_found }}" data-read="{{ doc.section_counts.read }}">
+            <span class="count count--read">{{ doc.section_counts.read }} {{ strings.get("parsing.count.read", "values read") }}</span><span class="sep">·</span>
             <span class="count count--review">{{ doc.section_counts.review }} {{ strings.get("parsing.count.review", "need review") }}</span><span class="sep">·</span>
-            <span class="count count--found">{{ doc.section_counts.found }} {{ strings.get("parsing.count.found", "found") }}</span><span class="sep">·</span>
+            <span class="count count--found">{{ doc.section_counts.found }} {{ strings.get("parsing.count.accepted", "accepted") }}</span><span class="sep">·</span>
             <span class="count count--not-found">{{ doc.section_counts.not_found }} {{ strings.get("parsing.count.not_found", "not on document") }}</span>
             {%- if doc.suspect_count %}<span class="sep">·</span><span class="count count--suspect">{{ doc.suspect_count }} {{ strings.get("parsing.count.suspect", "suspect") }}</span>{% endif %}
           </span>

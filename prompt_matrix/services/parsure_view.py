@@ -71,9 +71,17 @@ def field_section(field: dict[str, Any]) -> str:
 
 
 def section_counts(fields: list[dict[str, Any]]) -> dict[str, int]:
-    counts = {"review": 0, "found": 0, "not_found": 0}
+    """``review`` / ``found`` / ``not_found`` partition the fields; ``read``
+    counts every field holding a value whichever section it sits in. The list
+    card led with "0 found" for a document whose four values all needed review
+    (compliance-bound or below the auto-accept line) and the user read it as
+    "no field data" (2026-09-29) — the value count is the fact a reader wants
+    first, the review count is the policy's verdict on it."""
+    counts = {"review": 0, "found": 0, "not_found": 0, "read": 0}
     for f in fields:
         counts[field_section(f)] += 1
+        if isinstance(f, dict) and f.get("value") is not None and str(f.get("field_type") or "") != "signature":
+            counts["read"] += 1
     return counts
 
 
@@ -386,7 +394,9 @@ def execution_view(report: dict[str, Any]) -> dict[str, Any]:
     # The raw pool rides on the execution view so ``/parsing/<id>`` renders it
     # without a new key in the record ``web.py`` assembles (V-B, 2026-09-29).
     return {"recorded": ex is not None, "ran_at": str(ran_at) if ran_at else None, "steps": steps,
-            "raw_candidates": raw_candidates_view(report)}
+            "raw_candidates": raw_candidates_view(report),
+            "dynamic_fields": dynamic_fields_view(report),
+            "quality_help": quality_help_view(report)}
 
 
 #: ``source_kind`` in words, the same five ``raw_candidates.SOURCE_KINDS``.
@@ -465,6 +475,76 @@ def raw_candidates_view(report: dict[str, Any]) -> dict[str, Any]:
             stats.append(str(block["reason"]))
     return {"count": len(rows), "recorded": block is not None, "status": str(block.get("status") or "") if block else None,
             "stats": stats, "rows": rows}
+
+
+#: ``dynamic_fields[].projection`` in words and the tone the record page gives it.
+DYNAMIC_PROJECTION_TONES = {"mapped": "mapped", "unmapped": "unmapped", "conflicting": "conflicting", "review_needed": "review_needed"}
+
+
+def dynamic_fields_view(report: dict[str, Any]) -> dict[str, Any]:
+    """``report.dynamic_fields`` for the record page (user decision 2026-09-29:
+    the PDFs have no known field list, so every key/value pair the page states
+    — Textract FORMS or the label/value discovery, built by
+    ``raw_candidates.dynamic_fields`` — is listed as a field in its own right,
+    in reading order, above the schema's projection).
+
+    ``{count, rows: [{candidate_id, label, value, page, source, source_words,
+    preferred, schema_field, projection, projection_words, node_id,
+    element_id}]}``. ``label`` and ``value`` are verbatim; ``schema_field`` /
+    ``projection`` repeat what the report's list already carries (the
+    projection log's outcome for the candidate) and are None when the log never
+    named it — nothing is inferred from the schema fields. A pair carries no
+    confidence and none is derived here."""
+    rows_in = [d for d in (report.get("dynamic_fields") or []) if isinstance(d, dict)] if isinstance(report.get("dynamic_fields"), list) else []
+    rows = []
+    for d in rows_in:
+        label = str(d.get("label") or "").strip()
+        value = "" if d.get("value") is None else str(d.get("value"))
+        if not label:
+            continue
+        source = str(d.get("source") or "")
+        projection = str(d.get("projection") or "").lower() or None
+        if projection not in DYNAMIC_PROJECTION_TONES:
+            projection = None
+        schema_field = d.get("schema_field") or None
+        rows.append({
+            "candidate_id": d.get("candidate_id"),
+            "label": label,
+            "value": value,
+            "page": d.get("page"),
+            "source": source,
+            "source_words": RAW_SOURCE_WORDS.get(source, source.replace("_", " ") or "unknown source"),
+            "preferred": d.get("preferred") is not False,
+            "schema_field": str(schema_field) if schema_field else None,
+            "projection": projection,
+            "projection_words": RAW_OUTCOME_WORDS.get(projection, "no projection") if schema_field else None,
+            "node_id": d.get("node_id"),
+            "element_id": d.get("element_id"),
+        })
+    return {"count": len(rows), "rows": rows}
+
+
+def quality_help_view(report: dict[str, Any]) -> dict[str, Any] | None:
+    """How the quality figures were computed, for the ``title`` of the score
+    on the record page (2026-09-29): ``{lines: ["Page N: <basis>", …],
+    pages: {N: "<basis>"}}`` from ``report.pages[].basis`` — the sentence the
+    quality probe wrote ("ocr 0.96 × coverage 1.00; grounded reads 0.50 × ocr
+    0.96 = floor 0.48 (below the probe score)"). None when no page recorded a
+    basis: the hover then says nothing rather than describing a computation
+    the report did not write. The lead sentence is the catalog's
+    ``shell.fields.quality_help``; the template puts it first."""
+    pages = [p for p in (report.get("pages") or []) if isinstance(p, dict)] if isinstance(report.get("pages"), list) else []
+    lines: list[str] = []
+    by_page: dict[Any, str] = {}
+    for p in pages:
+        basis = p.get("basis")
+        if not basis:
+            continue
+        lines.append(f"Page {p.get('page')}: {basis}")
+        by_page[p.get("page")] = str(basis)
+    if not lines:
+        return None
+    return {"lines": lines, "pages": by_page}
 
 
 def summary_breakdown(fields: list[dict[str, Any]]) -> dict[str, int]:

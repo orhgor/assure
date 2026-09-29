@@ -442,7 +442,7 @@ def export_documents(project_id: str, *, document_type: str | None = None, state
 
 
 EXPORT_ROW_KEYS = ("report_id", "document_id", "filename", "document_type", "document_type_label", "created_at", "snapshot_hash",
-                   "classification", "fields", "raw_candidates", "execution", "graph_integrity", "replay", "redhat", "projection")
+                   "classification", "fields", "raw_candidates", "dynamic_fields", "execution", "graph_integrity", "replay", "redhat", "projection")
 
 
 def export_row(report: dict[str, Any], *, fields: list[dict[str, Any]] | None = None) -> dict[str, Any]:

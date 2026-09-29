@@ -624,6 +624,8 @@ tr.queue-row--done td { color: var(--muted); }
 .document-list--rows .card-actions { margin-top: var(--space-2); }
 .card-counts { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-2); font-size: var(--fs-sm); color: var(--muted); font-variant-numeric: tabular-nums; }
 .card-counts .sep { color: var(--rule); }
+.card-counts .count--read { color: var(--ink); font-weight: 600; }
+.card-counts[data-read="0"] .count--read { color: var(--muted); font-weight: 400; }
 .card-counts .count--review { color: var(--partial); }
 .card-counts[data-review="0"] .count--review { color: var(--muted); }
 .card-counts .count--found { color: var(--ink); }

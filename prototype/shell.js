@@ -9330,17 +9330,46 @@
     }
     // Page quality is the report's, per page (report.pages[].quality_score);
     // the field points at its page through source_span.
+    function _fieldPageNumber(f) {
+      var rep = __parsure || {};
+      var pages = Array.isArray(rep.pages) ? rep.pages : [];
+      var page = f && f.source_span ? f.source_span.page : null;
+      if (page == null && pages.length === 1 && pages[0]) page = pages[0].page;
+      return page == null ? null : page;
+    }
     function _fieldPageQuality(f) {
       if (!f) return null;
       if (typeof f.page_quality_score === "number") return f.page_quality_score;
       var rep = __parsure || {};
       var pages = Array.isArray(rep.pages) ? rep.pages : [];
-      var page = f.source_span && f.source_span.page;
-      if (page == null && pages.length === 1) page = pages[0].page;
+      var page = _fieldPageNumber(f);
       for (var i = 0; i < pages.length; i++) {
         if (pages[i] && pages[i].page === page && typeof pages[i].quality_score === "number") return pages[i].quality_score;
       }
       return null;
+    }
+    // How a quality figure was computed (2026-09-29): the per-page `basis` the
+    // quality probe wrote ("ocr 0.96 × coverage 1.00; grounded reads 0.50 ×
+    // ocr 0.96 = floor 0.48 (below the probe score)"), one line per page under
+    // a lead sentence, for the title of the figure. `onlyPage` narrows it to
+    // one page. Empty when no page recorded a basis — the hover then says
+    // nothing rather than describing a computation the report did not write.
+    function _qualityHelpText(rep, onlyPage) {
+      var pages = rep && Array.isArray(rep.pages) ? rep.pages : [];
+      var lines = [];
+      pages.forEach(function (p) {
+        if (!p || typeof p !== "object" || !p.basis) return;
+        if (onlyPage != null && p.page !== onlyPage) return;
+        lines.push(_tf("shell.fields.quality_page_basis", "Page {n}: {basis}", { n: p.page, basis: String(p.basis) }));
+      });
+      if (!lines.length) return "";
+      return _t("shell.fields.quality_help", "How this score is computed: OCR confidence \u00d7 page coverage (Textract line confidence mean); grounded reads can lift it") + "\n" + lines.join("\n");
+    }
+    function _withQualityHelp(el, help) {
+      if (!el || !help) return el;
+      el.title = help;
+      el.setAttribute("aria-label", String(el.textContent || "") + ". " + help);
+      return el;
     }
     function _qualityWarnings(f, opts) {
       var out = [];
@@ -9373,13 +9402,14 @@
       });
       return out;
     }
-    function _confField(host, label, value) {
+    function _confField(host, label, value, help) {
       var s = String(value == null ? "" : value);
       if (!s) return;
       var f = document.createElement("div");
       f.className = "evidence-field";
       var l = document.createElement("div"); l.className = "evidence-label"; l.textContent = label;
       var v = document.createElement("div"); v.className = "evidence-value"; v.textContent = s;
+      if (help) _withQualityHelp(v, help);
       f.appendChild(l); f.appendChild(v); host.appendChild(f);
     }
     function _pct(x) {
@@ -9409,7 +9439,7 @@
         if (f.confidence_basis) _confField(wrap, _t("shell.confidence.basis", "How it was computed"), f.confidence_basis);
         var fpq = _fieldPageQuality(f);
         if (typeof fpq === "number") {
-          _confField(wrap, _t("shell.confidence.page_quality", "Page quality"), _pct(fpq));
+          _confField(wrap, _t("shell.confidence.page_quality", "Page quality"), _pct(fpq), _qualityHelpText(__parsure, _fieldPageNumber(f)));
         }
         if (typeof f.verification_confidence === "number") {
           _confField(wrap, _t("shell.confidence.verification", "Verification confidence"), _pct(f.verification_confidence));
@@ -10456,6 +10486,8 @@
           var bits = [s.filename || s.report_id, _docTypeWords(s.document_type)];
           if (typeof s.document_quality_score === "number") bits.push(_tf("shell.fields.quality", "Quality {pct}", { pct: _pct(s.document_quality_score) }));
           opt.textContent = bits.join(" · ");
+          // Only the open report carries its pages; the other options have no basis to show.
+          if (s.report_id === __parsureReportId) _withQualityHelp(opt, _qualityHelpText(rep));
           if (s.report_id === __parsureReportId) opt.selected = true;
           select.appendChild(opt);
         });
@@ -10490,8 +10522,17 @@
         if (formHead) bits.push(formHead);
         var mod = _modalityWords(rep.modality || rep.material_type);
         if (mod) bits.push(mod);
-        if (typeof rep.document_quality_score === "number") bits.push(_tf("shell.fields.quality", "Quality {pct}", { pct: _pct(rep.document_quality_score) }));
-        metaEl.textContent = bits.join(" · ");
+        while (metaEl.firstChild) metaEl.removeChild(metaEl.firstChild);
+        metaEl.appendChild(document.createTextNode(bits.join(" · ")));
+        // The quality figure is its own element so its title can say how the
+        // score was computed (the per-page basis, 2026-09-29).
+        if (typeof rep.document_quality_score === "number") {
+          if (bits.length) metaEl.appendChild(document.createTextNode(" · "));
+          var qEl = _el("span", "fields-quality", _tf("shell.fields.quality", "Quality {pct}", { pct: _pct(rep.document_quality_score) }));
+          qEl.setAttribute("data-score", String(rep.document_quality_score));
+          _withQualityHelp(qEl, _qualityHelpText(rep));
+          metaEl.appendChild(qEl);
+        }
       }
       var cls = rep.classification || {};
       var typeEl = document.getElementById("fields-type-value");
@@ -10505,6 +10546,7 @@
       _renderFieldsBreakdown(rep);
       _renderFieldsExecution(rep);
       _renderFieldsRawCandidates(rep);
+      _renderFieldsDynamic(rep);
       var form = document.getElementById("fields-type-form");
       var typeRow = document.getElementById("fields-type");
       var editing = Boolean(__fieldsEditor && __fieldsEditor.kind === "type");
@@ -10807,6 +10849,146 @@
       });
     }
 
+    // Document fields (user decision 2026-09-29): `report.dynamic_fields`
+    // (services/raw_candidates.dynamic_fields) — every key/value pair the page
+    // states, in reading order, read by Textract FORMS or the label/value
+    // discovery. The schema fields are a projection onto a document type; these
+    // are the document's own, so the list is open and sits above them. A pair
+    // carries no confidence and none is drawn. The "→ field" note repeats what
+    // the projection log wrote (mapped / conflicting / review needed /
+    // unmapped) for the candidate; a pair the log never named has no note.
+    // The filter is client-side (a form can state 70+ pairs) and matches the
+    // label or the value.
+    var __dynamicFilter = "";
+    var __dynamicFilterReport = null;
+    function _projectionTone(outcome) {
+      var o = String(outcome || "").toLowerCase();
+      if (o === "mapped") return "verified";
+      if (o === "conflicting") return "contradicted";
+      if (o === "review_needed") return "partial";
+      return "none";
+    }
+    function _projectionWords(outcome) {
+      var o = String(outcome || "").toLowerCase();
+      if (o === "mapped") return _t("shell.fields.raw.outcome.mapped_nofield", "mapped");
+      if (o === "conflicting") return _t("shell.fields.raw.outcome.conflicting", "conflicting");
+      if (o === "review_needed") return _t("shell.fields.raw.outcome.review_needed", "review needed");
+      if (o === "unmapped") return _t("shell.fields.raw.outcome.unmapped", "unmapped");
+      return _t("shell.fields.raw.outcome.none", "no projection");
+    }
+    // Located like a raw row: the saved paragraph by node_id first, else the
+    // source sheet by page + bbox / value text. Neither → static.
+    function _dynamicLocator(d) {
+      var nodeId = d.node_id != null ? String(d.node_id) : "";
+      if (nodeId && _nodeWrapper(nodeId)) return function () { _locateNode(nodeId); };
+      var page = d.page;
+      if (page != null && page !== "" && _sourceJdfFor("parsure")) {
+        var bbox = Array.isArray(d.bbox) && d.bbox.length === 4 ? d.bbox : null;
+        return function () { _showInSource({ page: page, bbox: bbox, text: String(d.value || "") }, "parsure"); };
+      }
+      return null;
+    }
+    function _applyDynamicFilter() {
+      var host = document.getElementById("fields-dynamic");
+      var list = document.getElementById("fields-dynamic-list");
+      if (!host || !list) return;
+      var needle = String(__dynamicFilter || "").trim().toLowerCase();
+      var total = 0, shown = 0;
+      Array.prototype.forEach.call(list.children, function (li) {
+        total += 1;
+        var hit = !needle || String(li.getAttribute("data-search") || "").indexOf(needle) !== -1;
+        li.hidden = !hit;
+        if (hit) shown += 1;
+      });
+      host.setAttribute("data-shown", String(shown));
+      var nomatch = document.getElementById("fields-dynamic-nomatch");
+      if (nomatch) {
+        nomatch.hidden = !(total && needle && !shown);
+        nomatch.textContent = nomatch.hidden ? "" : _tf("shell.fields.dynamic.no_match", "No field matches “{q}”.", { q: String(__dynamicFilter).trim() });
+      }
+      var countEl = document.getElementById("fields-dynamic-count");
+      if (countEl) {
+        countEl.textContent = needle && total
+          ? _tf("shell.fields.dynamic.shown", "{shown} of {n} fields", { shown: shown, n: total })
+          : _tf("shell.fields.dynamic.count", "{n} fields", { n: total });
+      }
+    }
+    function _renderFieldsDynamic(rep) {
+      var host = document.getElementById("fields-dynamic");
+      var list = document.getElementById("fields-dynamic-list");
+      if (!host || !list) return;
+      host.hidden = !rep;
+      if (!rep) return;
+      var rows = Array.isArray(rep.dynamic_fields) ? rep.dynamic_fields.filter(function (d) { return d && typeof d === "object"; }) : [];
+      host.setAttribute("data-count", String(rows.length));
+      // The filter is kept while the same report repaints and dropped when
+      // another report opens.
+      var repId = String(rep.report_id || __parsureReportId || "");
+      if (__dynamicFilterReport !== repId) { __dynamicFilter = ""; __dynamicFilterReport = repId; }
+      var input = document.getElementById("fields-dynamic-filter");
+      if (input) {
+        if (!input.__dynWired) {
+          input.__dynWired = true;
+          input.addEventListener("input", function () { __dynamicFilter = input.value; _applyDynamicFilter(); });
+          input.addEventListener("keydown", function (e) { if (e.key === "Escape" && input.value) { input.value = ""; __dynamicFilter = ""; _applyDynamicFilter(); } });
+        }
+        if (input.value !== __dynamicFilter) input.value = __dynamicFilter;
+        input.placeholder = _t("shell.fields.dynamic.filter_placeholder", "Filter by label or value");
+        input.setAttribute("aria-label", _t("shell.fields.dynamic.filter", "Filter fields"));
+        input.parentNode.hidden = !rows.length;
+      }
+      var empty = document.getElementById("fields-dynamic-empty");
+      if (empty) { empty.hidden = rows.length > 0; empty.textContent = _t("shell.fields.dynamic.empty", "The page states no labelled fields."); }
+      while (list.firstChild) list.removeChild(list.firstChild);
+      list.hidden = !rows.length;
+      if (!rows.length) { _applyDynamicFilter(); return; }
+      rows.forEach(function (d) {
+        var label = String(d.label == null ? "" : d.label);
+        var value = String(d.value == null ? "" : d.value);
+        var li = _el("li", "dyn-row");
+        if (d.candidate_id) li.setAttribute("data-candidate-id", String(d.candidate_id));
+        li.setAttribute("data-source", String(d.source || ""));
+        li.setAttribute("data-preferred", d.preferred === false ? "0" : "1");
+        li.setAttribute("data-projection", String(d.projection || ""));
+        if (d.page != null && d.page !== "") li.setAttribute("data-page", String(d.page));
+        li.setAttribute("data-search", (label + "\n" + value).toLowerCase());
+        li.appendChild(_el("span", "dyn-label", label || "—"));
+        var cell = _el("span", "dyn-cell");
+        cell.appendChild(_el("span", "dyn-value", value));
+        var meta = _el("span", "dyn-meta");
+        if (d.page != null && d.page !== "") meta.appendChild(_el("span", "dyn-page", _tf("shell.fields.page", "Page {n}", { n: d.page })));
+        var src = _el("span", "field-chip dyn-source", _rawSourceWords(d.source));
+        src.setAttribute("data-tone", "none");
+        meta.appendChild(src);
+        if (d.schema_field) {
+          var note = _el("span", "field-chip dyn-schema", _tf("shell.fields.dynamic.schema_note", "→ {field}", { field: String(d.schema_field) }));
+          note.setAttribute("data-tone", _projectionTone(d.projection));
+          note.setAttribute("data-projection", String(d.projection || ""));
+          note.title = _projectionWords(d.projection);
+          meta.appendChild(note);
+        }
+        if (d.preferred === false) {
+          var np = _el("span", "field-chip dyn-flag", _t("shell.fields.raw.not_preferred", "not preferred"));
+          np.setAttribute("data-tone", "partial"); np.setAttribute("data-flag", "not_preferred");
+          meta.appendChild(np);
+        }
+        cell.appendChild(meta);
+        li.appendChild(cell);
+        var locate = _dynamicLocator(d);
+        if (locate) {
+          li.classList.add("is-locatable");
+          li.setAttribute("role", "button");
+          li.setAttribute("tabindex", "0");
+          li.title = _t("shell.fields.page_open", "Show in the document");
+          li.addEventListener("click", function (e) { e.stopPropagation(); locate(); });
+          li.addEventListener("keydown", function (e) {
+            if (e.key === "Enter" || e.key === " ") { e.preventDefault(); locate(); }
+          });
+        }
+        list.appendChild(li);
+      });
+      _applyDynamicFilter();
+    }
     // ---- the rows ----------------------------------------------------------
     function _renderFieldDetail(f, li) {
       var detail = _el("div", "field-detail");
@@ -11127,7 +11309,14 @@
         _renderFieldsPanel();
       });
       li.appendChild(head);
-      li.appendChild(_el("p", "field-reason", _fieldReason(f)));
+      var reasonEl = _el("p", "field-reason", _fieldReason(f));
+      // "Low confidence (…) — page quality 0.48" names the page score: its
+      // title says how that score was computed.
+      var reasonPq = _fieldPageQuality(f);
+      if (typeof reasonPq === "number" && reasonEl.textContent.indexOf(reasonPq.toFixed(2)) !== -1) {
+        _withQualityHelp(reasonEl, _qualityHelpText(__parsure, _fieldPageNumber(f)));
+      }
+      li.appendChild(reasonEl);
       if (selected) _renderFieldDetail(f, li);
       return li;
     }

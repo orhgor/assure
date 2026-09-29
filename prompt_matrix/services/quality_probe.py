@@ -844,11 +844,44 @@ def page_quality_score(
     probe factors are otherwise unchanged.
     """
     factors: list[tuple[str, float]] = []
+    floor, floor_basis = grounding_floor(grounding_success=grounding_success, ocr_confidence=ocr_confidence)
+    if ocr_confidence is not None:
+        # An OCR-read page (Textract since 2026-09-29; tesseract before) is
+        # scored by what the reader reported: its line-confidence mean times
+        # the share of the page the parse covered. User decision 2026-09-29:
+        # the visual probe (blur, contrast, dpi) and the signature verdict are
+        # not readability — a crisp CMS-1500 read at 0.96 scored 0.58 because
+        # its signature box was "ambiguous". They stay in the basis as
+        # informative notes; the signature still reaches the signature field
+        # through quality_weighted_confidence.
+        ocr = max(0.0, min(1.0, float(ocr_confidence)))
+        factors.append((f"ocr {ocr:.2f}", ocr))
+        if parse_coverage is not None:
+            factors.append((f"coverage {float(parse_coverage):.2f}", max(0.0, min(1.0, float(parse_coverage)))))
+        score = 1.0
+        for _, value in factors:
+            score *= value
+        basis = " × ".join(label for label, _ in factors)
+        notes = []
+        vis, vis_basis = _visual_score(visual)
+        if vis is not None:
+            notes.append(f"visual {vis_basis}")
+        if signature_quality in PAGE_SIGNATURE_QUALITIES:
+            notes.append(f"signature_{signature_quality}")
+        if image_ratio is not None:
+            notes.append(f"image_ratio {float(image_ratio):.2f}")
+        if notes:
+            basis += " (" + ", ".join(notes) + "; informative)"
+        score = round(score, 3)
+        if floor is not None and floor > score:
+            basis += f"; lifted to {floor_basis}"
+            score = floor
+        elif floor is not None:
+            basis += f"; {floor_basis} (below the ocr score)"
+        return score, basis
     vis, vis_basis = _visual_score(visual)
     if vis is not None:
         factors.append((vis_basis, vis))
-    if ocr_confidence is not None:
-        factors.append((f"ocr {float(ocr_confidence):.2f}", max(0.0, min(1.0, float(ocr_confidence)))))
     if text_density is not None:
         density = max(0.0, min(1.0, float(text_density)))
         density_factor = min(1.0, density / TEXT_DENSITY_FLOOR) if TEXT_DENSITY_FLOOR > 0 else 1.0
@@ -862,7 +895,6 @@ def page_quality_score(
         # field, not a statement about how legible the page is. It still
         # reaches the signature field through quality_weighted_confidence.
         pass
-    floor, floor_basis = grounding_floor(grounding_success=grounding_success, ocr_confidence=ocr_confidence)
     if not factors:
         if floor is not None:
             return floor, f"no probe signal; {floor_basis}"
