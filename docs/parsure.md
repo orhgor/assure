@@ -1005,15 +1005,20 @@ field the projection mapped it to, when any. The schema `fields` remain a projec
 
 ### The model as the parser (`PARSER_BACKEND=openrouter`, 2026-09-29)
 
-User decision: the documents are read by the analysis model itself. `services/llm_parse.py`
-renders every page to a PNG (`vision.render_page_png`, long side 1568 px) and sends it, one
-request per page under the `parse` ledger stage, to `ASSURE_OPENROUTER_MODEL_PARSE`
-(`anthropic/claude-opus-5.5` at the time) with a transcription prompt that asks for JSON only:
-`lines` (verbatim text + estimated 0–1 box), `tables`, `key_values`. The answer is translated
+User decision: the documents are read by the analysis model itself, and nothing renders or
+splits the file first (no PyMuPDF on this path). `services/llm_parse.py` posts the whole
+uploaded file once to OpenRouter's chat completions — a PDF as a `file` part the model reads
+natively (`plugins: file-parser, engine native`), an image as a data URI — to
+`ASSURE_OPENROUTER_MODEL_PARSE` (`anthropic/claude-opus-5.5` at the time) with a transcription
+prompt that asks for JSON only: `pages[]`, each with `lines` (verbatim text + estimated 0–1
+box), `tables`, `key_values`. The one request is booked under the `parse` ledger stage with its
+token usage (`path openrouter_rest`); the model's page list is the page count and page sizes
+default to A4 (`meta.page_size_source default_a4`). The answer is translated
 into Textract-style blocks and `textract_jdf.build_jdf` writes the same JDF a Textract read
 produces — so layout, table pass, raw candidates, dynamic fields, source view and page rasters
 run unchanged. `parser_name` is `llm:<model>`, `ocr_confidence` is `None` (a model reports no
-measured read confidence; the field confidence uses the stated `parser_default[llm] 0.85`),
-boxes carry `ocr.bbox_source: model_estimate`. The router's hosted-reader answer stays
-`"textract"` for both backends; `textract_parse_bundle` dispatches. Cost: one Opus request per
-page (~1.5k input tokens of image + up to 8k output).
+measured read confidence; the page scores `reader_default[llm] 0.85 × coverage` and the field
+confidence uses the same stated default), boxes carry `ocr.bbox_source: model_estimate`. The
+router's hosted-reader answer stays `"textract"` for both backends; `textract_parse_bundle`
+dispatches. Cost: one Opus request per document (input = the file's tokens, output up to
+`ASSURE_LLM_PARSE_MAX_TOKENS`, 32k default; `ASSURE_LLM_PARSE_TIMEOUT_S` 600).

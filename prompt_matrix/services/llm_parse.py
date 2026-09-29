@@ -6,11 +6,13 @@ at the time) — instead of Textract, and the reading is saved as a JDF document
 so everything downstream (layout, table pass, raw candidates, source view,
 page rasters) continues exactly as after Textract or jdf-cli.
 
-How: every page is rendered to a PNG (``services/vision.render_page_png``, the
-one PyMuPDF path the probe and the vision pass use) and sent, one request per
-page, with a transcription prompt that asks for JSON only: the page's lines in
-reading order with an approximate normalised box, its tables, and the labelled
-key/value pairs it states. The answer is written into the same JDF shape
+How (user decision 2026-09-29: no PyMuPDF, no rendering — "the uploaded file
+goes straight to Opus 5.5 over OpenRouter and every readable field and value is
+written out"): the whole file is posted once to OpenRouter's chat completions —
+a PDF as a ``file`` part read natively by the model, an image as a data URI —
+with a transcription prompt that asks for JSON only: for every page, its lines
+in reading order with an approximate normalised box, its tables, and the
+labelled key/value pairs it states. The answer is written into the same JDF shape
 ``services/textract_jdf.build_jdf`` produces for Textract — one full-page
 ``image`` element per page whose ``ocr.blocks`` are the lines, ``table``
 elements, ``bundle.forms`` — by translating it into Textract-style blocks.
@@ -19,9 +21,8 @@ What is *not* claimed: a model gives no measured read confidence, so
 ``ocr_confidence`` is ``None`` (the page-quality score then rests on the
 probe and coverage, never on a number the model made up), and the boxes are
 the model's estimate (``bbox_source: model_estimate`` in the page's ``ocr``),
-good enough to point the reader at the region, not a measurement. Each call is
-booked to the ledger under the ``parse`` stage; the per-stage budget is one
-request per page.
+good enough to point the reader at the region, not a measurement. The one
+request is booked to the ledger under the ``parse`` stage with its token usage.
 """
 
 from __future__ import annotations
@@ -49,23 +50,26 @@ class LLMParseError(Exception):
     usable JSON on any page). Callers report it; nothing is fabricated."""
 
 
-#: Longest side of the page raster the model sees (a letter page ≈ 190 dpi).
-RENDER_LONG_SIDE_PX = int(os.environ.get("ASSURE_LLM_PARSE_LONG_SIDE_PX", "1568") or 1568)
-MAX_OUTPUT_TOKENS = int(os.environ.get("ASSURE_LLM_PARSE_MAX_TOKENS", "8000") or 8000)
-TIMEOUT_S = float(os.environ.get("ASSURE_LLM_PARSE_TIMEOUT_S", "120") or 120)
+MAX_OUTPUT_TOKENS = int(os.environ.get("ASSURE_LLM_PARSE_MAX_TOKENS", "32000") or 32000)
+TIMEOUT_S = float(os.environ.get("ASSURE_LLM_PARSE_TIMEOUT_S", "600") or 600)
 MAX_PAGES = int(os.environ.get("ASSURE_MAX_PAGES", "50") or 50)
 
 PROMPT = (
-    "You are transcribing one page of a business document (an insurance form, a claim, a report, a policy, an invoice).\n"
-    "Return ONE JSON object and nothing else, with exactly these keys:\n"
-    '  "lines": every line of text on the page in reading order, each {"text": "<verbatim>", "bbox": [x0, y0, x1, y1]} '
+    "You are transcribing a business document (an insurance form, a claim, a report, a policy, an invoice) page by page.\n"
+    "Return ONE JSON object and nothing else: {\"pages\": [ ... ]} with one entry per page of the document, in order, each\n"
+    '  {"page": <1-based number>,\n'
+    '   "lines": every line of text on that page in reading order, each {"text": "<verbatim>", "bbox": [x0, y0, x1, y1]} '
     "with the box as fractions of the page width/height (0–1, top-left origin), estimated;\n"
-    '  "tables": each table as {"headers": [...], "rows": [[...], ...], "bbox": [x0, y0, x1, y1]};\n'
-    '  "key_values": every labelled field the page states as {"key": "<label as printed>", "value": "<value as printed>", '
-    '"bbox": [x0, y0, x1, y1]} — empty value when the field is blank.\n'
-    "Copy text character for character. Do not translate, summarise, infer, normalise or compute anything. "
-    "Do not add fields that are not printed. Ticked boxes read as [X], empty boxes as [ ]."
+    '   "tables": each table on that page as {"headers": [...], "rows": [[...], ...], "bbox": [x0, y0, x1, y1]};\n'
+    '   "key_values": every labelled field the page states as {"key": "<label as printed>", "value": "<value as printed>", '
+    '"bbox": [x0, y0, x1, y1]} — empty value when the field is blank }.\n'
+    "Read every page; do not stop early. Copy text character for character. Do not translate, summarise, infer, normalise or "
+    "compute anything. Do not add fields that are not printed. Ticked boxes read as [X], empty boxes as [ ]."
 )
+
+OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
+_MIME = {".pdf": "application/pdf", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".tif": "image/tiff",
+         ".tiff": "image/tiff", ".bmp": "image/bmp", ".webp": "image/webp"}
 
 
 def parse_model() -> str:
@@ -91,37 +95,23 @@ def _api_kwargs(model: str) -> dict[str, Any]:
     return dict(cg._litellm_api_kwargs(model))  # noqa: SLF001
 
 
-def _render(file_bytes: bytes, filename: str, page_no: int) -> bytes:
-    try:
-        from .vision import render_page_png
-    except ImportError:  # pragma: no cover
-        from vision import render_page_png  # type: ignore
-    return render_page_png(file_bytes, filename, page_no, long_side_px=RENDER_LONG_SIDE_PX)
-
-
-def _page_count(file_bytes: bytes, filename: str) -> int:
-    if _tj._is_image(filename, file_bytes):  # noqa: SLF001
-        return 1
-    try:
-        import fitz
-
-        with fitz.open(stream=file_bytes, filetype="pdf") as doc:
-            return len(doc)
-    except Exception as exc:  # noqa: BLE001
-        raise LLMParseError(f"document does not open: {exc}") from exc
-
-
-def _answer_text(resp: Any) -> str:
-    try:
-        from .model_utils import extract_litellm_response_text
-    except ImportError:  # pragma: no cover
-        from model_utils import extract_litellm_response_text  # type: ignore
-    return extract_litellm_response_text(resp) or ""
+def _mime(filename: str, data: bytes) -> str:
+    ext = os.path.splitext(str(filename or "").lower())[1]
+    if ext in _MIME:
+        return _MIME[ext]
+    head = bytes(data or b"")[:8]
+    if head.startswith(b"%PDF"):
+        return "application/pdf"
+    if head.startswith(b"\x89PNG"):
+        return "image/png"
+    if head.startswith(b"\xff\xd8\xff"):
+        return "image/jpeg"
+    return "application/octet-stream"
 
 
 def parse_answer(text: str) -> dict[str, Any] | None:
     """The JSON object in a model answer (code fences and prose around it
-    tolerated; unbalanced brackets repaired), or None."""
+    tolerated; unbalanced brackets of a truncated answer repaired), or None."""
     if not isinstance(text, str) or not text.strip():
         return None
     body = re.sub(r"^```(?:json)?\s*|\s*```$", "", text.strip(), flags=re.I | re.M)
@@ -158,7 +148,7 @@ def _box(b: Any) -> dict[str, Any] | None:
 
 
 def answer_to_blocks(data: dict[str, Any]) -> list[dict[str, Any]]:
-    """The model's answer as Textract-style blocks so ``textract_jdf.build_jdf``
+    """One page's answer as Textract-style blocks so ``textract_jdf.build_jdf``
     writes the same JDF for both readers: LINE (no Confidence — none was
     measured), TABLE/CELL/WORD, KEY_VALUE_SET/WORD."""
     blocks: list[dict[str, Any]] = []
@@ -231,63 +221,116 @@ def answer_to_blocks(data: dict[str, Any]) -> list[dict[str, Any]]:
     return blocks
 
 
-def read_page(png: bytes, *, model: str, completion: Any = None) -> tuple[dict[str, Any], str, int]:
-    """One model request for one page → ``(answer_dict, raw_text, ms)``.
-    ``completion(prompt, png_bytes)`` may be injected (tests); the default is
-    litellm with the image as a data URI, under the ``parse`` ledger stage."""
-    t0 = time.monotonic()
-    if completion is not None:
-        raw = completion(PROMPT, png)
-    else:
-        import litellm  # type: ignore
+def _content_part(file_bytes: bytes, filename: str) -> dict[str, Any]:
+    """The file as OpenRouter wants it: a PDF as a ``file`` part (read natively
+    by the model — ``plugins: file-parser, engine native``), an image as an
+    ``image_url`` data URI."""
+    mime = _mime(filename, file_bytes)
+    b64 = base64.b64encode(file_bytes).decode("ascii")
+    if mime == "application/pdf":
+        return {"type": "file", "file": {"filename": os.path.basename(filename or "document.pdf"), "file_data": f"data:{mime};base64,{b64}"}}
+    return {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{b64}"}}
 
-        kwargs = _api_kwargs(model)
-        data_uri = "data:image/png;base64," + base64.b64encode(png).decode("ascii")
-        messages = [{"role": "user", "content": [{"type": "text", "text": PROMPT},
-                                                 {"type": "image_url", "image_url": {"url": data_uri}}]}]
-        with _mc.stage_context("parse"):
-            resp = litellm.completion(model=model, messages=messages, max_tokens=MAX_OUTPUT_TOKENS, temperature=0.0,
-                                      stream=False, timeout=int(TIMEOUT_S),
-                                      metadata=_mc.litellm_metadata(kwargs.pop("metadata", None)), **kwargs)
-        raw = _answer_text(resp)
+
+def read_document(file_bytes: bytes, filename: str, *, model: str, completion: Any = None) -> tuple[dict[str, Any], dict[str, Any]]:
+    """ONE request with the whole uploaded file (no rendering, no page
+    splitting — user decision 2026-09-29) → ``(answer_dict, call_meta)``.
+
+    The default path posts to OpenRouter's chat completions directly (the
+    ``file`` content part and the ``file-parser`` plugin are OpenRouter's, not
+    litellm's) and books the request in the model-call ledger under the
+    ``parse`` stage. ``completion(prompt, file_bytes, filename)`` may be
+    injected. Raises ``LLMParseError`` when nothing usable came back."""
+    import urllib.error
+    import urllib.request
+
+    t0 = time.monotonic()
+    meta: dict[str, Any] = {"model": model, "ms": 0, "input_tokens": None, "output_tokens": None, "http_status": None}
+    if completion is not None:
+        raw = completion(PROMPT, file_bytes, filename)
+    else:
+        key = os.environ.get("OPENROUTER_API_KEY", "").strip()
+        if not key:
+            raise LLMParseError("OPENROUTER_API_KEY is empty: the model parser cannot send the document")
+        bare = model.split("/", 1)[-1] if model.startswith("openrouter/") else model
+        payload: dict[str, Any] = {
+            "model": bare,
+            "messages": [{"role": "user", "content": [{"type": "text", "text": PROMPT}, _content_part(file_bytes, filename)]}],
+            "max_tokens": MAX_OUTPUT_TOKENS,
+            "temperature": 0,
+        }
+        if _mime(filename, file_bytes) == "application/pdf":
+            payload["plugins"] = [{"id": "file-parser", "pdf": {"engine": "native"}}]
+        req = urllib.request.Request(
+            OPENROUTER_URL, data=json.dumps(payload).encode("utf-8"),
+            headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json",
+                     "HTTP-Referer": os.environ.get("OPENROUTER_REFERER", "https://getassureai.com"), "X-Title": "Assure parse"},
+        )
+        status: int | None = None
+        try:
+            with urllib.request.urlopen(req, timeout=TIMEOUT_S) as resp:  # noqa: S310 - fixed https URL
+                status = resp.status
+                body = json.loads(resp.read().decode("utf-8", "replace"))
+        except urllib.error.HTTPError as exc:
+            detail = exc.read().decode("utf-8", "replace")[:300]
+            _mc.record(model=f"openrouter/{bare}", status="error", ms=(time.monotonic() - t0) * 1000, http_status=exc.code,
+                       error=f"HTTPError {exc.code}: {detail}", stage="parse", path="openrouter_rest")
+            raise LLMParseError(f"OpenRouter answered {exc.code}: {detail}") from exc
+        except Exception as exc:  # noqa: BLE001
+            _mc.record(model=f"openrouter/{bare}", status="error", ms=(time.monotonic() - t0) * 1000,
+                       error=f"{type(exc).__name__}: {exc}", stage="parse", path="openrouter_rest")
+            raise LLMParseError(f"OpenRouter request failed: {type(exc).__name__}: {exc}") from exc
+        if body.get("error"):
+            _mc.record(model=f"openrouter/{bare}", status="error", ms=(time.monotonic() - t0) * 1000, http_status=status,
+                       error=json.dumps(body["error"])[:300], stage="parse", path="openrouter_rest")
+            raise LLMParseError(f"OpenRouter error: {json.dumps(body['error'])[:300]}")
+        choice = (body.get("choices") or [{}])[0]
+        raw = ((choice.get("message") or {}).get("content")) or ""
+        if isinstance(raw, list):  # some providers return content parts
+            raw = "".join(str(p.get("text") or "") for p in raw if isinstance(p, dict))
+        usage = body.get("usage") or {}
+        meta.update(input_tokens=usage.get("prompt_tokens"), output_tokens=usage.get("completion_tokens"), http_status=status,
+                    finish_reason=choice.get("finish_reason"))
+        _mc.record(model=f"openrouter/{bare}", status="ok", ms=(time.monotonic() - t0) * 1000, http_status=status,
+                   prompt_chars=len(PROMPT), completion_chars=len(raw), input_tokens=usage.get("prompt_tokens"),
+                   output_tokens=usage.get("completion_tokens"), stage="parse", path="openrouter_rest")
+    meta["ms"] = int((time.monotonic() - t0) * 1000)
     data = parse_answer(raw)
     if data is None:
         raise LLMParseError("the model answered without a JSON object")
-    return data, raw, int((time.monotonic() - t0) * 1000)
+    return data, meta
 
 
 def llm_parse_bundle(file_bytes: bytes, filename: str, *, completion: Any = None, model: str | None = None) -> dict[str, Any]:
     """The parse bundle for ``PARSER_BACKEND=openrouter`` — the keys
-    ``jdf_converter.pdf_to_parse_bundle`` returns, the JDF in the scan shape."""
+    ``jdf_converter.pdf_to_parse_bundle`` returns, the JDF in the scan shape.
+    The whole file goes to the model in one request; the model's own page list
+    is the page count (no PDF library touches the file on this path)."""
     try:
         from .jdf_converter import _bundle_assets, chunks_to_text
     except ImportError:  # pragma: no cover
         from services.jdf_converter import _bundle_assets, chunks_to_text  # type: ignore
     model = model or parse_model()
-    count = min(_page_count(file_bytes, filename), MAX_PAGES)
+    data, meta = read_document(file_bytes, filename, model=model, completion=completion)
+    answer_pages = data.get("pages")
+    if not isinstance(answer_pages, list) or not answer_pages:
+        # A single-page answer without the pages wrapper is accepted as page 1.
+        answer_pages = [data] if any(k in data for k in ("lines", "tables", "key_values")) else []
     pages: list[dict[str, Any]] = []
-    timings: list[dict[str, Any]] = []
-    failures: list[str] = []
-    for page_no in range(1, count + 1):
-        try:
-            png = _render(file_bytes, filename, page_no)
-        except Exception as exc:  # noqa: BLE001
-            failures.append(f"page {page_no}: render failed: {exc}")
+    for idx, entry in enumerate(answer_pages, start=1):
+        if not isinstance(entry, dict):
             continue
         try:
-            data, _raw, ms = read_page(png, model=model, completion=completion)
-        except Exception as exc:  # noqa: BLE001 — one page's failure is recorded, the others still read
-            log.warning("llm_parse: %s page %s: %s", filename, page_no, exc)
-            failures.append(f"page {page_no}: {type(exc).__name__}: {exc}"[:200])
-            continue
-        blocks = answer_to_blocks(data)
-        pages.append({"page": page_no, "blocks": blocks, "ms": ms})
-        timings.append({"page": page_no, "blocks": len(blocks), "ms": ms, "lines": sum(1 for b in blocks if b["BlockType"] == "LINE")})
+            page_no = int(entry.get("page") or idx)
+        except (TypeError, ValueError):
+            page_no = idx
+        blocks = answer_to_blocks(entry)
+        pages.append({"page": page_no, "blocks": blocks, "ms": 0})
     if not pages:
-        raise LLMParseError("; ".join(failures) or "no pages")
+        raise LLMParseError("the model's answer held no pages")
+    pages.sort(key=lambda p: p["page"])
     api = f"model:{model.split('/', 1)[-1] if model.startswith('openrouter/') else model}"
-    sizes = _tj.page_sizes_mm(file_bytes, filename)
-    jdf, chunks, forms = _tj.build_jdf(pages, filename=filename, sizes_mm=sizes, api=api)
+    jdf, chunks, forms = _tj.build_jdf(pages, filename=filename, sizes_mm=[], api=api)
     jdf["meta"]["source"] = f"llm:{model}"
     for p in jdf["pages"]:
         for el in p["elements"]:
@@ -295,6 +338,7 @@ def llm_parse_bundle(file_bytes: bytes, filename: str, *, completion: Any = None
                 el["ocr"]["source"] = f"llm:{model}"
                 el["ocr"]["bbox_source"] = "model_estimate"
     assets = _bundle_assets(jdf, chunks)
+    lines = sum(1 for p in pages for b in p["blocks"] if b["BlockType"] == "LINE")
     return {
         "jdf": jdf,
         "chunks": chunks,
@@ -304,12 +348,13 @@ def llm_parse_bundle(file_bytes: bytes, filename: str, *, completion: Any = None
         "source_kind": "scanned",
         "parse_confidence": None,
         "ocr_confidence": None,  # a model reports no measured read confidence
-        "ocr_line_count": sum(t["lines"] for t in timings),
+        "ocr_line_count": lines,
         "ocr_engine": f"llm:{model}",
         "orientation": None,
         "wrapped_image": False,
         "forms": forms,
-        "llm_parse": {"model": model, "pages": timings, "failed_pages": failures, "prompt_version": "llm-parse-v1"},
+        "llm_parse": {"model": model, "request": meta, "pages": [{"page": p["page"], "blocks": len(p["blocks"])} for p in pages],
+                      "prompt_version": "llm-parse-v2-whole-document"},
         "filename": filename,
         **assets,
     }
