@@ -71,6 +71,22 @@ def _job_advance(job_id: str | None, stage: str, **fields: Any) -> None:
         log.exception("ingest job %s: could not record stage %s", job_id, stage)
 
 
+def _hosted_parse(project_id: str, job_id: str | None, data: bytes, name: str) -> dict:
+    """The hosted reader's parse (Textract, or the model under
+    PARSER_BACKEND=openrouter) booked in the model-call ledger under the
+    ``parse`` stage of this project and job (2026-09-29)."""
+    try:
+        from .model_calls import stage_context
+    except ImportError:  # pragma: no cover
+        from services.model_calls import stage_context  # type: ignore
+    try:
+        from ..routers.jdf_routes import _textract_parse_bundle as _hosted
+    except ImportError:  # pragma: no cover
+        from routers.jdf_routes import _textract_parse_bundle as _hosted  # type: ignore
+    with stage_context("parse", project_id=project_id, task=job_id):
+        return _hosted(data, name)
+
+
 def ingest_pdf_for_project(
     project_id: str, filename: str, file_bytes: bytes, *, job_id: str | None = None
 ) -> dict[str, Any]:
@@ -173,7 +189,7 @@ def ingest_pdf_for_project(
 
     try:
         if _parser == "textract":
-            bundle = _textract_parse_bundle(textract_bytes, textract_name)
+            bundle = _hosted_parse(project_id, job_id, textract_bytes, textract_name)
         elif _parser == "jdf-ocr":
             try:
                 bundle = pdf_to_parse_bundle(
@@ -186,7 +202,7 @@ def ingest_pdf_for_project(
                 log.warning(
                     "JDF OCR parse failed for %s, falling back to Textract: %s", filename, ocr_exc
                 )
-                bundle = _textract_parse_bundle(textract_bytes, textract_name)
+                bundle = _hosted_parse(project_id, job_id, textract_bytes, textract_name)
             else:
                 if not str(bundle.get("text") or "").strip():
                     # OCR ran and read nothing: a failed free attempt, so the
@@ -195,7 +211,7 @@ def ingest_pdf_for_project(
                     # Textract configuration error (mirrors routers/substrate).
                     log.warning("JDF OCR read no text from %s; trying Textract", filename)
                     try:
-                        bundle = _textract_parse_bundle(textract_bytes, textract_name)
+                        bundle = _hosted_parse(project_id, job_id, textract_bytes, textract_name)
                     except Exception as textract_exc:
                         raise PdfIngestError(
                             "Could not extract enough readable text from this file "

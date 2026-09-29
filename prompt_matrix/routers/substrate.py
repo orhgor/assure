@@ -419,7 +419,14 @@ def ingest_substrate_file(
     """
     validate_upload_bytes(filename, file_bytes)
 
-    extracted = extract_document_text(filename, file_bytes)
+    try:
+        from ..services.model_calls import stage_context as _stage_context
+    except ImportError:  # pragma: no cover
+        from services.model_calls import stage_context as _stage_context  # type: ignore
+    # A hosted reader's requests (the model under PARSER_BACKEND=openrouter)
+    # are booked to this project and job under the ``parse`` stage.
+    with _stage_context("parse", project_id=project_id, task=job_id):
+        extracted = extract_document_text(filename, file_bytes)
     page_count = int(extracted.get("page_count") or 1)
     if page_count > TEXTRACT_MAX_PAGES:
         raise SubstrateIngestError(

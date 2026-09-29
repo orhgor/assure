@@ -276,6 +276,16 @@ def _page_orientation(bundle: dict, page_no: int) -> dict[str, Any] | None:
     return None
 
 
+def _reader_default(parser_name: Any) -> float | None:
+    """The stated confidence default of a reader that reports none (the hosted
+    model, ``llm:<model>``); None for every reader that measures its own."""
+    name = str(parser_name or "").lower()
+    if name.startswith("llm:") or name == "llm":
+        probe = _quality_probe()
+        return float(probe.PARSER_CONFIDENCE_DEFAULTS.get("llm", 0.85)) if probe is not None else 0.85
+    return None
+
+
 def score_pages(bundle: dict, texts: list[str], intake: dict | None, layout: list[list[dict]] | None = None) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Per-page quality records and the signature assessment per page.
 
@@ -317,6 +327,7 @@ def score_pages(bundle: dict, texts: list[str], intake: dict | None, layout: lis
                 score, basis = qp.page_quality_score(
                     visual=visual, ocr_confidence=ocr_conf, text_density=text_density if chars else None,
                     parse_coverage=parse_coverage, image_ratio=image_ratio, signature_quality=sig_quality,
+                    reader_default=_reader_default(bundle.get("parser_name")),
                 )
             except Exception:
                 log.exception("page_quality_score failed on page %s", page_no)
@@ -330,6 +341,7 @@ def score_pages(bundle: dict, texts: list[str], intake: dict | None, layout: lis
                 "flags": flags,
                 "basis": basis,
                 "ocr_confidence": ocr_conf,
+                "reader_default": _reader_default(bundle.get("parser_name")),
                 "text_density": text_density,
                 "parse_coverage": parse_coverage,
                 "image_ratio": image_ratio,
@@ -1866,7 +1878,7 @@ def recalibrate_page_quality(pages: list[dict], page_quality: list[float | None]
         page["grounding_success"] = g
         if g is None or qp is None or not hasattr(qp, "grounding_floor"):
             continue
-        floor, basis = qp.grounding_floor(grounding_success=g, ocr_confidence=page.get("ocr_confidence"))
+        floor, basis = qp.grounding_floor(grounding_success=g, ocr_confidence=page.get("ocr_confidence") if page.get("ocr_confidence") is not None else page.get("reader_default"))
         if floor is None:
             continue
         old = page.get("quality_score")

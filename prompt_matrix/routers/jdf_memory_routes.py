@@ -86,6 +86,16 @@ def _is_text_like_content(file_bytes: bytes, filename: str) -> bool:
         return False
 
 
+def _hosted_parse(project_id: str, data: bytes, name: str) -> dict:
+    """The hosted reader's parse booked under the ``parse`` ledger stage of the project."""
+    try:
+        from ..services.model_calls import stage_context
+    except ImportError:  # pragma: no cover
+        from services.model_calls import stage_context  # type: ignore
+    with stage_context("parse", project_id=project_id):
+        return _textract_bundle_for_ingest(data, name)
+
+
 def _text_bundle_for_ingest(file_bytes: bytes, filename: str) -> dict:
     """Bundle shape for a text-like file the router routed to the JDF path.
 
@@ -230,7 +240,7 @@ def register_jdf_memory_routes(app) -> None:
                 _parser = select_parser(pdf_bytes, filename=f.filename)
 
                 if _parser == "textract":
-                    bundle = _textract_bundle_for_ingest(pdf_bytes, f.filename)
+                    bundle = _hosted_parse(project_id, pdf_bytes, f.filename)
                 elif _parser == "jdf-ocr":
                     try:
                         bundle = pdf_to_parse_bundle(
@@ -245,7 +255,7 @@ def register_jdf_memory_routes(app) -> None:
                             f.filename,
                             ocr_exc,
                         )
-                        bundle = _textract_bundle_for_ingest(pdf_bytes, f.filename)
+                        bundle = _hosted_parse(project_id, pdf_bytes, f.filename)
                     else:
                         if not str(bundle.get("text") or "").strip():
                             # OCR ran and read nothing: the paid path gets the
@@ -253,7 +263,7 @@ def register_jdf_memory_routes(app) -> None:
                             # (same rule as routers/substrate, services/pdf_ingest).
                             log.warning("JDF OCR read no text from %s; trying Textract", f.filename)
                             try:
-                                bundle = _textract_bundle_for_ingest(pdf_bytes, f.filename)
+                                bundle = _hosted_parse(project_id, pdf_bytes, f.filename)
                             except Exception:
                                 return jsonify({"error": "Could not extract readable text from this document (0 characters after OCR)."}), 400
                 elif _parser == "jdf":

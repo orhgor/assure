@@ -824,8 +824,16 @@ def page_quality_score(
     image_ratio: float | None,
     signature_quality: str | None,
     grounding_success: float | None = None,
+    reader_default: float | None = None,
 ) -> tuple[float | None, str]:
     """Combine the page's real signals into one 0–1 score, or ``None``.
+
+    ``reader_default`` (2026-09-29, PARSER_BACKEND=openrouter): a hosted model
+    that read the page reports no confidence figure; the caller passes the
+    parser's stated default (``PARSER_CONFIDENCE_DEFAULTS["llm"]``) and the
+    page is scored ``reader_default × coverage`` like an OCR page — the visual
+    probe is not readability (a photo the model transcribed in full scored
+    0.14 on blur and dpi). The basis names it a default.
 
     Product of the available factors — a missing signal contributes nothing
     (it is neither penalised nor credited). ``image_ratio`` is informative
@@ -848,6 +856,9 @@ def page_quality_score(
     probe factors are otherwise unchanged.
     """
     factors: list[tuple[str, float]] = []
+    reader_label = "ocr"
+    if ocr_confidence is None and reader_default is not None:
+        ocr_confidence, reader_label = float(reader_default), "reader_default[llm]"
     floor, floor_basis = grounding_floor(grounding_success=grounding_success, ocr_confidence=ocr_confidence)
     if ocr_confidence is not None:
         # An OCR-read page (Textract since 2026-09-29; tesseract before) is
@@ -859,7 +870,7 @@ def page_quality_score(
         # informative notes; the signature still reaches the signature field
         # through quality_weighted_confidence.
         ocr = max(0.0, min(1.0, float(ocr_confidence)))
-        factors.append((f"ocr {ocr:.2f}", ocr))
+        factors.append((f"{reader_label} {ocr:.2f}", ocr))
         if parse_coverage is not None:
             factors.append((f"coverage {float(parse_coverage):.2f}", max(0.0, min(1.0, float(parse_coverage)))))
         score = 1.0
