@@ -2444,6 +2444,16 @@ def _run_after_parse_inner(
             report.setdefault("execution", {})["vision"] = {"status": "failed", "reason": f"{exc.__class__.__name__}: {exc}"[:200]}
         attach_vision_candidates(report)
         report["execution"]["ran_at"] = _now()
+        # Which build produced this report (plan V5 review protocol V1): a
+        # reviewer must not judge an old deployment's artifact against HEAD.
+        try:
+            try:
+                from ..services.build_info import build_stamp
+            except ImportError:
+                from services.build_info import build_stamp  # type: ignore
+            report["execution"]["build"] = build_stamp()
+        except Exception:  # noqa: BLE001 — a stamp, never a failure
+            report["execution"]["build"] = {"commit": "unknown", "branch": None, "source": "none"}
         report_id = repo.save_report(project_id, report)
         rid = report_id
         repo.log_event(project_id, "intake_received", report_id=rid, payload={

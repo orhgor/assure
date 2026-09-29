@@ -952,3 +952,16 @@ plus `tests/test_prompt_gates.py` (source gates) and `tests/test_raw_candidates.
 
 Companion documents: `docs/parsure-schemas.md` (tables, schema registry,
 export filenames), `docs/parsure-vision.md`, `docs/parsure-ui.md`.
+
+### Review protocol (plan V5, 2026-09-29)
+
+Every report carries `execution.build = {commit, branch, source}` (`services/build_info.py`:
+`ASSURE_BUILD_SHA` from the Docker build, else `git rev-parse HEAD`, else `unknown`). A review of
+output quality is valid only for an artifact whose `execution.build.commit` is the deployed HEAD;
+re-parse the document on that deployment first. A claim that a stage "does not run" must cite
+the `execution.<stage>` entry that says so; a claim that a fix "did not land" must cite a failing
+line of the current tree after `ruff check prompt_matrix/ --select F821`,
+`pytest tests/test_prompt_gates.py -q` and `pytest tests/test_lint_undefined_names.py -q`.
+Review output is a field-level before/after diff naming the fix that produced each change.
+Table cells derive `provenance_confidence` from `PROVENANCE_BY_SHAPE` like every other builder
+(V5 R1); a non-valid cell is a located suspect (span kept, value withheld).

@@ -724,7 +724,14 @@ def build_table_field(
     field_rec["field_state"], field_rec["routing_action"], field_rec["review_required"] = "unverified", "manual_review", True
     field_rec["reason"] = None
     field_rec["value_quality"] = fx.value_shape(spec, raw, cell["value"])
-    field_rec["provenance_confidence"] = 1.0
+    # Provenance follows the value's shape here as on every other builder
+    # (plan V5 R1, 2026-09-29): the cell was a constant 1.0, so a header or
+    # debris read out of a table carried full provenance — the V1 "garbage
+    # looks perfect" defect surviving in the one path PROVENANCE_BY_SHAPE
+    # had not reached. A non-valid shape is a located suspect: span kept,
+    # value withheld, exactly as ``build_found_field`` does.
+    shape = field_rec["value_quality"]
+    field_rec["provenance_confidence"] = fx.PROVENANCE_BY_SHAPE.get(shape.get("quality"), 0.5)
     field_rec["quality_source"] = "page_quality"
     field_rec["local_quality"] = None
     span: dict[str, Any] = {
@@ -749,6 +756,15 @@ def build_table_field(
                                    "element_id": table.get("element_id"), "node_id": table.get("node_id")}
     field_rec["grounding_model"] = "table"
     field_rec["grounding_source"] = "table"
+    if shape.get("quality") != "valid":
+        field_rec["value"] = None
+        field_rec["evidence_state"] = "found_suspect"
+        field_rec["reason"] = f"{str(shape.get('quality')).replace('_', ' ')} in the {header or 'table'} cell: '{raw[:40]}' — {shape.get('basis')}"
+        field_rec["confidence_basis"] = f"not computed: {shape.get('quality')} ({shape.get('basis')})"
+        if spec.field_type in ("money", "number", "vin") or spec.name in fx._ID_FIELDS:
+            field_rec["number_quality"] = {"quality": "invalid_format", "penalty": fx.NUMBER_PENALTIES["invalid_format"], "review_required": True, "basis": shape.get("basis")}
+        fx.mark_low_quality_page(field_rec, pq_list)
+        return field_rec
     visual = (visual_pages or [None] * (page_index + 1))[page_index] if 0 <= page_index < len(visual_pages or []) else None
     handwritten = bool(visual and "handwritten" in (visual.get("flags") or []))
     number_quality = None

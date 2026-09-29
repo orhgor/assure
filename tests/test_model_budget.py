@@ -148,3 +148,9 @@ def test_b3_a_promoted_segment_reuses_its_grounded_pass_instead_of_a_second_call
     if r["classification"]["document_type"] == "medical_claim":
         assert any(f["name"] == "patient_name" and f["value"] == "Martinez Gail D" for f in r["fields"])
     assert all(n <= 1 for n in counts.values()), model.calls
+
+
+def test_the_report_names_the_build_that_made_it(client):  # noqa: F811
+    r = _run(StageCounter(), filename="stamp.pdf")["report"]
+    build = r["execution"]["build"]
+    assert set(build) == {"commit", "branch", "source"} and build["commit"] and build["source"] in ("env", "git", "none")

@@ -382,3 +382,27 @@ def test_hcfa_form_cells_are_read_from_0_2_5_shapes_as_from_0_2_3_table_elements
     cells_old = [c for t in old if t["source"] == "jdf_element" for row in t["rows"] for c in row]
     assert any("Martinez Gail D." in c for c in cells_new) and any("Martinez Gail D." in c for c in cells_old)
     assert any("8794 Main Street" in c for c in cells_new)
+
+
+def test_a_garbage_table_cell_keeps_its_span_but_not_its_value_or_full_provenance():
+    """Plan V5 R1 (2026-09-29): the table builder set ``provenance_confidence``
+    to a constant 1.0 after judging the value's shape, so a header or debris
+    read out of a table carried full provenance — the V1 defect surviving in
+    the one builder ``PROVENANCE_BY_SHAPE`` had not reached."""
+    rows = [
+        ["Coverage A · Dwelling", "HO 00 03", "", "DWELLING LIMIT", "", "$2,500", "$1,412.00"],
+        ["Coverage B · Other Structures", "HO 00 03", "", "$42,500", "", "$2,500", "$96.00"],
+    ]
+    tables = te.collect_tables(table_bundle(rows=rows))
+    spec = _specs("dwelling_coverage")[0]
+    table = tables[0]
+    header_cell = {"row": 0, "col": 3, "raw": "DWELLING LIMIT", "value": None, "pick": "row_label", "basis": "row label matched"}
+    f = te.build_table_field(spec, table, header_cell, parser_name="jdf-cli", parse_confidence=None, ocr_confidence=None, page_quality=[0.9], visual_pages=[None])
+    assert f["value_quality"]["quality"] != "valid"
+    assert f["value"] is None and f["evidence_state"] == "found_suspect"
+    assert f["provenance_confidence"] == fx.PROVENANCE_BY_SHAPE[f["value_quality"]["quality"]] and f["provenance_confidence"] <= 0.7
+    assert f["source_span"]["span_type"] == "table_cell" and f["raw"] == "DWELLING LIMIT"  # the span stays: the reviewer is taken to the debris
+    assert f["confidence_basis"].startswith("not computed:")
+    good = te.build_table_field(spec, table, {"row": 1, "col": 3, "raw": "$42,500", "value": 42500.0, "pick": "row_label", "basis": "row label matched"},
+                                parser_name="jdf-cli", parse_confidence=None, ocr_confidence=None, page_quality=[0.9], visual_pages=[None])
+    assert good["value"] == 42500.0 and good["value_quality"]["quality"] == "valid" and good["provenance_confidence"] == 1.0

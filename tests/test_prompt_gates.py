@@ -152,3 +152,47 @@ def test_frozen_vocabularies_are_unchanged():
 def test_ocr_engine_is_imported_where_it_is_called():
     src = (PKG / "routers" / "jdf_memory_routes.py").read_text(encoding="utf-8")
     assert "ocr_engine()" in src and re.search(r"import .*\bocr_engine\b", src)
+
+
+def test_no_builder_writes_a_constant_provenance_of_one():
+    """Plan V5 R1: every ``provenance_confidence`` assignment in the services
+    derives from ``PROVENANCE_BY_SHAPE`` or is an explicit, commented fallback
+    (the visual signature probe's 0.5) — never the literal ``1.0``."""
+    import re
+
+    offenders = []
+    for path in sorted((ROOT / "prompt_matrix" / "services").glob("*.py")):
+        for i, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+            if re.search(r"""\[["']provenance_confidence["']\]\s*=\s*1(\.0)?\b""", line):
+                offenders.append(f"{path.name}:{i}: {line.strip()}")
+    assert not offenders, offenders
+
+
+def test_table_cells_obey_the_provenance_gate_too():
+    """Cross-builder gate (V5 R1): the table builder, fed a header-shaped cell
+    and a valid cell, obeys the same rule as the label pass."""
+    from prompt_matrix.services import table_extraction as te
+    from tests.test_table_extraction import _specs, table_bundle
+
+    rows = [["Coverage A · Dwelling", "HO 00 03", "", "TOTAL LIMIT", "", "$2,500", "$1,412.00"],
+            ["Coverage B · Other Structures", "HO 00 03", "", "$42,500", "", "$2,500", "$96.00"]]
+    table = te.collect_tables(table_bundle(rows=rows))[0]
+    spec = _specs("dwelling_coverage")[0]
+    for cell in ({"row": 0, "col": 3, "raw": "TOTAL LIMIT", "value": None, "pick": "row_label", "basis": "b"},
+                 {"row": 1, "col": 3, "raw": "$42,500", "value": 42500.0, "pick": "row_label", "basis": "b"}):
+        f = te.build_table_field(spec, table, cell, parser_name="jdf-cli", parse_confidence=None, ocr_confidence=None, page_quality=[0.9], visual_pages=[None])
+        quality = f["value_quality"]["quality"]
+        if f["provenance_confidence"] == 1.0:
+            assert quality == "valid"
+        if quality != "valid":
+            assert f["provenance_confidence"] == fx.PROVENANCE_BY_SHAPE[quality] and f["value"] is None
+
+
+def test_every_report_carries_the_build_stamp():
+    """Plan V5 review protocol V1: an artifact names the build that made it."""
+    from prompt_matrix.services.build_info import build_stamp, reset_cache
+
+    reset_cache()
+    stamp = build_stamp()
+    assert set(stamp) == {"commit", "branch", "source"} and stamp["source"] in ("env", "git", "none")
+    assert stamp["commit"] == "unknown" or len(stamp["commit"]) >= 7
