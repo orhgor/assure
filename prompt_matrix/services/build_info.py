@@ -36,6 +36,8 @@ def build_stamp() -> dict[str, Any]:
         return dict(_cache)
     sha = (os.environ.get("ASSURE_BUILD_SHA") or os.environ.get("BUILD_SHA") or "").strip()
     branch = (os.environ.get("ASSURE_BUILD_BRANCH") or "").strip() or None
+    if branch and branch.lower() in ("unknown", "local"):
+        branch = None  # the Dockerfile's ARG default, not a branch
     source = "env" if sha and sha.lower() not in ("local", "unknown") else "none"
     if source == "none":
         root = Path(__file__).resolve().parents[2]

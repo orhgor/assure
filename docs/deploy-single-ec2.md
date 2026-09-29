@@ -149,7 +149,8 @@ uploads are deleted by the worker after a successful parse anyway. Nothing else.
                                   # region, S3 bucket (Enter = files on disk), app port [80], bind, models,
                                   # Textract cap. Generates the passwords. Writes .env and nothing else.
                                   # --yes = all defaults, no questions.
-docker compose up -d --build      # builds assure-app once; worker and shell reuse the tag (pull_policy: never)
+./scripts/up.sh                   # = BUILD_SHA/BUILD_BRANCH from git + docker compose up -d --build; the image then knows its commit
+# (plain `docker compose up -d --build` works too, but every report's execution.build then reads "unknown")
 docker compose logs -f ollama-pull   # first start: "pulling qwen2.5:1.5b" … "models ready"
 docker compose ps                    # ollama-pull Exited (0); app + worker healthy after it
 curl -s http://127.0.0.1:8765/ready
@@ -210,7 +211,7 @@ Browser side: DevTools → Console and Network; a failing `/api/...` call answer
 | `password authentication failed for user "assure"` in `docker compose logs assure-app` | the `pgdata` volume was created with another `POSTGRES_PASSWORD` | none since 2026-09-25: `scripts/postgres-start.sh` sets the role password from `.env` on every start; just `docker compose up -d` again |
 | `pull access denied for assure-app` | old compose file | `git pull && docker compose up -d` (worker/shell no longer pull the built tag) |
 | `/health` → `"models": {"status": "missing"}` | first-start download interrupted | `docker compose up -d` again; `ollama-pull` resumes |
-| `…/export?format=pdf` (or `dossier-pdf`, `audit-pdf`) → 503 `PDF renderer unavailable on this server` | the image predates 2026-09-26 (no WeasyPrint, no Playwright browser); the old image shipped a text dump under a .pdf name instead | `git pull && docker compose up -d --build`; confirm with `docker compose run --rm assure-app python -c "import weasyprint; print(weasyprint.__version__)"`. The `detail` in the 503 names each engine's probe result |
+| `…/export?format=pdf` (or `dossier-pdf`, `audit-pdf`) → 503 `PDF renderer unavailable on this server` | the image predates 2026-09-26 (no WeasyPrint, no Playwright browser); the old image shipped a text dump under a .pdf name instead | `git pull && ./scripts/up.sh`; confirm with `docker compose run --rm assure-app python -c "import weasyprint; print(weasyprint.__version__)"`. The `detail` in the 503 names each engine's probe result |
 
 ## 7. Updating
 

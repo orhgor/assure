@@ -85,6 +85,7 @@ x-app-env: &app-env
   ASSURE_LOG_STDOUT: "1"
   PYTHONUNBUFFERED: "1"
   BUILD_SHA: ${BUILD_SHA:-local}
+  BUILD_BRANCH: ${BUILD_BRANCH:-unknown}
   ASSURE_BUILD_SHA: ${ASSURE_BUILD_SHA:-${BUILD_SHA:-local}}
   APP_IMAGE: ${APP_IMAGE:-assure-app:local}
 
