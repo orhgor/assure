@@ -2330,6 +2330,28 @@ def run_after_parse(
     completion: Any = None,
     tree: dict | None = None,
 ) -> dict[str, Any] | None:
+    """Every model call of one intake run is booked to its project and job in
+    the model-call ledger (``task`` = the ingest job id), so two ingests of the
+    same document in one project — the import route and a Sources upload —
+    read as two runs of one call per stage, not one run of two."""
+    with _mc.stage_context("", project_id=project_id, task=job_id or filename):
+        return _run_after_parse_inner(project_id, bundle=bundle, verification=verification, filename=filename, file_bytes=file_bytes,
+                                      result=result, job_id=job_id, intake=intake, completion=completion, tree=tree)
+
+
+def _run_after_parse_inner(
+    project_id: str,
+    *,
+    bundle: dict,
+    verification: dict | None,
+    filename: str,
+    file_bytes: bytes | None,
+    result: dict,
+    job_id: str | None,
+    intake: dict | None,
+    completion: Any = None,
+    tree: dict | None = None,
+) -> dict[str, Any] | None:
     """Build, save and log the intake report. Returns ``{"report_id", "report"}`` or None on error.
 
     ``file_bytes`` is not probed here (the visual probe already ran in the
