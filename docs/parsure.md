@@ -1002,3 +1002,18 @@ The raw-candidate pool has no cap (`MAX_PER_SEGMENT = None`): the fields of an u
 are whatever the page states, and `report.dynamic_fields` lists them — every Textract
 key/value pair and discovery pair with label, verbatim value, page, box, source and the schema
 field the projection mapped it to, when any. The schema `fields` remain a projection.
+
+### The model as the parser (`PARSER_BACKEND=openrouter`, 2026-09-29)
+
+User decision: the documents are read by the analysis model itself. `services/llm_parse.py`
+renders every page to a PNG (`vision.render_page_png`, long side 1568 px) and sends it, one
+request per page under the `parse` ledger stage, to `ASSURE_OPENROUTER_MODEL_PARSE`
+(`anthropic/claude-opus-5.5` at the time) with a transcription prompt that asks for JSON only:
+`lines` (verbatim text + estimated 0–1 box), `tables`, `key_values`. The answer is translated
+into Textract-style blocks and `textract_jdf.build_jdf` writes the same JDF a Textract read
+produces — so layout, table pass, raw candidates, dynamic fields, source view and page rasters
+run unchanged. `parser_name` is `llm:<model>`, `ocr_confidence` is `None` (a model reports no
+measured read confidence; the field confidence uses the stated `parser_default[llm] 0.85`),
+boxes carry `ocr.bbox_source: model_estimate`. The router's hosted-reader answer stays
+`"textract"` for both backends; `textract_parse_bundle` dispatches. Cost: one Opus request per
+page (~1.5k input tokens of image + up to 8k output).

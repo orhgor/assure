@@ -282,7 +282,7 @@ def textract_parse_bundle(file_bytes: bytes, filename: str, *, client: TextractC
     except ImportError:  # pragma: no cover
         from services.jdf_converter import _bundle_assets, chunks_to_text  # type: ignore
         from services.parser_router import parser_backend  # type: ignore
-    if parser_backend() == "openrouter" and client is None or (parser_backend() == "openrouter" and isinstance(client, TextractClient)):
+    if parser_backend() == "openrouter" and (client is None or isinstance(client, TextractClient)):
         # The hosted-reader branch of the router covers the model too
         # (PARSER_BACKEND=openrouter, 2026-09-29): same bundle, read by the
         # parse-stage model instead of Textract.

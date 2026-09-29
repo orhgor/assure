@@ -217,7 +217,11 @@ SIGNATURE_PENALTIES: dict[str, float] = {
 Z3_VIOLATION_PENALTY = 0.9
 
 #: Parser-confidence defaults when the parser reported none (spec §4).
-PARSER_CONFIDENCE_DEFAULTS: dict[str, float] = {"jdf-cli": 0.85, "jdf": 0.85, "textract": 0.80, "jdf-cli+tesseract": 0.80}
+#: ``llm`` (2026-09-29, PARSER_BACKEND=openrouter): a frontier multimodal model
+#: transcribing a rendered page; it reports no measured confidence, so this
+#: policy default stands in — the text-layer figure, stated in the basis as
+#: ``parser_default[llm]`` so a reader knows it is a default, not a measurement.
+PARSER_CONFIDENCE_DEFAULTS: dict[str, float] = {"jdf-cli": 0.85, "jdf": 0.85, "textract": 0.80, "jdf-cli+tesseract": 0.80, "llm": 0.85}
 PARSER_CONFIDENCE_FALLBACK = 0.5
 PAGE_QUALITY_NEUTRAL = 0.5
 
@@ -935,6 +939,8 @@ def quality_weighted_confidence(
     confidence, 2026-09-26; the formula is the same, the factor is nearer).
     """
     name = (parser_name or "").lower()
+    if name not in PARSER_CONFIDENCE_DEFAULTS and ":" in name and name.split(":", 1)[0] in PARSER_CONFIDENCE_DEFAULTS:
+        name = name.split(":", 1)[0]  # ``llm:anthropic/claude-opus-5.5`` → the ``llm`` default
     has_signal = any(
         v is not None and v is not False
         for v in (parser_confidence, page_quality, number_quality, signature_quality)
