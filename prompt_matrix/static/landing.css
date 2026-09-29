@@ -208,8 +208,15 @@ body {
     font-weight: 600;
 }
 
-.nav-links .btn-primary-small {
+.nav-links .btn-primary-small,
+.nav-links .btn-primary-small:hover,
+.nav-links .btn-primary-small:visited,
+.enterprise-landing .nav-links .btn-primary-small,
+.enterprise-landing .nav-links .btn-primary-small:hover {
     margin-left: 0.25rem;
+    /* The nav's link colour (.nav-links a, text-muted) outranks .btn-primary-small's
+       white by specificity, so the filled Launch button read grey-on-blue (2026-09-29). */
+    color: #fff;
 }
 
 @media (max-width: 768px) {
