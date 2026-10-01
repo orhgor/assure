@@ -6959,14 +6959,14 @@
       // neither field. Checked 2026-09-22 — until a proxied route serves the
       // pair, these two ids are the defaults the production stack is configured
       // with (llm/orchestrator.py PRODUCTION_MODEL_PAIRS).
-      var colA = compareColumnShell("claude", "anthropic/claude-sonnet-4-5");
-      var colB = compareColumnShell("secondary", "openrouter/qwen/qwen3-next-80b-a3b-instruct");
+      var colA = compareColumnShell("claude", "bedrock/us.anthropic.claude-sonnet-5-5");
+      var colB = compareColumnShell("secondary", "bedrock/us.anthropic.claude-sonnet-5-5");
       grid.appendChild(colA);
       grid.appendChild(colB);
 
       compareDataLoaded = true;         // do not refire on tab re-click
-      setShell("streams.compareA", compareStreamSide(colA, "anthropic/claude-sonnet-4-5"));
-      setShell("streams.compareB", compareStreamSide(colB, "openrouter/qwen/qwen3-next-80b-a3b-instruct"));
+      setShell("streams.compareA", compareStreamSide(colA, "bedrock/us.anthropic.claude-sonnet-5-5"));
+      setShell("streams.compareB", compareStreamSide(colB, "bedrock/us.anthropic.claude-sonnet-5-5"));
     }
 
     // ---------------------------------------------------------------
@@ -10135,6 +10135,7 @@
         document_id: String(rep.document_id || _docIdFromSourceUrl(src.url) || ""),
         source_id: _sourceIdForReport(String(rep.report_id || ""), rep.document_id),
         filename: String(rep.filename || ""), parser_name: String(rep.parser_name || ""), kind: "parsure",
+        original: src.original && typeof src.original === "object" ? src.original : null, rasters: Number(src.rasters) || 0,
       };
     }
     function _sourceJdfOfTree(doc) {
@@ -10145,6 +10146,7 @@
         document_id: String(src.document_id || _docIdFromSourceUrl(src.url) || ""),
         source_id: String(src.source_id || (SHELL.sources || [])[0] || ""),
         filename: String(src.filename || doc.meta.source_name || ""), parser_name: String(src.parser_name || doc.meta.parser_name || ""), kind: "assure",
+        original: src.original && typeof src.original === "object" ? src.original : null, rasters: Number(src.rasters) || 0,
       };
     }
     // The source an action refers to: Parsure surfaces prefer the open report's,
@@ -10155,7 +10157,32 @@
       var fromTree = _sourceJdfOfTree(SHELL.document.current);
       return prefer === "assure" ? (fromTree || fromReport) : (fromReport || fromTree);
     }
-    function _isOcrSource(src) { return Boolean(src && OCR_PARSERS.indexOf(String(src.parser_name || "")) !== -1); }
+    function _isOcrSource(src) {
+      var name = String((src && src.parser_name) || "");
+      return Boolean(src && (OCR_PARSERS.indexOf(name) !== -1 || name.indexOf("llm:") === 0));
+    }
+    // The original-document view (2026-10-01, user: "the content must not look
+    // ugly — an image gets its fields placed on it, a text PDF is just shown"):
+    // a digital PDF opens as the PDF itself; a scan/photo opens as its stored
+    // page images with the open report's fields boxed where the reader read
+    // them. Null when the backend kept no original → the jdf.js view.
+    function _originalSpec(src) {
+      var orig = src && src.original && typeof src.original === "object" ? src.original : null;
+      var pid = _activeProjectId();
+      if (!orig || !orig.url || !pid || !src.document_id) return null;
+      var fields = (__parsure && String(__parsure.document_id || "") === String(src.document_id || "") && Array.isArray(__parsure.fields))
+        ? __parsure.fields : [];
+      if (orig.display === "pdf") {
+        return { mode: "pdf", pdfUrl: String(orig.url), pageCount: Number(src.pages) || 0, key: src.key || orig.url };
+      }
+      var base = "/api/projects/" + encodeURIComponent(pid) + "/documents/" + encodeURIComponent(src.document_id) + "/pages/";
+      var pages = [];
+      var n = Number(src.rasters) || 0;
+      for (var i = 1; i <= n; i++) pages.push({ page: i, url: base + i + ".png" });
+      if (!pages.length && /^image\//.test(String(orig.content_type || ""))) pages.push({ page: 1, url: String(orig.url) });
+      if (!pages.length) return null;
+      return { mode: "image", pages: pages, pageCount: pages.length, fields: fields, key: src.key || orig.url };
+    }
     function _sourceOf(anchor) {
       var src = anchor && anchor.source_jdf && typeof anchor.source_jdf === "object" && anchor.source_jdf.url ? anchor.source_jdf : null;
       if (!src) return null;
@@ -10163,6 +10190,7 @@
         url: String(src.url), key: src.key || "", pages: src.pages, elements: src.elements,
         document_id: String(anchor.document_id || src.document_id || _docIdFromSourceUrl(src.url) || ""),
         source_id: "", filename: String(src.filename || ""), parser_name: String(src.parser_name || ""), kind: "anchor",
+        original: src.original && typeof src.original === "object" ? src.original : null, rasters: Number(src.rasters) || 0,
       };
     }
 
@@ -10197,13 +10225,22 @@
       _hideAskBar();
       _setSourceStatus(_t("shell.source_view.loading", "Loading the source…"));
       var body = document.getElementById("source-sheet-body");
-      return window.SourceView.open(body, src.url, { t: _t })
+      var orig = window.SourceView.openOriginal ? _originalSpec(src) : null;
+      var opening = orig
+        ? window.SourceView.openOriginal(body, orig, { t: _t, onFieldClick: _onSourceFieldClick })
+        : window.SourceView.open(body, src.url, { t: _t });
+      return opening
         .then(function (v) { if (!v) return false; _setSourceStatus(""); return true; })
         .catch(function (err) {
           _setSourceStatus(_t("shell.source_view.failed", "The source could not be rendered."));
           try { console.warn("[shell] source view:", err && err.message ? err.message : err); } catch (_) {}
           return false;
         });
+    }
+    // A field box on the original: select that field in the Fields panel.
+    function _onSourceFieldClick(f) {
+      if (!f || !f.name) return;
+      if (typeof _showFieldsPanel === "function") { _showFieldsPanel(String(f.name)); if (typeof _renderFieldsPanel === "function") _renderFieldsPanel(); }
     }
     function _closeSourceSheet() {
       if (!sourceSheetEl || sourceSheetEl.hidden) return;

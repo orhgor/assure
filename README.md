@@ -48,9 +48,11 @@ export DATABASE_URL=postgresql://assure:assure@localhost:5432/assure REDIS_URL=r
 .venv/bin/python -m prompt_matrix.web --web --no-browser --port 8890
 ```
 
-**Models are local on every compose target.** `docker compose up` starts the `ollama` service; the one-shot `ollama-pull` downloads `qwen2.5:1.5b` and `llama3.2:1b` (~2.3 GB) into the `ollama` volume the first time and only checks them on later starts (no network needed). `assure-app` and `assure-worker` wait for that check, so the first compile never meets a missing model. With `ASSURE_LLM_BACKEND=ollama` (the compose default) compile, lock inference, entailment, Red-Hat, surgical edit and Compare all go to that container; no OpenRouter/DeepSeek/Anthropic key is read. CPU inference: a compile takes minutes. Bigger models (`qwen2.5:7b`, ~4.7 GB RAM) go in `.env` as `ASSURE_OLLAMA_MODEL(_B)`; `OLLAMA_CONTEXT_LENGTH` (default 8192) sizes the prompt window.
+**Models run on Amazon Bedrock** (user decision 2026-10-01; OpenRouter was removed). `ASSURE_LLM_BACKEND=bedrock` is the default on every compose target: the uploaded file is read by Claude Opus 5.5 (`PARSER_BACKEND=bedrock`), every other prompt (compile, lock inference, entailment, Red-Hat, surgical edit, Compare) goes to Claude Sonnet 5.5, both through the `us.` inference profile in us-east-1. Calls are signed with the `.env` AWS keys or the instance/task role; no provider key exists. `ollama-pull` exits at once on this backend.
 
-Staging/production overlays (`docker-compose.staging.yml`, `docker-compose.prod.yml`) leave `ASSURE_LLM_BACKEND` empty, use the cloud policies in `prompt_matrix/cost_governance.py`, and put the Ollama pair behind the `local-llm` profile (`COMPOSE_PROFILES=local-llm` brings it back):
+**Local models are the explicit option.** With `ASSURE_LLM_BACKEND=ollama` every call goes to the `ollama` service; the one-shot `ollama-pull` downloads `qwen2.5:1.5b` and `llama3.2:1b` (~2.3 GB) into the `ollama` volume the first time and only checks them on later starts (no network needed). `assure-app` and `assure-worker` wait for that check, so the first compile never meets a missing model. CPU inference: a compile takes minutes. Bigger models (`qwen2.5:7b`, ~4.7 GB RAM) go in `.env` as `ASSURE_OLLAMA_MODEL(_B)`; `OLLAMA_CONTEXT_LENGTH` (default 8192) sizes the prompt window.
+
+Staging/production overlays (`docker-compose.staging.yml`, `docker-compose.prod.yml`) run on Bedrock and put the Ollama pair behind the `local-llm` profile (`COMPOSE_PROFILES=local-llm` brings it back):
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.staging.yml \
@@ -61,7 +63,7 @@ docker compose -f docker-compose.yml -f docker-compose.staging.yml \
 
 **Documents:** uploads answer **202** with a `task_id`; `GET /api/tasks/<task_id>` and `/api/projects/<id>/ingest-jobs` report parser, OCR confidence, Z3 verdict and Red-Hat status. Accepted inputs: PDF, PNG/JPG/TIFF/BMP images and text files. Scans and images are OCR'd by jdf-cli's bundled tesseract; Textract only when it is configured or OCR reads nothing (spend is capped per month). After verification the intake report (`GET /api/projects/<id>/parsure`) carries page quality, document type, fields with `confidence_basis`, `field_state` / `routing_action`, disputes and the audit log.
 
-**Key variables:** `DATABASE_URL`, `REDIS_URL`/`CELERY_BROKER_URL`, `ASSURE_DATA_DIR`, `ASSURE_S3_BUCKET` + `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` (or the IAM role / Sources panel), `PARSE_ASYNC`, `SUBSTRATE_ASYNC_UPLOAD`, `PARSER_SCAN_BACKEND`, `JDF_OCR`, `ASSURE_LLM_BACKEND`, `ASSURE_OLLAMA_MODEL(_B)`, `OLLAMA_CONTEXT_LENGTH`, `ASSURE_EDITION`, `CLERK_*`, `ASSURE_CLERK_ONLY`, `SHELL_ACCESS_KEY`, `PEM_SECRET_KEY`, `ENVIRONMENT`. Full list: `.env.example`.
+**Key variables:** `DATABASE_URL`, `REDIS_URL`/`CELERY_BROKER_URL`, `ASSURE_DATA_DIR`, `ASSURE_S3_BUCKET` + `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` (or the IAM role / Sources panel), `PARSE_ASYNC`, `SUBSTRATE_ASYNC_UPLOAD`, `PARSER_BACKEND`, `PARSER_SCAN_BACKEND`, `JDF_OCR`, `ASSURE_LLM_BACKEND`, `ASSURE_BEDROCK_MODEL_*`, `ASSURE_OLLAMA_MODEL(_B)`, `OLLAMA_CONTEXT_LENGTH`, `ASSURE_EDITION`, `CLERK_*`, `ASSURE_CLERK_ONLY`, `SHELL_ACCESS_KEY`, `PEM_SECRET_KEY`, `ENVIRONMENT`. Full list: `.env.example`.
 
 ---
 
@@ -89,11 +91,11 @@ REDIS_URL, CELERY_BROKER_URL     Redis locally; sqs:// on AWS
 ASSURE_DATA_DIR, ASSURE_S3_BUCKET, AWS_ACCESS_KEY_ID/SECRET  object store (or the IAM role / Sources panel)
 PARSE_ASYNC, SUBSTRATE_ASYNC_UPLOAD  1 = queued to the worker (default with a broker)
 PARSER_SCAN_BACKEND, JDF_OCR     jdf-ocr (tesseract, default) | textract
-ASSURE_LLM_BACKEND               empty = openrouter if OPENROUTER_API_KEY is set, else ollama | ollama | bedrock | openrouter | cloud (legacy policies)
-ASSURE_OPENROUTER_MODEL_PARSE / _DRAFT / _ANCHOR / _EVIDENCE / _EDIT / _REDHAT / _COMPARE   OpenRouter: Nova Lite parses, Llama 3.3 70B drafts, Cohere anchors, Mistral Small 3 judges/edits
+ASSURE_LLM_BACKEND               bedrock (default) | ollama
+PARSER_BACKEND                   bedrock (default: Opus 5.5 reads the file) | textract | auto; openrouter/llm/model = bedrock aliases
 ASSURE_OLLAMA_MODEL_PARSE / _DRAFT / _REDHAT / _EVIDENCE / _COMPARE   one open model per stage (fallback ASSURE_OLLAMA_MODEL); OLLAMA_API_BASE, OLLAMA_CONTEXT_LENGTH
-ASSURE_BEDROCK_MODEL_DRAFT / _ANALYSIS / _B   Bedrock: Sonnet 5 drafts, Opus 5 analyses (defaults); bare ids get the eu./us. profile prefix
-OPENROUTER_API_KEY, DEEPSEEK_API_KEY, ANTHROPIC_API_KEY   cloud models (overlays only)
+ASSURE_BEDROCK_MODEL_PARSE / _DRAFT / _ANALYSIS / _B   Bedrock: Opus 5.5 parses, Sonnet 5.5 everything else (defaults); bare ids get the us./eu. profile prefix
+GEMINI_API_KEY, ANTHROPIC_API_KEY, GROQ_API_KEY   only for an explicit hosted target_ai override
 ASSURE_EDITION / PEM_EDITION     "self-hosted" = no Clerk
 CLERK_PUBLISHABLE_KEY, CLERK_SECRET_KEY, ASSURE_CLERK_ONLY
 SHELL_ACCESS_KEY, UPSTREAM_BASE, PORT, HOST   shell gate

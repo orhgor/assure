@@ -3,7 +3,8 @@
 Until then ``_ensure_provider_key`` accepted only ``gemini/`` and
 ``openrouter/`` ids and raised "OpenRouter API key not configured for lock
 inference." on an Ollama or Bedrock box, so every compile there skipped its
-locks. The hosted providers keep their key check.
+locks. OpenRouter was removed on 2026-10-01: the default is Bedrock Sonnet 5.5;
+an explicitly passed Gemini model keeps its key check.
 """
 
 from __future__ import annotations
@@ -44,7 +45,6 @@ ANSWER = json.dumps(
 @pytest.fixture(autouse=True)
 def _no_keys(monkeypatch):
     monkeypatch.setattr(lock_inference, "load_keys", lambda: None)
-    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
     monkeypatch.delenv("ASSURE_OLLAMA_MODEL_EVIDENCE", raising=False)
     monkeypatch.delenv("ASSURE_OLLAMA_MODEL", raising=False)
 
@@ -87,24 +87,36 @@ def test_ollama_inference_goes_through_the_backend_executor(monkeypatch) -> None
     assert result.model == seen["model"]
 
 
-def test_hosted_openrouter_still_requires_its_key(monkeypatch) -> None:
-    monkeypatch.setenv("ASSURE_LLM_BACKEND", "cloud")
+def test_default_backend_is_bedrock_sonnet(monkeypatch) -> None:
+    for var in ("ASSURE_LLM_BACKEND", "ASSURE_BEDROCK_MODEL", "ASSURE_BEDROCK_MODEL_ANALYSIS",
+                "AWS_DEFAULT_REGION", "AWS_REGION"):
+        monkeypatch.delenv(var, raising=False)
+    for visual in (False, True):
+        assert resolve_lock_inference_model(has_visual_content=visual) == "bedrock/us.anthropic.claude-sonnet-5-5"
+
+
+def test_bedrock_inference_goes_through_the_backend_executor(monkeypatch) -> None:
+    monkeypatch.delenv("ASSURE_LLM_BACKEND", raising=False)
     monkeypatch.setattr(lock_inference, "key_present", lambda _name: False)
-    with pytest.raises(RuntimeError, match="OpenRouter API key not configured"):
-        infer_lock_candidates(MEMO, has_visual_content=False)
+    seen: dict[str, object] = {}
+
+    def fake_backend(model: str, messages: list[dict]) -> str:
+        seen["model"] = model
+        return ANSWER
+
+    def fail_call_model(*_a, **_k):
+        raise AssertionError("hosted call_model must not be used on the bedrock backend")
+
+    monkeypatch.setattr(lock_inference, "_backend_completion", fake_backend)
+    monkeypatch.setattr(lock_inference, "call_model", fail_call_model)
+    result = infer_lock_candidates(MEMO, pdf_bytes=b"%PDF-1.4", has_visual_content=True)
+    assert str(seen["model"]).startswith("bedrock/")
+    assert [c["value"] for c in result.candidates] == [5_000_000]
 
 
-def test_hosted_gemini_still_requires_its_key(monkeypatch) -> None:
-    monkeypatch.setenv("ASSURE_LLM_BACKEND", "cloud")
+def test_explicit_gemini_model_still_requires_its_key(monkeypatch) -> None:
     monkeypatch.setattr(lock_inference, "key_present", lambda _name: False)
     with pytest.raises(RuntimeError, match="Gemini API key not configured"):
-        infer_lock_candidates(MEMO, pdf_bytes=b"%PDF-1.4", has_visual_content=True)
-
-
-def test_hosted_openrouter_with_key_uses_call_model(monkeypatch) -> None:
-    monkeypatch.setenv("ASSURE_LLM_BACKEND", "cloud")
-    monkeypatch.setattr(lock_inference, "key_present", lambda _name: True)
-    monkeypatch.setattr(lock_inference, "call_model", lambda *_a, **_k: ANSWER)
-    result = infer_lock_candidates(MEMO, has_visual_content=False)
-    assert result.model.startswith("openrouter/")
-    assert len(result.candidates) == 1
+        infer_lock_candidates(
+            MEMO, pdf_bytes=b"%PDF-1.4", has_visual_content=True, model="gemini/gemini-3.6-flash"
+        )

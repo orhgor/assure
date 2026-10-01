@@ -17,7 +17,7 @@ Default models are pricing-table ids. `run_workflow` talks PEM targets (`gemini`
 | Role | Default model | Intent | Send id |
 |---|---|---|---|
 | Architect | gemini-1.5-pro | design | gemini/gemini-3.5-flash |
-| Developer | qwen3-next | debug | openrouter/qwen/qwen3-next-80b-a3b-instruct (output cap 16384) |
+| Developer | claude-sonnet-5-5 | debug | bedrock/us.anthropic.claude-sonnet-5-5 (output cap 16384; the OpenRouter Qwen id until 2026-10-01) |
 | Reviewer | claude-3-5-sonnet-20240620 | analysis | anthropic/claude-sonnet-4-5 |
 | Tester | gemini-1.5-flash | debug | gemini/gemini-3.5-flash-lite |
 | Documenter | claude-3-haiku-20240307 | research | anthropic/claude-3-haiku-20240307 |

@@ -36,8 +36,9 @@ the ``TaskType.FIELD_EXTRACTION`` input cap), a hard wall-clock timeout,
 ``PARSURE_LLM_EXTRACTION=0`` disables it, and every failure (no backend, no
 key, connection refused, timeout, unparsable JSON) is a note in
 ``extraction_notes`` — never an exception into the ingest pipeline. The model
-is whatever ``cost_governance`` resolves for the task: the OpenRouter policy
-in production, ``ollama/qwen2.5:1.5b`` on ``ASSURE_LLM_BACKEND=ollama``.
+is whatever ``cost_governance`` resolves for the task: Claude Sonnet 5.5 on
+Amazon Bedrock by default (OpenRouter until it was removed on 2026-10-01),
+``ollama/qwen2.5:1.5b`` on ``ASSURE_LLM_BACKEND=ollama``.
 
 Measured on ``tests/golden/prose`` (7 documents, 68 fields) with the local
 qwen2.5:1.5b, 2026-09-25, six runs: label pass alone 30.9%; label pass +

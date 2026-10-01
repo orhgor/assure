@@ -35,7 +35,6 @@ try:
     from ..ledger.truth_engine import TruthLedgerEngine
     from ..ledger.truth_engine import Z3Timeout as _Z3Timeout
     from ..lib.logger import get_audit_logger
-    from ..keys import PROVIDER_PIN, provider_pin_for
     from ..models.jdf import (
         _merge_short_sentences,
         _split_sentences,
@@ -121,7 +120,6 @@ except ImportError:
     from ledger.truth_engine import TruthLedgerEngine
     from ledger.truth_engine import Z3Timeout as _Z3Timeout
     from lib.logger import get_audit_logger
-    from keys import PROVIDER_PIN, provider_pin_for
     from models.jdf import (
         _merge_short_sentences,
         _split_sentences,
@@ -213,9 +211,9 @@ try:
 except ImportError:
     from cost_governance import resolve_model as _resolve_model
 
-# Upstream moved lock inference to the OpenRouter Qwen policy model (staging
-# 0239cc6); locally the ollama backend still takes it.
-LOCK_MODEL = _resolve_model("openrouter/qwen/qwen3-next-80b-a3b-instruct", role="anchor")  # claim anchoring: Cohere on OpenRouter, Opus on Bedrock, evidence model on Ollama
+# Claim anchoring follows the backend: Bedrock analysis model (Claude Sonnet
+# 5.5, decision 2026-10-01), the evidence model on Ollama.
+LOCK_MODEL = _resolve_model("bedrock/us.anthropic.claude-sonnet-5-5", role="anchor")
 
 # R1 — injection hardening, kept verbatim: the last lines of the static prompt.
 # The source is data, text inside it that reads as an order is content to report
@@ -331,26 +329,12 @@ def prompt_fingerprint() -> str:
     static.extend(icp_prompt_block(name) for name in sorted(PROFILES))
     return hashlib.sha256("\n\n---\n\n".join(static).encode("utf-8")).hexdigest()[:8]
 
-# OpenRouter load-balances one model id across several upstream providers, and
-# they do not agree at temperature=0.0 — so `temperature=0.0` alone did not make
-# the compile reproducible. Measured 2026-09-18 on the staging box, real compile
-# system prompt, streaming, three calls per provider: DeepInfra 3/3 distinct,
-# Parasail 3/3, Google 3/3, Alibaba 1/3, Novita 1/3. The draft IS the document,
-# so the compile pins the provider that is byte-stable on the path it uses
-# (re-measured at eight calls each: Alibaba 8/8 identical, Novita 8/8 identical,
-# unpinned 8/8 distinct).
-#
-# `allow_fallbacks` stays False on purpose: Alibaba and Novita are each stable
-# but do not agree with each other (sha 25bbbc92… vs 585f6e9d…), so a fallback
-# would silently swap the document. A provider outage must read as a failed
-# compile, never as a different document under the same version. `extra_body` is
-# the carrier because litellm hands caller extra_body through to the request
-# body for openrouter (verified by capturing the outgoing JSON).
-#
-# The value now lives in `keys.PROVIDER_PIN`, because the Tier 2 Math Check
-# translator calls the same upstream and must pin the same provider — one
-# definition, so the two can never drift apart.
-_COMPILE_PROVIDER_PIN = PROVIDER_PIN
+# The compile used to pin OpenRouter's upstream provider (`keys.PROVIDER_PIN`,
+# `extra_body={"provider": …}`): OpenRouter load-balanced one model id across
+# providers that disagreed at temperature 0 (measured 2026-09-18: Alibaba 8/8
+# identical, unpinned 8/8 distinct). OpenRouter was removed on 2026-10-01; a
+# Bedrock model id (`bedrock/us.anthropic.claude-sonnet-5-5`) is one
+# deployment, so there is no routing left to pin and the pin went with it.
 
 CancelCheck = Callable[[], bool]
 
@@ -1690,9 +1674,14 @@ def _replay_cached_compile(
 
 def _open_model_stream(litellm: Any, model: str, messages: list, max_out: int, api_kwargs: dict) -> Any:
     """The compile's model call, with the parameters the documented call site
-    below explains (greedy decoding, pinned sampling, usage on the last chunk)."""
+    below explains (greedy decoding, usage on the last chunk).
+
+    ``top_p`` is no longer sent (2026-10-01): it pinned sampling across
+    OpenRouter's upstreams, and Claude Sonnet/Opus 5.5 on Bedrock take neither
+    it nor ``temperature`` — litellm.drop_params (litellm_runner) drops
+    ``temperature``/``seed`` there, and Ollama still honours both."""
     return litellm.completion(
-        model=model, messages=messages, max_tokens=max_out, temperature=0.0, top_p=1.0, seed=0,
+        model=model, messages=messages, max_tokens=max_out, temperature=0.0, seed=0,
         stream=True, stream_options={"include_usage": True},
         metadata=_mc.litellm_metadata(api_kwargs.pop("metadata", None)), **api_kwargs,
     )
@@ -1746,22 +1735,16 @@ def _stream_model(
             _api_kwargs = litellm_kwargs_for(_slug)
         except Exception:
             pass
-        if _slug == "openrouter":
-            # `extra_body` is the carrier: litellm passes a caller's extra_body
-            # through to the OpenRouter request body (verified by capturing the
-            # outgoing JSON), and a named kwarg has no route to this field.
-            _pin = provider_pin_for(model)
-            if _pin:
-                _api_kwargs["extra_body"] = {"provider": _pin}
         try:
             from ..services.pricing import compute_usd
         except ImportError:
             from services.pricing import compute_usd
-        # Key preflight, before the first token. Without it a missing key
-        # surfaced as the raw "litellm.AuthenticationError: OpenrouterException -
-        # No cookie auth credentials found" after "Drafting with …" had been
-        # announced (local stack 2026-09-22, OPENROUTER_API_KEY empty). The
-        # message names the variable to set; 424 because the dependency, not
+        # Key preflight, before the first token, for a hosted model that takes
+        # an API key (a `target_ai` override such as `gemini/…`). Without it a
+        # missing key surfaced as the raw litellm.AuthenticationError after
+        # "Drafting with …" had been announced (local stack 2026-09-22). Bedrock
+        # (IAM credential chain) and Ollama need no key. The message names the
+        # variable to set; 424 because the dependency, not
         # the request, is what is missing. Lives here, not in the pipeline, so
         # tests that stub _stream_model keep running without provider keys.
         if _slug not in ("ollama", "cursor", "bedrock"):
@@ -1784,8 +1767,9 @@ def _stream_model(
                 return
         _measure_t0 = time.time()
         # One retry on a provider rate limit, only before the first token
-        # (OpenRouter answered 429 "temporarily rate-limited upstream" on a
-        # first call and the same call succeeded 20 s later — live, 2026-09-27).
+        # (a hosted provider answered 429 "temporarily rate-limited upstream" on
+        # a first call and the same call succeeded 20 s later — live,
+        # 2026-09-27; Bedrock throttles the same way under a TPM quota).
         # A retry after tokens were streamed would duplicate them, so a
         # mid-stream failure still surfaces as the error it is.
         _attempt = 0
@@ -1816,20 +1800,12 @@ def _stream_model(
             # cached, so the draft was the only source of the swing — and a
             # document that changes when nothing does cannot be reported as one.
             temperature=0.0,
-            # Sampling is pinned next to routing. The routing pin above fixes
-            # WHICH provider serves the call and says nothing about sampling: a
-            # ten-run measurement with it in place still produced one draft that
-            # differed from the other nine in both length and structure (len 3189
-            # vs 3137, eligible 12 vs 13, box 2026-09-18). `temperature=0.0` is
-            # not a guarantee either — a provider still reads `top_p`, and a seed
-            # is the only thing that makes a repeatable call repeatable on the
-            # providers that honour one. Both are written explicitly so "same
-            # intent, same sources" cannot rest on a provider default.
-            top_p=1.0,
+            # A seed is what makes a repeatable call repeatable on the
+            # backends that honour one (Ollama); Bedrock's Claude 5.5 models
+            # take neither it nor temperature and litellm drops both.
             seed=0,
             stream=True,
             stream_options={"include_usage": True},
-            # Fallback handled at the provider layer (OpenRouter) later.
             **_api_kwargs,
           )
         full = ""

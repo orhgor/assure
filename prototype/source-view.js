@@ -82,6 +82,9 @@
     lastSel: "",
     docListeners: false,
     navUntil: 0,       // until when an explicit goToPage outranks the observer
+    mode: "jdf",       // "jdf" (jdf.js re-render) | "pdf" (original in an iframe) | "image" (page images + field overlay)
+    fieldMarks: [],    // showFields() boxes, kept apart from the one highlight
+    io: null,
   };
 
   function _t(key, fallback) {
@@ -184,6 +187,7 @@
     if (!S.container) return Promise.reject(new Error("source view: no container"));
     S.url = String(url || "");
     S.opts = opts || {};
+    S.mode = "jdf";
     S.zoom = 1;
     S.page = 0;
     S.pageCount = 0;
@@ -255,6 +259,167 @@
       });
     });
   }
+  // ---------------------------------------------------------------------
+  // openOriginal(container, spec, opts) → Promise<viewer>
+  // The uploaded file itself instead of the JDF re-render (user request
+  // 2026-10-01: "dosyanın content'ini çirkin görmek istemiyorum").
+  //   spec.mode "pdf":   the stored original PDF in the browser's own viewer
+  //                      (an <iframe>, `#page=N` to jump) — a digital PDF is
+  //                      its own best rendering; no boxes are drawn on it.
+  //   spec.mode "image": one <img> per page (spec.pages [{page, url}] — the
+  //                      stored page rasters, or the original image upload),
+  //                      each in a `.jdfjs-page-wrapper[data-page-index]` so
+  //                      highlight(), selection and showFields() work on it.
+  // A minimal viewer object stands in for jdf.js so goToPage / zoom / isOpen
+  // behave the same in every mode.
+  // ---------------------------------------------------------------------
+  function openOriginal(container, spec, opts) {
+    destroy();
+    S.container = typeof container === "string" ? document.querySelector(container) : container;
+    if (!S.container) return Promise.reject(new Error("source view: no container"));
+    spec = spec || {};
+    S.opts = opts || {};
+    S.mode = spec.mode === "pdf" ? "pdf" : "image";
+    S.url = String(spec.key || spec.pdfUrl || (spec.pages && spec.pages[0] && spec.pages[0].url) || "");
+    S.zoom = 1;
+    S.page = 0;
+    while (S.container.firstChild) S.container.removeChild(S.container.firstChild);
+    S.root = _el("div", "sv-root sv-original sv-mode-" + S.mode);
+    S.root.appendChild(_buildNav());
+    S.stage = _el("div", "sv-stage");
+    S.stage.setAttribute("data-source-url", S.url);
+    S.root.appendChild(S.stage);
+    S.container.appendChild(S.root);
+    _bindDocListeners();
+    if (S.mode === "pdf") {
+      var pdfUrl = String(spec.pdfUrl || "");
+      S.pageCount = Number(spec.pageCount) || 0;
+      var frame = _el("iframe", "sv-pdf-frame");
+      frame.title = _t("shell.source_view.original_pdf", "Original PDF");
+      frame.src = pdfUrl + "#view=FitH";
+      S.stage.appendChild(frame);
+      S.viewer = {
+        goToPage: function (idx) { frame.src = pdfUrl + "#page=" + (Number(idx) + 1) + "&view=FitH"; },
+        getZoom: function () { return 1; },
+        setZoom: function () {},
+        destroy: function () { frame.src = "about:blank"; },
+      };
+      if (S.nav) {
+        // The browser's PDF viewer has its own zoom; ours would do nothing.
+        Array.prototype.forEach.call(S.nav.querySelectorAll(".sv-zoom-out, .sv-zoom-in, .sv-nav-sep"), function (b) { b.hidden = true; });
+      }
+      _paintNav();
+      return new Promise(function (resolve) {
+        var done = false;
+        function ok() { if (done) return; done = true; resolve(S.viewer); }
+        frame.addEventListener("load", ok);
+        setTimeout(ok, 1500);   // a PDF plugin may never fire load on the frame
+      });
+    }
+    var pages = Array.isArray(spec.pages) ? spec.pages.slice() : [];
+    pages.sort(function (a, b) { return (Number(a.page) || 0) - (Number(b.page) || 0); });
+    S.pageCount = pages.length;
+    var loads = pages.map(function (p, i) {
+      var wrapper = _el("div", "jdfjs-page-wrapper sv-img-page");
+      wrapper.setAttribute("data-page-index", String((Number(p.page) || i + 1) - 1));
+      var img = _el("img", "sv-page-img");
+      img.alt = _tf("shell.source_view.page_of", "Page {n} of {total}", { n: Number(p.page) || i + 1, total: pages.length });
+      img.decoding = "async";
+      var loaded = new Promise(function (resolve) {
+        img.addEventListener("load", function () { resolve(true); });
+        img.addEventListener("error", function () { wrapper.classList.add("is-broken"); resolve(false); });
+      });
+      img.src = String(p.url || "");
+      wrapper.appendChild(img);
+      S.stage.appendChild(wrapper);
+      return loaded;
+    });
+    S.viewer = {
+      goToPage: function (idx) {
+        var w = _wrapperFor(Number(idx) + 1);
+        if (w) { try { w.scrollIntoView({ block: "start", behavior: "smooth" }); } catch (_) {} }
+      },
+      getZoom: function () { return S.zoom; },
+      setZoom: function (z) {
+        Array.prototype.forEach.call(S.stage ? S.stage.querySelectorAll(".sv-img-page") : [], function (w) {
+          w.style.width = Math.round(z * 100) + "%";
+        });
+      },
+      destroy: function () {},
+    };
+    if (typeof IntersectionObserver !== "undefined") {
+      var io = new IntersectionObserver(function (entries) {
+        if (Date.now() < S.navUntil) return;
+        var best = null;
+        entries.forEach(function (e) { if (e.isIntersecting && (!best || e.intersectionRatio > best.intersectionRatio)) best = e; });
+        if (!best) return;
+        S.page = Number(best.target.getAttribute("data-page-index")) || 0;
+        _paintNav();
+        if (typeof S.opts.onPageChange === "function") S.opts.onPageChange(S.page + 1);
+      }, { root: S.stage, threshold: [0.25, 0.5, 0.75] });
+      Array.prototype.forEach.call(S.stage.querySelectorAll(".sv-img-page"), function (w) { io.observe(w); });
+      S.io = io;
+    }
+    _paintNav();
+    return Promise.all(loads).then(function () {
+      if (Array.isArray(spec.fields)) showFields(spec.fields);
+      return S.viewer;
+    });
+  }
+
+  // ---------------------------------------------------------------------
+  // showFields(fields) — every read field drawn where the page states it: a
+  // box at its `source_span.bbox` (relative 0–1, 1-based `page`) and a tag
+  // with the label and the value, on the image pages only (a native PDF
+  // viewer cannot carry an overlay). A field without a box is not placed —
+  // no position is invented for it. Returns the number placed.
+  // ---------------------------------------------------------------------
+  function showFields(fields) {
+    hideFields();
+    if (!S.stage || S.mode === "pdf") return 0;
+    var placed = 0;
+    (fields || []).forEach(function (f) {
+      if (!f || typeof f !== "object") return;
+      var span = f.source_span && typeof f.source_span === "object" ? f.source_span : {};
+      var bbox = span.bbox || f.bbox || null;
+      var page1 = Number(span.page != null ? span.page : f.page);
+      if (!bbox || !page1) return;
+      var wrapper = _wrapperFor(page1);
+      if (!wrapper) return;
+      var value = f.value != null && f.value !== "" ? String(f.value) : String(f.raw || "");
+      if (!value) return;
+      var layer = _layerFor(wrapper);
+      var box = _el("div", "sv-field" + ((f.handwritten || span.handwritten) ? " is-handwritten" : "") + (f.review_required ? " needs-review" : ""));
+      var label = String(f.label || f.name || "");
+      box.title = (label ? label + ": " : "") + value;
+      var tag = _el("span", "sv-field-tag", label || value);
+      box.appendChild(tag);
+      if (typeof S.opts.onFieldClick === "function") {
+        box.addEventListener("click", function (e) { e.stopPropagation(); S.opts.onFieldClick(f); });
+      }
+      layer.appendChild(box);
+      var mark = { wrapper: wrapper, layer: layer, box: box, bbox: bbox, ro: null, timer: null, field: true };
+      _place(mark);
+      if (typeof ResizeObserver !== "undefined") {
+        mark.ro = new ResizeObserver(function () { _place(mark); });
+        mark.ro.observe(wrapper);
+      }
+      S.fieldMarks.push(mark);
+      placed++;
+    });
+    if (S.root) S.root.classList.toggle("has-fields", placed > 0);
+    return placed;
+  }
+  function hideFields() {
+    (S.fieldMarks || []).forEach(function (m) {
+      if (m.ro) { try { m.ro.disconnect(); } catch (_) {} }
+      if (m.box && m.box.parentNode) m.box.parentNode.removeChild(m.box);
+    });
+    S.fieldMarks = [];
+    if (S.root) S.root.classList.remove("has-fields");
+  }
+  function mode() { return S.mode || "jdf"; }
+
   function _countPages() {
     return S.stage ? S.stage.querySelectorAll(".jdfjs-page-wrapper[data-page-index]").length : 0;
   }
@@ -346,6 +511,7 @@
     if (!spec || !S.stage) return null;
     clear();
     var page1 = Number(spec.page) || 1;
+    if (S.mode === "pdf") { goToPage(page1); return null; }
     var wrapper = _wrapperFor(page1);
     if (!wrapper) return null;
     goToPage(page1);
@@ -452,6 +618,9 @@
 
   function destroy() {
     clear();
+    hideFields();
+    if (S.io) { try { S.io.disconnect(); } catch (_) {} S.io = null; }
+    S.mode = "jdf";
     if (S.viewer) { try { S.viewer.destroy(); } catch (_) {} }
     S.viewer = null;
     if (S.root && S.root.parentNode) S.root.parentNode.removeChild(S.root);
@@ -462,6 +631,10 @@
 
   window.SourceView = {
     open: open,
+    openOriginal: openOriginal,
+    showFields: showFields,
+    hideFields: hideFields,
+    mode: mode,
     destroy: destroy,
     isOpen: isOpen,
     goToPage: goToPage,

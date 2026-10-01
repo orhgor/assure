@@ -118,6 +118,10 @@ def ocr_blocks(blocks: list[dict[str, Any]]) -> list[dict[str, Any]]:
         bbox = _bbox(b)
         if bbox is not None:
             entry["bbox"] = bbox
+        if b.get("TextType") == "HANDWRITING":
+            entry["handwritten"] = True
+        if b.get("Illegible"):
+            entry["illegible"] = True
         out.append(entry)
     return out
 
@@ -161,7 +165,7 @@ def form_pairs(blocks: list[dict[str, Any]], page_no: int) -> list[dict[str, Any
         if key_block.get("BlockType") != "KEY_VALUE_SET" or "KEY" not in (key_block.get("EntityTypes") or []):
             continue
         key_text = client._kv_text(key_block, bmap)  # noqa: SLF001
-        value_text, value_bbox = "", None
+        value_text, value_bbox, val_block = "", None, None
         for rel in key_block.get("Relationships") or []:
             if rel.get("Type") != "VALUE":
                 continue
@@ -170,9 +174,20 @@ def form_pairs(blocks: list[dict[str, Any]], page_no: int) -> list[dict[str, Any
                 if val:
                     value_text = client._kv_text(val, bmap)  # noqa: SLF001
                     value_bbox = _bbox(val)
+                    val_block = val
         if key_text:
-            out.append({"key": key_text, "value": value_text, "page": page_no, "key_bbox": _bbox(key_block), "value_bbox": value_bbox,
-                        "confidence": _confidence(key_block)})
+            pair = {"key": key_text, "value": value_text, "page": page_no, "key_bbox": _bbox(key_block), "value_bbox": value_bbox,
+                    "confidence": _confidence(key_block)}
+            # Handwriting / illegibility / kind (checkbox, signature…) as the
+            # reader stated them — the model reader sets these on the VALUE.
+            if val_block is not None:
+                if val_block.get("TextType") == "HANDWRITING":
+                    pair["handwritten"] = True
+                if val_block.get("Illegible"):
+                    pair["illegible"] = True
+                if val_block.get("Kind"):
+                    pair["kind"] = val_block["Kind"]
+            out.append(pair)
     return out
 
 
@@ -282,10 +297,10 @@ def textract_parse_bundle(file_bytes: bytes, filename: str, *, client: TextractC
     except ImportError:  # pragma: no cover
         from services.jdf_converter import _bundle_assets, chunks_to_text  # type: ignore
         from services.parser_router import parser_backend  # type: ignore
-    if parser_backend() == "openrouter" and (client is None or isinstance(client, TextractClient)):
+    if parser_backend() == "bedrock" and (client is None or isinstance(client, TextractClient)):
         # The hosted-reader branch of the router covers the model too
-        # (PARSER_BACKEND=openrouter, 2026-09-29): same bundle, read by the
-        # parse-stage model instead of Textract.
+        # (PARSER_BACKEND=bedrock, 2026-10-01): same bundle, read by Claude
+        # Opus 5.5 on Bedrock instead of Textract.
         try:
             from .llm_parse import llm_parse_bundle
         except ImportError:  # pragma: no cover

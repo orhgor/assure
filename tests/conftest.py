@@ -56,9 +56,14 @@ def pytest_configure(config):
     # test wrote an object to S3 before this pin (2026-09-28). An empty value is
     # present, so dotenv leaves it alone; a test that wants S3 sets it itself.
     os.environ["ASSURE_S3_BUCKET"] = ""
-    # Same leak for the hosted-model key: with it present the vision/backend
-    # tests see a configured OpenRouter and a laptop .env decides the suite.
-    os.environ.setdefault("OPENROUTER_API_KEY", "")
+    # Same leak for the models (2026-10-01, OpenRouter removed): the default
+    # backend is Amazon Bedrock and the developer's .env holds working AWS keys,
+    # so a photo page (vision on Sonnet 5.5) or PARSER_BACKEND=bedrock (the
+    # document read on Opus 5.5) would send real requests from the suite. Both
+    # are pinned off here; a test that exercises them sets them itself and
+    # injects the completion.
+    os.environ.setdefault("PARSURE_VISION", "0")
+    os.environ.setdefault("PARSER_BACKEND", "auto")
     # Redis is optional under test: without REDIS_URL the process-local
     # fallbacks run (memory rate limits, eager Celery).
     os.environ.pop("REDIS_URL", None) if os.environ.get("ASSURE_TEST_NO_REDIS") else None

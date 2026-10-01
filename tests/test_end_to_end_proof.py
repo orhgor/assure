@@ -229,15 +229,15 @@ def test_production_callers_pass_no_completion_and_the_app_model_path_still_runs
         return json.dumps({"policy_number": {"quote": "Ref AP-2025-0001 (policy) issued to John Q. Sample", "value": "AP-2025-0001", "page": 1}})
 
     monkeypatch.setattr(lx, "default_completion", app_model)
-    monkeypatch.setattr(lx, "current_model_id", lambda: "openrouter/amazon/nova-lite-v1")
+    monkeypatch.setattr(lx, "current_model_id", lambda: "bedrock/us.anthropic.claude-sonnet-5-5")
     out = run_after_parse("default", bundle=jdf_cli_bundle(DEBRIS_LINES), verification=VERIFICATION, filename="prod-path.pdf",
                           file_bytes=b"prod-path", result={}, job_id=None, intake=None, tree=_tree_for(DEBRIS_LINES))  # no completion kwarg, like pdf_ingest
     r = out["report"]
     exe = r["execution"]
-    assert exe["llm_grounding"]["status"] == "ran" and exe["llm_grounding"]["model_path"] == "app:openrouter/amazon/nova-lite-v1"
+    assert exe["llm_grounding"]["status"] == "ran" and exe["llm_grounding"]["model_path"] == "app:bedrock/us.anthropic.claude-sonnet-5-5"
     assert exe["redhat_targeted"]["status"] == "ran" and exe["redhat_targeted"]["model_path"].startswith("app:")
     assert exe["redhat_targeted"]["changed"] == ["policy_number"]
     assert len(calls) == 2 and "(note:" in calls[1]
     pol = next(f for f in r["fields"] if f["name"] == "policy_number")
-    assert pol["value"] == "AP-2025-0001" and pol["grounding_model"] == "openrouter/amazon/nova-lite-v1" and pol["grounding_source"] == "llm"
+    assert pol["value"] == "AP-2025-0001" and pol["grounding_model"] == "bedrock/us.anthropic.claude-sonnet-5-5" and pol["grounding_source"] == "llm"
     assert [h["trigger"] for h in r["replay"]["history"]] == ["pipeline:redhat_targeted"]

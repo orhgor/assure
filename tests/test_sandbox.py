@@ -50,19 +50,19 @@ def test_sandbox_verify_success(monkeypatch, client):
     def fake_locks(_text):
         return [
             {"canonical_key": "Revenue", "value": 4_200_000, "metric": "Revenue", "confidence": 0.9}
-        ], "openrouter/qwen/qwen3-next-80b-a3b-instruct"
+        ], "bedrock/us.anthropic.claude-sonnet-5-5"
 
     def fake_redhat(*_a, **_k):
         return [
             {
                 "title": "Red-hat review",
                 "content": "No major gaps.",
-                "model": "openrouter/qwen/qwen3-next-80b-a3b-instruct",
+                "model": "bedrock/us.anthropic.claude-sonnet-5-5",
             }
         ], {
             "input_tokens": 20,
             "output_tokens": 10,
-            "model_id": "openrouter/qwen/qwen3-next-80b-a3b-instruct",
+            "model_id": "bedrock/us.anthropic.claude-sonnet-5-5",
             "task_type": "redhat",
         }
 
@@ -102,7 +102,7 @@ def test_sandbox_verify_success(monkeypatch, client):
 def test_run_sandbox_verify_unit(monkeypatch):
     monkeypatch.setattr(
         "prompt_matrix.routers.sandbox.run_lock_inference",
-        lambda _t: ([], "openrouter/qwen/qwen3-next-80b-a3b-instruct"),
+        lambda _t: ([], "bedrock/us.anthropic.claude-sonnet-5-5"),
     )
     monkeypatch.setattr(
         "prompt_matrix.routers.sandbox.run_redhat_audit",

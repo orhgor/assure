@@ -43,7 +43,9 @@ x-app-env: &app-env
   WTF_CSRF_ENABLED: ${WTF_CSRF_ENABLED:-0}
   PARSE_ASYNC: ${PARSE_ASYNC:-1}
   SUBSTRATE_ASYNC_UPLOAD: ${SUBSTRATE_ASYNC_UPLOAD:-1}
-  PARSER_BACKEND: ${PARSER_BACKEND:-auto}
+  # bedrock (default since 2026-10-01): the file read by Opus 5.5 on Bedrock;
+  # textract | auto (jdf-cli). openrouter/llm/model are aliases for bedrock.
+  PARSER_BACKEND: ${PARSER_BACKEND:-bedrock}
   PARSER_SCAN_BACKEND: ${PARSER_SCAN_BACKEND:-jdf-ocr}
   ASSURE_TEXTRACT_MODE: ${ASSURE_TEXTRACT_MODE:-detect}
   JDF_OCR: ${JDF_OCR:-tesseract}
@@ -51,26 +53,31 @@ x-app-env: &app-env
   # panel form, or the machine IAM role — in that order.
   ASSURE_S3_BUCKET: ${ASSURE_S3_BUCKET:-}
   ASSURE_S3_PREFIX: ${ASSURE_S3_PREFIX:-assure/}
-  AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION:-eu-central-1}
+  # us-east-1: the Bedrock models run on the `us.` inference profile.
+  AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION:-us-east-1}
+  AWS_REGION: ${AWS_REGION:-${AWS_DEFAULT_REGION:-us-east-1}}
   AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
   AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
-  # Only for temporary (SSO/assumed-role) credentials on a laptop; a server uses
-  # a permanent key pair or the instance role and leaves this empty.
-  AWS_SESSION_TOKEN: ${AWS_SESSION_TOKEN:-}
-  # Models. Empty = the code decides: an OPENROUTER_API_KEY in .env means every
-  # call goes to OpenRouter (one hosted model per stage, ASSURE_OPENROUTER_MODEL_*),
-  # otherwise the `ollama` container on this machine. Explicit values: ollama |
-  # bedrock | openrouter | cloud (the legacy policies in cost_governance.py).
-  ASSURE_LLM_BACKEND: ${ASSURE_LLM_BACKEND:-}
-  OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
-  ASSURE_OPENROUTER_MODEL: ${ASSURE_OPENROUTER_MODEL:-}
-  ASSURE_OPENROUTER_MODEL_PARSE: ${ASSURE_OPENROUTER_MODEL_PARSE:-}
-  ASSURE_OPENROUTER_MODEL_DRAFT: ${ASSURE_OPENROUTER_MODEL_DRAFT:-}
-  ASSURE_OPENROUTER_MODEL_ANCHOR: ${ASSURE_OPENROUTER_MODEL_ANCHOR:-}
-  ASSURE_OPENROUTER_MODEL_EVIDENCE: ${ASSURE_OPENROUTER_MODEL_EVIDENCE:-}
-  ASSURE_OPENROUTER_MODEL_EDIT: ${ASSURE_OPENROUTER_MODEL_EDIT:-}
-  ASSURE_OPENROUTER_MODEL_REDHAT: ${ASSURE_OPENROUTER_MODEL_REDHAT:-}
-  ASSURE_OPENROUTER_MODEL_COMPARE: ${ASSURE_OPENROUTER_MODEL_COMPARE:-}
+  # Models (user decision 2026-10-01, OpenRouter removed): bedrock (default) —
+  # Amazon Bedrock with the AWS credentials above or the instance role; the
+  # document read on Opus 5.5, every other prompt on Sonnet 5.5 — or ollama
+  # (the `ollama` container on this machine, set explicitly).
+  ASSURE_LLM_BACKEND: ${ASSURE_LLM_BACKEND:-bedrock}
+  # Where Bedrock is called (empty = AWS_DEFAULT_REGION); S3 keeps its own.
+  ASSURE_BEDROCK_REGION: ${ASSURE_BEDROCK_REGION:-}
+  # Bedrock API key (bearer token, 2026-10-01): Bedrock needs nothing else;
+  # the AWS keys above are then for S3 only.
+  AWS_BEARER_TOKEN_BEDROCK: ${AWS_BEARER_TOKEN_BEDROCK:-}
+  # The document read: pages per request, parallel requests, read timeout.
+  ASSURE_LLM_PARSE_PAGES_PER_REQUEST: ${ASSURE_LLM_PARSE_PAGES_PER_REQUEST:-8}
+  ASSURE_LLM_PARSE_CONCURRENCY: ${ASSURE_LLM_PARSE_CONCURRENCY:-4}
+  ASSURE_LLM_PARSE_TIMEOUT_S: ${ASSURE_LLM_PARSE_TIMEOUT_S:-600}
+  ASSURE_BEDROCK_MODEL: ${ASSURE_BEDROCK_MODEL:-}
+  ASSURE_BEDROCK_MODEL_PARSE: ${ASSURE_BEDROCK_MODEL_PARSE:-anthropic.claude-opus-5-5}
+  ASSURE_BEDROCK_MODEL_DRAFT: ${ASSURE_BEDROCK_MODEL_DRAFT:-anthropic.claude-sonnet-5-5}
+  ASSURE_BEDROCK_MODEL_ANALYSIS: ${ASSURE_BEDROCK_MODEL_ANALYSIS:-anthropic.claude-sonnet-5-5}
+  ASSURE_BEDROCK_MODEL_B: ${ASSURE_BEDROCK_MODEL_B:-anthropic.claude-sonnet-5-5}
+  ASSURE_BEDROCK_MODEL_VISION: ${ASSURE_BEDROCK_MODEL_VISION:-}
   ASSURE_OLLAMA_MODEL: ${ASSURE_OLLAMA_MODEL:-qwen2.5:1.5b}
   ASSURE_OLLAMA_MODEL_B: ${ASSURE_OLLAMA_MODEL_B:-llama3.2:1b}
   # One open model per stage (empty = ASSURE_OLLAMA_MODEL). The GPU overlay and
@@ -123,8 +130,9 @@ services:
     command: redis-server --save "" --appendonly no --maxmemory 128mb --maxmemory-policy allkeys-lru
     restart: unless-stopped
 
-  # Local models — part of every `docker compose up` (laptop and EC2 alike; user
-  # decision 2026-09-25: no OpenRouter/cloud keys, the models live on the box).
+  # Local models — the explicit ASSURE_LLM_BACKEND=ollama option (user decision
+  # 2026-09-25: the models live on the box; Bedrock is the default since
+  # 2026-10-01, and ollama-pull then exits at once without pulling anything).
   # One Ollama daemon; the one-shot `ollama-pull` fetches the two models into the
   # `ollama` volume the first time and only checks them afterwards (`ollama show`
   # succeeds → no network needed on a restart). assure-app / assure-worker wait
@@ -162,8 +170,7 @@ services:
     entrypoint: ["/bin/sh", "-c"]
     command:
       - >
-        backend="$${ASSURE_LLM_BACKEND}";
-        if [ -z "$$backend" ]; then if [ -n "$${OPENROUTER_API_KEY}" ]; then backend=openrouter; else backend=ollama; fi; fi;
+        backend="$${ASSURE_LLM_BACKEND:-bedrock}";
         if [ "$$backend" != "ollama" ]; then
           echo "backend $$backend: no local models to pull"; exit 0;
         fi;
@@ -177,8 +184,7 @@ services:
         ollama list && echo "models ready"
     environment:
       OLLAMA_HOST: http://ollama:11434
-      ASSURE_LLM_BACKEND: ${ASSURE_LLM_BACKEND:-}
-      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      ASSURE_LLM_BACKEND: ${ASSURE_LLM_BACKEND:-bedrock}
     depends_on:
       ollama:
         condition: service_healthy

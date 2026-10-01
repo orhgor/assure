@@ -41,7 +41,7 @@ class RunCreatePayload(BaseModel):
     directive: str = ""
     workspace_id: str | None = None
     source_ids: list[str] = Field(default_factory=list)
-    model: str = "gemini"
+    model: str = "bedrock"
     stream: bool = False
 
 

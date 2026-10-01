@@ -1005,6 +1005,10 @@ field the projection mapped it to, when any. The schema `fields` remain a projec
 
 ### The model as the parser (`PARSER_BACKEND=openrouter`, 2026-09-29)
 
+> 2026-10-01: OpenRouter removed. The setting is `PARSER_BACKEND=bedrock`
+> (Claude Opus 5.5 on the `us.` inference profile); `openrouter`, `llm` and
+> `model` remain aliases. The paragraph below records the OpenRouter path as built.
+
 User decision: the documents are read by the analysis model itself, and nothing renders or
 splits the file first (no PyMuPDF on this path). `services/llm_parse.py` posts the whole
 uploaded file once to OpenRouter's chat completions — a PDF as a `file` part the model reads

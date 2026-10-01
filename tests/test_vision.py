@@ -82,8 +82,12 @@ def _never(prompt, png):
 @pytest.fixture(autouse=True)
 def _clean_env(monkeypatch):
     for key in ("PARSURE_VISION", "PARSURE_VISION_MAX_PAGES", "PARSURE_VISION_TIMEOUT_S", "ASSURE_LLM_BACKEND",
-                "OPENROUTER_API_KEY", vz.OLLAMA_VISION_ENV, vz.OPENROUTER_VISION_ENV, vz.BEDROCK_VISION_ENV):
+                vz.OLLAMA_VISION_ENV, vz.BEDROCK_VISION_ENV):
         monkeypatch.delenv(key, raising=False)
+    # Since 2026-10-01 the default backend is Bedrock, whose Sonnet 5.5 counts as
+    # a configured vision model: an attach_vision without an injected completion
+    # would leave the laptop for Bedrock. Every such call fails here instead.
+    monkeypatch.setattr(vz, "default_completion", lambda *a, **k: pytest.fail("no real vision call under test"))
 
 
 # ---------------------------------------------------------------- config ---
@@ -102,9 +106,12 @@ def test_off_flag_is_disabled_with_reason_and_never_renders(monkeypatch):
 
 
 def test_backend_without_a_vision_model_is_disabled_with_reason(monkeypatch):
-    monkeypatch.setenv("ASSURE_LLM_BACKEND", "cloud")
-    enabled, model, reason = vz.vision_enabled()
-    assert enabled is False and model is None and "no vision model for backend 'cloud'" in reason
+    """Only ``bedrock`` and ``ollama`` have vision models; an unknown backend name
+    passed explicitly gets none (``llm_backend()`` itself no longer returns one —
+    a leftover ``cloud`` reads as Bedrock since 2026-10-01)."""
+    model, reason = vz.vision_model("cloud")
+    assert model is None and "no vision model for backend 'cloud'" in reason
+    monkeypatch.setenv("ASSURE_LLM_BACKEND", "ollama")  # no vision tag named
     report = _report()
     vz.attach_vision(report, file_bytes=_png(800, 600), intake=INTAKE_PHOTO)
     assert report["vision"]["status"] == "disabled" and "no vision model" in report["vision"]["reason"]
@@ -121,16 +128,21 @@ def test_ollama_default_is_off_until_a_vision_model_is_named(monkeypatch):
     assert vz.vision_enabled() == (True, "ollama/llava:7b", None)
 
 
-def test_openrouter_and_bedrock_models_resolve(monkeypatch):
-    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-or-test")
-    assert vz.vision_enabled() == (True, "openrouter/amazon/nova-lite-v1", None)
-    monkeypatch.setenv(vz.OPENROUTER_VISION_ENV, "qwen/qwen2.5-vl-72b-instruct")
-    assert vz.vision_model("openrouter") == ("openrouter/qwen/qwen2.5-vl-72b-instruct", None)
+def test_bedrock_model_resolves_by_default(monkeypatch):
+    """Bedrock is the default (2026-10-01): the drafting Sonnet 5.5 is the vision
+    model, through the region's inference profile; a leftover ``openrouter``
+    backend value resolves the same way."""
+    monkeypatch.setenv("AWS_DEFAULT_REGION", "us-east-1")
+    for k in ("ASSURE_BEDROCK_MODEL", "ASSURE_BEDROCK_MODEL_DRAFT"):
+        monkeypatch.delenv(k, raising=False)
+    assert vz.vision_enabled() == (True, "bedrock/us.anthropic.claude-sonnet-5-5", None)
+    monkeypatch.setenv("ASSURE_LLM_BACKEND", "openrouter")
+    assert vz.vision_model() == ("bedrock/us.anthropic.claude-sonnet-5-5", None)
     monkeypatch.setenv("ASSURE_LLM_BACKEND", "bedrock")
     monkeypatch.setenv("AWS_DEFAULT_REGION", "eu-central-1")
-    assert vz.vision_model() == ("bedrock/eu.anthropic.claude-sonnet-5", None)
-    monkeypatch.setenv(vz.BEDROCK_VISION_ENV, "anthropic.claude-opus-5")
-    assert vz.vision_model() == ("bedrock/eu.anthropic.claude-opus-5", None)
+    assert vz.vision_model() == ("bedrock/eu.anthropic.claude-sonnet-5-5", None)
+    monkeypatch.setenv(vz.BEDROCK_VISION_ENV, "anthropic.claude-opus-5-5")
+    assert vz.vision_model() == ("bedrock/eu.anthropic.claude-opus-5-5", None)
 
 
 def test_text_only_ollama_tag_is_refused_before_any_picture_is_sent(monkeypatch):
@@ -149,7 +161,7 @@ def test_text_only_ollama_tag_is_refused_before_any_picture_is_sent(monkeypatch)
     assert vz.model_cannot_see("ollama/qwen2.5vl:3b") is None
     monkeypatch.setattr(vz, "_ollama_capabilities", lambda model: None)
     assert vz.model_cannot_see("ollama/qwen2.5vl:3b") is None
-    assert vz.model_cannot_see("openrouter/amazon/nova-lite-v1") is None
+    assert vz.model_cannot_see("bedrock/us.anthropic.claude-sonnet-5-5") is None
 
 
 # --------------------------------------------------------------- quality ---
@@ -322,16 +334,11 @@ def test_a_photo_runs_the_configured_model_and_an_empty_answer_says_so():
 
 
 def test_no_vision_model_names_the_model_table(monkeypatch):
-    monkeypatch.setenv("ASSURE_LLM_BACKEND", "cloud")
-    monkeypatch.setenv("OPENROUTER_API_KEY", "")
-    model, why = vz.vision_model()
+    model, why = vz.vision_model("cloud")
     assert model is None
     assert "vision models: ollama=ASSURE_OLLAMA_MODEL_VISION (default qwen2.5vl:3b, off until set)" in why
-    assert "openrouter=ASSURE_OPENROUTER_MODEL_VISION (default amazon/nova-lite-v1)" in why
     assert "bedrock=ASSURE_BEDROCK_MODEL_VISION" in why
-    report = _report()
-    vz.attach_vision(report, file_bytes=_png(800, 600), intake=INTAKE_PHOTO)
-    assert report["vision"]["status"] == "disabled" and "vision models:" in report["vision"]["reason"]
+    assert "openrouter" not in why.lower()  # removed 2026-10-01
     monkeypatch.setenv("ASSURE_LLM_BACKEND", "ollama")
     monkeypatch.delenv(vz.OLLAMA_VISION_ENV, raising=False)
     enabled, _model, reason = vz.vision_enabled()

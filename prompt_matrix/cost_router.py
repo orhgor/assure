@@ -22,7 +22,9 @@ MODEL_PRICING = {
     "claude-3-haiku-20240307": {"input": 0.25, "output": 1.25},
     "gemini-1.5-pro": {"input": 2.50, "output": 7.50},
     "gemini-1.5-flash": {"input": 0.075, "output": 0.30},
-    "qwen3-next": {"input": 0.30, "output": 1.50},  # approximate (OpenRouter)
+    # Bedrock (default backend since 2026-10-01): Anthropic list rates, which
+    # Bedrock on-demand us-east-1 matches; see services/pricing.py.
+    "claude-sonnet-5-5": {"input": 3.00, "output": 15.00},
     "kimi-moonshot-v1": {"input": 0.50, "output": 1.50},  # approximate
 }
 
@@ -30,8 +32,9 @@ MODEL_PRICING = {
 ROUTING_RULES = [
     # If input is tiny (< 2k) and intent is simple -> cheapest flash model
     {"max_tokens": 2048, "intents": ["debug", "comparison"], "prefer": "gemini-1.5-flash"},
-    # If input is medium (< 20k) and intent is analytical -> fast chat (cheap + good reasoning)
-    {"max_tokens": 20000, "intents": ["analysis", "design"], "prefer": "qwen3-next"},
+    # If input is medium (< 20k) and intent is analytical -> the backend's Sonnet
+    # (was the OpenRouter qwen3-next fast-chat row until 2026-10-01)
+    {"max_tokens": 20000, "intents": ["analysis", "design"], "prefer": "claude-sonnet-5-5"},
     # Long documents (> 20k) but not heavy reasoning -> Haiku (cheap for long context)
     {"max_tokens": 100000, "intents": ["research"], "prefer": "claude-3-haiku-20240307"},
     # Heavy lifting (research + long docs) -> best-in-class reasoning (Pro/Sonnet)
@@ -46,7 +49,13 @@ MODEL_ALIASES = {
     "gemini": "gemini-1.5-flash",
     "flash": "gemini-1.5-flash",
     "pro": "gemini-1.5-pro",
-    "qwen3-next": "qwen3-next",
+    # "qwen3-next" was the OpenRouter fast-chat row (removed 2026-10-01); old
+    # role maps that still name it price and send as the Bedrock Sonnet row.
+    "qwen3-next": "claude-sonnet-5-5",
+    "bedrock": "claude-sonnet-5-5",
+    "bedrock/us.anthropic.claude-sonnet-5-5": "claude-sonnet-5-5",
+    "us.anthropic.claude-sonnet-5-5": "claude-sonnet-5-5",
+    "anthropic.claude-sonnet-5-5": "claude-sonnet-5-5",
     "kimi": "kimi-moonshot-v1",
     "moonshot": "kimi-moonshot-v1",
     "anthropic/claude-sonnet-4-5": "claude-3-5-sonnet-20240620",
@@ -60,26 +69,15 @@ MODEL_ALIASES = {
     "gemini/gemini-1.5-pro": "gemini-1.5-pro",
     "gemini/gemini-2.5-flash": "gemini-1.5-flash",
     "gemini/gemini-2.5-pro": "gemini-1.5-pro",
-    "openrouter/qwen/qwen3-next-80b-a3b-instruct": "qwen3-next",
     "moonshot/kimi-k2.5": "kimi-moonshot-v1",
-    "groq/llama-3.3-70b-versatile": "qwen3-next",
-    "openrouter/meta-llama/llama-3.3-70b-instruct:free": "qwen3-next",
-    "groq/llama-4-scout-17b-16e-instruct": "qwen3-next",
-    "openrouter/mistralai/mistral-small-3.1-24b-instruct:free": "qwen3-next",
-    "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free": "qwen3-next",
-    "openrouter/nvidia/nemotron-3-super-120b-a12b:free": "qwen3-next",
-    "openrouter/nvidia/nemotron-3.5-lightning:free": "qwen3-next",
-    "openrouter/nex-agi/nex-n2.5-mini:free": "qwen3-next",
-    "openrouter/liquid/lfm-2.5-2.6b:free": "qwen3-next",
-    "openrouter/poolside/laguna-xs-2.1:free": "qwen3-next",
-    "openrouter/google/gemma-4-26b-a4b-it:free": "qwen3-next",
-    "openrouter/google/gemma-4-31b-it:free": "qwen3-next",
+    "groq/llama-3.3-70b-versatile": "claude-sonnet-5-5",
+    "groq/llama-4-scout-17b-16e-instruct": "claude-sonnet-5-5",
 }
 
 TARGET_FOR = {
     "gemini-1.5-flash": "gemini",
     "gemini-1.5-pro": "gemini",
-    "qwen3-next": "openrouter",
+    "claude-sonnet-5-5": "bedrock",
     "claude-3-haiku-20240307": "claude",
     "claude-3-5-sonnet-20240620": "claude",
     "kimi-moonshot-v1": "kimi",
@@ -88,7 +86,7 @@ TARGET_FOR = {
 LITELLM_FOR = {
     "gemini-1.5-flash": "gemini/gemini-3.6-flash",
     "gemini-1.5-pro": "gemini/gemini-3.6-flash",
-    "qwen3-next": "openrouter/qwen/qwen3-next-80b-a3b-instruct",
+    "claude-sonnet-5-5": "bedrock/us.anthropic.claude-sonnet-5-5",
     "claude-3-haiku-20240307": "anthropic/claude-haiku-4-5",
     "claude-3-5-sonnet-20240620": "anthropic/claude-sonnet-4-5",
     "kimi-moonshot-v1": "moonshot/kimi-k2.5",

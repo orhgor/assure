@@ -36,7 +36,7 @@ try:
         build_omp_artifact_from_parse,
     )
     from ..services.omp_memory import remember_vault_file
-    from ..services.source_jdf import content_revision, is_source_jdf, pages_are_ocr, persist_source_jdf, store_page_rasters
+    from ..services.source_jdf import content_revision, is_source_jdf, original_display, pages_are_ocr, persist_source_jdf, store_original, store_page_rasters
     from ..services.verification import run_verification_after_parse
     from ..upload_limits import UploadRejectedError, validate_upload_bytes
 except ImportError:
@@ -62,7 +62,7 @@ except ImportError:
         build_omp_artifact_from_parse,
     )
     from services.omp_memory import remember_vault_file
-    from services.source_jdf import content_revision, is_source_jdf, pages_are_ocr, persist_source_jdf, store_page_rasters
+    from services.source_jdf import content_revision, is_source_jdf, original_display, pages_are_ocr, persist_source_jdf, store_original, store_page_rasters
     from services.verification import run_verification_after_parse
     from upload_limits import UploadRejectedError, validate_upload_bytes
 
@@ -301,7 +301,16 @@ def extract_document_text(filename: str, file_bytes: bytes) -> dict:
                 from ..services.textract_jdf import textract_parse_bundle
             except ImportError:  # pragma: no cover - flat-import fallback
                 from services.textract_jdf import textract_parse_bundle  # type: ignore
-            extracted = textract_parse_bundle(file_bytes, filename, client=client)
+            try:
+                from ..services.llm_parse import LLMParseError
+            except ImportError:  # pragma: no cover - flat-import fallback
+                from services.llm_parse import LLMParseError  # type: ignore
+            try:
+                extracted = textract_parse_bundle(file_bytes, filename, client=client)
+            except LLMParseError as exc:
+                # The model reader's failure is a document answer (400 + the
+                # reason), not an unhandled 500 (review 2026-10-01).
+                raise SubstrateIngestError(f"The document could not be read by the model: {exc}") from exc
         except TextractError:
             if ocr_empty:
                 raise SubstrateIngestError(
@@ -423,7 +432,7 @@ def ingest_substrate_file(
         from ..services.model_calls import stage_context as _stage_context
     except ImportError:  # pragma: no cover
         from services.model_calls import stage_context as _stage_context  # type: ignore
-    # A hosted reader's requests (the model under PARSER_BACKEND=openrouter)
+    # A hosted reader's requests (Claude Opus 5.5 under PARSER_BACKEND=bedrock)
     # are booked to this project and job under the ``parse`` stage.
     with _stage_context("parse", project_id=project_id, task=job_id):
         extracted = extract_document_text(filename, file_bytes)
@@ -488,7 +497,10 @@ def ingest_substrate_file(
         # parser name (``jdf-cli+tesseract``) and the source kind decide; the
         # router's intake dict is only computed further down on this path.
         rasters: list[dict] = []
-        if pages_are_ocr(extracted.get("parser_name"), source_kind=extracted.get("source_kind")):
+        display = original_display(filename, modality=None, parser_name=extracted.get("parser_name"),
+                                   source_kind=extracted.get("source_kind"))
+        original = store_original(project_id, str(entry["id"]), source_revision, file_bytes, filename, display=display)
+        if display == "image" or pages_are_ocr(extracted.get("parser_name"), source_kind=extracted.get("source_kind")):
             rasters = store_page_rasters(
                 project_id, str(entry["id"]), source_revision, file_bytes, filename, page_count
             )
@@ -501,6 +513,7 @@ def ingest_substrate_file(
             job_id=job_id,
             filename=filename,
             rasters=rasters,
+            original=original,
         )
 
     _job_advance(

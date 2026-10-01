@@ -33,7 +33,7 @@ def test_compare_returns_two_models(client, monkeypatch) -> None:
                 "jdf": {"text": "Alpha output", "divergences": []},
             },
             "model_b": {
-                "model": "openrouter/qwen/qwen3-next-80b-a3b-instruct",
+                "model": "bedrock/us.anthropic.claude-sonnet-5-5",
                 "name": "DeepSeek V3",
                 "text": "Beta output",
                 "jdf": {"text": "Beta output", "divergences": []},
@@ -44,7 +44,7 @@ def test_compare_returns_two_models(client, monkeypatch) -> None:
             },
         }
 
-    monkeypatch.setenv("ASSURE_USE_FREE_MODELS", "1")
+    monkeypatch.setenv("ASSURE_LLM_BACKEND", "bedrock")
     monkeypatch.setattr(
         "prompt_matrix.routers.compare_routes.run_compare_pair_async",
         _fake_async,
@@ -56,6 +56,6 @@ def test_compare_returns_two_models(client, monkeypatch) -> None:
     )
     assert res.status_code == 200
     body = res.get_json()
-    assert body["stack"] == "free"
+    assert body["stack"] == "production"
     assert body["model_a"]["text"] == "Alpha output"
     assert body["model_b"]["text"] == "Beta output"

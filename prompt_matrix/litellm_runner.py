@@ -20,6 +20,18 @@ try:
 except ImportError:  # pragma: no cover
     ContextWindowExceededError = type("ContextWindowExceededError", (Exception,), {})  # type: ignore[misc,assignment]
 
+# Claude Sonnet 5.5 / Opus 5.5 on Bedrock reject `temperature` (and litellm
+# raises UnsupportedParamsError for it, measured 2026-10-01). Many call sites
+# pass temperature/seed for determinism on other providers; dropping what the
+# model does not support keeps them working. Set at import: every module that
+# reaches litellm imports this one through cost_governance.
+litellm.drop_params = True
+# litellm's Bedrock client reads AWS_REGION_NAME before AWS_REGION; boto3's
+# S3 client reads neither, so the models can live in another region than the
+# bucket (ASSURE_BEDROCK_REGION, 2026-10-01).
+if os.environ.get("ASSURE_BEDROCK_REGION", "").strip() and not os.environ.get("AWS_REGION_NAME"):
+    os.environ["AWS_REGION_NAME"] = os.environ["ASSURE_BEDROCK_REGION"].strip()
+
 DEFAULT_MAX_TOKENS = 4096
 DEFAULT_TIMEOUT_SECONDS = 60
 

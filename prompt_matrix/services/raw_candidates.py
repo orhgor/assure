@@ -247,6 +247,18 @@ def textract_form_candidates(forms: Iterable[dict[str, Any]] | None, texts: list
         text = texts[page - 1] if 0 < page <= len(texts) else ""
         hit = lx.find_verbatim(text, value) if text else None
         span = fd._locate(layout, page - 1, hit[0], hit[1]) if hit else {"span_type": "textract_kv", "start_char": None, "end_char": None}
+        # The reader's own value box (then the label's) is where the value is
+        # on the page — tighter than the OCR line the text match lands on, and
+        # the only box when the value is not verbatim in the page text
+        # (review 2026-10-01: such fields had no position at all).
+        for box in (form.get("value_bbox"), form.get("key_bbox")):
+            if isinstance(box, dict) and all(isinstance(box.get(k), (int, float)) for k in ("x", "y", "w", "h")):
+                span = dict(span, span_type="bbox_relative",
+                            bbox=[round(box["x"], 4), round(box["y"], 4), round(box["x"] + box["w"], 4), round(box["y"] + box["h"], 4)])
+                break
+        for flag in ("handwritten", "illegible", "kind"):
+            if form.get(flag):
+                span = dict(span, **{flag: form[flag]})
         yield _candidate(name_hint=key, raw_text=value, label_anchor=key, page=page, span=span, source_kind="textract",
                          trace=f"textract: KEY_VALUE_SET #{i}", node_id=span.get("node_id"), element_id=span.get("element_id"))
 

@@ -120,7 +120,9 @@ def test_the_call_asks_for_the_intent_budget_rather_than_its_own_cap(monkeypatch
     monkeypatch.setattr(lock_inference, "load_keys", lambda: None)
     monkeypatch.setattr(lock_inference, "key_present", lambda _name: True)
 
-    result = infer_lock_candidates(MEMO_TEXT)
+    # The hosted call_model path is reached by an explicitly passed hosted
+    # model since 2026-10-01 (the default goes through the Bedrock executor).
+    result = infer_lock_candidates(MEMO_TEXT, model="gemini/gemini-3.6-flash")
     assert captured["kwargs"]["intent"] == "analysis"
     assert "max_tokens" not in captured["kwargs"]
     assert [c["metric"] for c in result.candidates] == ["cap"]
@@ -144,15 +146,16 @@ def test_a_no_figure_answer_reports_no_locks(monkeypatch) -> None:
     other half of this behaviour lives in tests/test_draft.py, which asserts the
     status rather than the extraction.
     """
-    # The model follows the app's backend since 2026-09-27 (an OpenRouter key in
-    # .env resolves the anchor-stage model); the legacy id is the cloud default.
-    monkeypatch.setenv("ASSURE_LLM_BACKEND", "cloud")
-    monkeypatch.setattr(lock_inference, "call_model", lambda *_a, **_k: _answer())
+    # The model follows the app's backend (2026-09-27); since 2026-10-01 the
+    # default is Bedrock Sonnet 5.5 through the backend executor.
+    for var in ("ASSURE_LLM_BACKEND", "ASSURE_BEDROCK_MODEL", "ASSURE_BEDROCK_MODEL_ANALYSIS",
+                "AWS_DEFAULT_REGION", "AWS_REGION"):
+        monkeypatch.delenv(var, raising=False)
+    monkeypatch.setattr(lock_inference, "_backend_completion", lambda *_a, **_k: _answer())
     monkeypatch.setattr(lock_inference, "load_keys", lambda: None)
-    monkeypatch.setattr(lock_inference, "key_present", lambda _name: True)
     result = infer_lock_candidates(MEMO_TEXT)
     assert result.candidates == []
-    assert result.model == "openrouter/qwen/qwen3-next-80b-a3b-instruct"
+    assert result.model == "bedrock/us.anthropic.claude-sonnet-5-5"
 
 
 @pytest.mark.skipif(

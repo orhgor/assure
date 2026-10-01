@@ -148,7 +148,7 @@ def test_run_draft_pipeline_progressive(monkeypatch):
                 "metric": "policy liability limit",
                 "confidence": 0.9,
             }
-        ], "openrouter/qwen/qwen3-next-80b-a3b-instruct"
+        ], "bedrock/us.anthropic.claude-sonnet-5-5"
 
     def stub_check(_claim, _source, *, project_id=""):
         return {
@@ -243,7 +243,7 @@ def test_run_draft_pipeline_verifies_anchored_claims(monkeypatch):
         yield (claim, 10, 5, "anthropic/claude-3-5-sonnet-20241022")
 
     def fake_locks(_text):
-        return [], "openrouter/qwen/qwen3-next-80b-a3b-instruct"
+        return [], "bedrock/us.anthropic.claude-sonnet-5-5"
 
     calls: list[tuple[str, str]] = []
 
@@ -467,12 +467,12 @@ def test_run_redhat_pipeline_opt_in(monkeypatch):
             {
                 "title": "Red-hat review",
                 "content": "Looks good.",
-                "model": "openrouter/qwen/qwen3-next-80b-a3b-instruct",
+                "model": "bedrock/us.anthropic.claude-sonnet-5-5",
             }
         ], {
             "input_tokens": 50,
             "output_tokens": 20,
-            "model_id": "openrouter/qwen/qwen3-next-80b-a3b-instruct",
+            "model_id": "bedrock/us.anthropic.claude-sonnet-5-5",
             "task_type": "redhat",
         }
 
@@ -585,14 +585,14 @@ def test_run_redhat_pipeline_refuses_a_truncated_answer(monkeypatch):
                     "(finish_reason='length') and its answer was cut off, so it is "
                     "not a review. No finding was recorded."
                 ),
-                "model": "openrouter/qwen/qwen3-next-80b-a3b-instruct",
+                "model": "bedrock/us.anthropic.claude-sonnet-5-5",
                 "status": "error",
                 "code": "redhat_truncated",
             }
         ], {
             "input_tokens": 732,
             "output_tokens": 8192,
-            "model_id": "openrouter/qwen/qwen3-next-80b-a3b-instruct",
+            "model_id": "bedrock/us.anthropic.claude-sonnet-5-5",
             "task_type": "redhat",
         }
 
@@ -648,12 +648,12 @@ def test_run_redhat_pipeline_target_node_id(monkeypatch):
             {
                 "title": "Red-hat review",
                 "content": "Unsupported claim.",
-                "model": "openrouter/qwen/qwen3-next-80b-a3b-instruct",
+                "model": "bedrock/us.anthropic.claude-sonnet-5-5",
             }
         ], {
             "input_tokens": 10,
             "output_tokens": 5,
-            "model_id": "openrouter/qwen/qwen3-next-80b-a3b-instruct",
+            "model_id": "bedrock/us.anthropic.claude-sonnet-5-5",
             "task_type": "redhat",
         }
 
@@ -718,7 +718,7 @@ class _CapturingGovernor:
             text = "Review."
             input_tokens = 1
             output_tokens = 1
-            model_id = "openrouter/qwen/qwen3-next-80b-a3b-instruct"
+            model_id = "bedrock/us.anthropic.claude-sonnet-5-5"
 
         return R()
 
@@ -852,7 +852,7 @@ def test_redhat_audit_refuses_a_completion_cut_off_at_the_ceiling():
                 text = scratchpad
                 input_tokens = 732
                 output_tokens = 8192
-                model_id = "openrouter/qwen/qwen3-next-80b-a3b-instruct"
+                model_id = "bedrock/us.anthropic.claude-sonnet-5-5"
                 finish_reason = "length"
                 truncated = True
 
@@ -880,7 +880,7 @@ def test_redhat_audit_keeps_a_complete_answer():
                 text = "**Finding** — sentence two is unsupported by the source."
                 input_tokens = 364
                 output_tokens = 3257
-                model_id = "openrouter/qwen/qwen3-next-80b-a3b-instruct"
+                model_id = "bedrock/us.anthropic.claude-sonnet-5-5"
                 finish_reason = "stop"
                 truncated = False
 
@@ -953,7 +953,7 @@ class _FakeGovernor:
             text = "critique"
             input_tokens = 10
             output_tokens = 5
-            model_id = "openrouter/qwen/qwen3-next-80b-a3b-instruct"
+            model_id = "bedrock/us.anthropic.claude-sonnet-5-5"
 
         return R()
 
@@ -1035,7 +1035,7 @@ def _grounded_compile(monkeypatch, project_id: str = "default", **kwargs):
     def fake_locks(_text):
         return [
             {"canonical_key": "Revenue", "value": 100, "metric": "Revenue", "confidence": 0.9}
-        ], "openrouter/qwen/qwen3-next-80b-a3b-instruct"
+        ], "bedrock/us.anthropic.claude-sonnet-5-5"
 
     def stub_check(_claim, _source, *, project_id=""):
         return {
@@ -1188,7 +1188,7 @@ def test_rate_limit_classifier_and_first_chunk_chain():
         pass
 
     assert _is_rate_limited(RateLimitError("Provider returned error"))
-    assert _is_rate_limited(Exception("OpenrouterException - 429 temporarily rate-limited upstream"))
+    assert _is_rate_limited(Exception("BedrockException - 429 Too many requests, please wait before trying again"))
     assert not _is_rate_limited(Exception("AuthenticationError: invalid key"))
     assert list(_chain_first("a", iter(["b", "c"]))) == ["a", "b", "c"]
     assert list(_chain_first(None, iter(["b"]))) == ["b"]

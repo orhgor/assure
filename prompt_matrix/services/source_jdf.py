@@ -158,6 +158,74 @@ def page_raster_url(project_id: str, document_id: str, page_no: int) -> str:
     return f"/api/projects/{project_id}/documents/{document_id}/pages/{int(page_no)}.png"
 
 
+def original_key(source_key: str, filename: str | None) -> str:
+    """``documents/<project>/<doc>/<revision>/original.<ext>`` beside the
+    ``.jdf`` key of the same revision (derived like ``page_raster_key``)."""
+    if not source_key.endswith(".jdf"):
+        raise ValueError(f"not a source JDF key: {source_key!r}")
+    ext = (str(filename or "").lower().rsplit(".", 1)[-1] if "." in str(filename or "") else "bin")
+    ext = "".join(c for c in ext if c.isalnum())[:8] or "bin"
+    return f"{source_key[:-len('.jdf')]}/original.{ext}"
+
+
+def original_url(project_id: str, document_id: str) -> str:
+    return f"/api/projects/{project_id}/documents/{document_id}/original"
+
+
+def store_original(
+    project_id: str,
+    document_id: str,
+    revision: str,
+    file_bytes: bytes | None,
+    filename: str | None,
+    *,
+    display: str,
+) -> dict[str, Any] | None:
+    """Keep the uploaded file beside its source JDF and return
+    ``{"key", "url", "content_type", "display", "bytes"}``, or None.
+
+    User decision 2026-10-01: the reviewer sees the document, not a re-drawn
+    text dump — a digital PDF is shown as the PDF itself (``display: "pdf"``),
+    a scan or photo as its page images with the fields placed on them
+    (``display: "image"``). Until then the staged upload was deleted after
+    intake (``uploads/`` also expires after a day), so ``…/original`` answered
+    404 for nearly every document. Never raises: a store failure is logged and
+    the UI falls back to the source JDF view."""
+    if not file_bytes:
+        return None
+    try:
+        import mimetypes
+        key = original_key(source_jdf_key(project_id, document_id, revision), filename)
+        content_type = mimetypes.guess_type(filename or "")[0] or "application/octet-stream"
+        get_object_store().put_bytes(key, file_bytes, content_type=content_type)
+    except Exception:
+        log.exception("original of %s/%s could not be stored", project_id, document_id)
+        return None
+    return {
+        "key": key,
+        "url": original_url(project_id, document_id),
+        "content_type": content_type,
+        "display": display if display in ("pdf", "image") else "image",
+        "bytes": len(file_bytes),
+    }
+
+
+def original_display(filename: str | None, *, modality: str | None, parser_name: str | None, source_kind: str | None) -> str:
+    """``"pdf"`` for a PDF with a real text layer (shown as is), ``"image"``
+    for a scan, a photo or any image upload (page rasters + placed fields).
+    A model-read PDF is a ``"pdf"`` when the router measured it digital: the
+    reader changes, the page does not."""
+    name = str(filename or "").lower()
+    if not name.endswith(".pdf"):
+        return "image"
+    mod = str(modality or "").lower()
+    if mod in PICTURE_MODALITIES:
+        return "image"
+    if mod == "digital_pdf":
+        return "pdf"
+    return "image" if pages_are_ocr(parser_name, source_kind=source_kind) else "pdf"
+
+
 def pages_are_ocr(parser_name: str | None, *, modality: str | None = None, source_kind: str | None = None) -> bool:
     """Whether the document's text is an OCR reading of a picture — the case in
     which the reader needs the page itself, not only its text. True for an OCR
@@ -585,6 +653,7 @@ def persist_source_jdf(
     job_id: str | None = None,
     filename: str | None = None,
     rasters: list[dict[str, Any]] | None = None,
+    original: dict[str, Any] | None = None,
 ) -> dict[str, Any] | None:
     """Store the raw jdf-cli document and return its descriptor, or None.
 
@@ -622,6 +691,8 @@ def persist_source_jdf(
             "elements_stamped": stamped,
             "rasters": rastered,
         }
+        if original:
+            meta["assure"]["original"] = dict(original)
         doc["meta"] = meta
         key = source_jdf_key(project_id, document_id, revision)
         payload = json.dumps(doc, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
@@ -638,6 +709,8 @@ def persist_source_jdf(
             "document_id": document_id,
             "bytes": len(payload),
         }
+        if original:
+            descriptor["original"] = {k: original[k] for k in ("url", "content_type", "display") if k in original}
     except Exception:
         log.exception("source JDF for %s/%s could not be stored", project_id, document_id)
         return None
@@ -729,6 +802,8 @@ def describe_source_jdf(key: str, doc: dict) -> dict[str, Any]:
         "stored_at": assure.get("stored_at"),
         "revision": assure.get("revision"),
         "element_id_policy": assure.get("element_id_policy"),
+        **({"original": {k: assure["original"][k] for k in ("url", "content_type", "display") if k in assure["original"]}}
+           if isinstance(assure.get("original"), dict) else {}),
     }
 
 

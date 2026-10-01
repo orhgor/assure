@@ -170,3 +170,43 @@ for the deploy, not something a local run can claim.
   chip | one primary action + overflow; rail = Workspaces / Sources /
   Analytics / Settings; inspector sections collapsible with "why" lines;
   Parsure page = one summary line, evidence cards, calm amber warnings.
+
+## 2026-10-01 — OpenRouter removed; every model call on Amazon Bedrock
+
+- **Chose:** one backend, Amazon Bedrock. The document read (`PARSER_BACKEND=bedrock`,
+  `services/llm_parse`) runs on Claude Opus 5.5 (`anthropic.claude-opus-5-5`); every
+  other prompt — compile, lock inference, entailment, Red-Hat, surgical edit, field
+  extraction, vision, Compare — on Claude Sonnet 5.5 (`anthropic.claude-sonnet-5-5`).
+  Both are sent as `bedrock/us.anthropic.…` through the `us.` inference profile in
+  us-east-1 (`cost_governance.bedrock_model`, `_bedrock_qualify`). `ASSURE_LLM_BACKEND`
+  is `bedrock` (default) or `ollama` (explicit, local container); any other value,
+  including a leftover `openrouter` or `cloud`, resolves to Bedrock.
+- **Rejected:** keeping OpenRouter as a fallback, and the OpenRouter `:free`
+  Difference-Engine stack (`ASSURE_USE_FREE_MODELS`, staging since 2026-09-10). Both
+  are deleted, not disabled: `use_free_models()` is always `False`, the
+  `OPENROUTER_*` keys, `ASSURE_OPENROUTER_MODEL_*`, `keys.PROVIDER_PIN` and the
+  OpenRouter health probe are gone. `PARSER_BACKEND=openrouter|llm|model` stay as
+  aliases for `bedrock` so an old `.env` keeps parsing.
+- **Because:** user decision 2026-10-01 — one AWS identity (`services/aws_integration`)
+  for documents and models, no third-party key on the box, the task role
+  (`infra/terraform/ecs.tf`: `bedrock:InvokeModel*`, `bedrock:Converse*` on the
+  inference profiles and the Anthropic foundation models) signs every call.
+- **Consequences, measured or stated:**
+  - `litellm.drop_params = True` (set in `keys.litellm_kwargs_for`/`litellm_runner`):
+    Bedrock rejects `seed`. A live check on 2026-10-01 (3 streaming Sonnet 5.5 calls)
+    succeeded with temperature + top_p + seed, top_p alone, and neither. The compile
+    stream (`routers/draft._open_model_stream`) no longer sends `top_p`; it sends
+    `temperature=0.0` and `seed=0` (seed dropped on Bedrock).
+  - The OpenRouter upstream-provider pin (`extra_body={"provider": …}`) is gone; on
+    Bedrock one model id is one model, so there is nothing to pin.
+  - Compare runs `bedrock_model("a")` against `bedrock_model("b")` — Sonnet 5.5 twice
+    by default. The two-family guard (`compare_routes`, `compare_models`) was a
+    free-stack rule and was removed; it would have refused the default pair.
+  - The litellm Router's `text-reasoning` / `table-parsing` / `vision-analysis` were an
+    OpenRouter Qwen id plus Gemini/Anthropic keys; they now resolve on the backend.
+  - Costs: `services/pricing.py` books Sonnet 5.5 at $3 / $15 and Opus 5.5 at $5 / $25
+    per million tokens — Anthropic's list rates, **not** verified against the AWS
+    Price List API (the lookup failed on 2026-10-01 with an invalid-token error).
+  - The Bedrock profile follows `AWS_DEFAULT_REGION` (`us.` / `eu.` / `apac.`); the
+    compose and `.env*.example` defaults are us-east-1. Terraform's `region` still
+    defaults to eu-central-1 (the stack's region), which selects the `eu.` profile.

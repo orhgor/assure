@@ -35,7 +35,6 @@ def _litellm_api_kwargs(model: str) -> dict:
         "anthropic": "claude",
         "gemini": "gemini",
         "groq": "groq",
-        "openrouter": "openrouter",
     }.get(prefix, prefix)
     try:
         try:
@@ -117,126 +116,71 @@ class ModelPolicy:
     litellm_model: str = ""
 
 
+# Every task runs on Claude Sonnet 5.5 through Amazon Bedrock (user decision
+# 2026-10-01: "diğer prompt atılan yerlerde Sonnet'in son modelini kullan ki
+# daha ucuz olsun"; OpenRouter removed). The document read itself is the one
+# Opus 5.5 call (services/llm_parse, BEDROCK_MODEL_PARSE) and is not a policy.
+# Ids are bare here and qualified with the region's inference-profile prefix
+# by _apply_llm_backend; `us.anthropic.claude-sonnet-5-5` answered a Converse
+# call in us-east-1 on 2026-10-01. Sonnet 5.5 and Opus 5.5 reject `temperature`
+# ("deprecated for this model", 2026-10-01) — litellm_runner sets
+# litellm.drop_params so the call sites that still pass it keep working.
+_SONNET = "bedrock/anthropic.claude-sonnet-5-5"
+
+
+def _policy(task: TaskType, max_output: int) -> ModelPolicy:
+    return ModelPolicy(
+        model_id=_SONNET,
+        max_input_tokens=MAX_INPUT_TOKENS[task],
+        max_output_tokens=max_output,
+        caching=False,
+        litellm_model=_SONNET,
+    )
+
+
 TASK_POLICIES: dict[TaskType, ModelPolicy] = {
-    # Surgical edits → DeepSeek-V3 via the connected OpenRouter key (cheap,
-    # fast, strict JSON; same model, routed through openrouter)
-    TaskType.SURGICAL_EDIT: ModelPolicy(
-        model_id="openrouter/qwen/qwen3-next-80b-a3b-instruct",
-        max_input_tokens=MAX_INPUT_TOKENS[TaskType.SURGICAL_EDIT],
-        max_output_tokens=500,
-        caching=False,
-        litellm_model="openrouter/qwen/qwen3-next-80b-a3b-instruct",
-    ),
-    # Quick draft / node summarize → same model via OpenRouter
-    TaskType.SUMMARIZE_NODE: ModelPolicy(
-        model_id="openrouter/qwen/qwen3-next-80b-a3b-instruct",
-        max_input_tokens=MAX_INPUT_TOKENS[TaskType.SUMMARIZE_NODE],
-        max_output_tokens=500,
-        caching=False,
-        litellm_model="openrouter/qwen/qwen3-next-80b-a3b-instruct",
-    ),
-    # Claim entailment (source quote → paragraph claim) → Qwen3-Next-80B-A3B
-    # Instruct (non-reasoning). Was GLM 5.3 Flash via OpenRouter (:floor =
-    # cheapest provider), whose hidden reasoning spent the whole 1024-token output
-    # budget before the verdict line, so the gate read "unverified" on anchored
-    # paragraphs. Cap unchanged: a non-reasoning model emits the verdict without
-    # burning output budget on reasoning first.
-    TaskType.SEMANTIC_VALIDATION: ModelPolicy(
-        model_id="qwen/qwen3-next-80b-a3b-instruct",
-        max_input_tokens=MAX_INPUT_TOKENS[TaskType.SEMANTIC_VALIDATION],
-        max_output_tokens=1024,
-        caching=False,
-        litellm_model="openrouter/qwen/qwen3-next-80b-a3b-instruct",
-    ),
-    # Compile draft → Qwen3-Next-80B-A3B Instruct (non-reasoning), same budget as
-    # DEEP_SYNTHESIS (2048 output / 30000 input). The compile used DEEP_SYNTHESIS —
-    # GLM 5.3 Flash :floor — whose hidden reasoning consumed the 2048-token output
-    # budget and truncated the draft. DEEP_SYNTHESIS is deliberately untouched:
-    # the Ask stream shares it and must keep its model.
-    TaskType.DRAFT_COMPILE: ModelPolicy(
-        model_id="qwen/qwen3-next-80b-a3b-instruct",
-        max_input_tokens=MAX_INPUT_TOKENS[TaskType.DRAFT_COMPILE],
-        max_output_tokens=2048,
-        caching=False,
-        litellm_model="openrouter/qwen/qwen3-next-80b-a3b-instruct",
-    ),
-    # Deep synthesis → GLM 5.3 Flash via OpenRouter (:floor = cheapest provider)
-    TaskType.DEEP_SYNTHESIS: ModelPolicy(
-        model_id="z-ai/glm-5.3-flash",
-        max_input_tokens=MAX_INPUT_TOKENS[TaskType.DEEP_SYNTHESIS],
-        max_output_tokens=2048,
-        caching=False,
-        litellm_model="openrouter/z-ai/glm-5.3-flash:floor",
-    ),
-    TaskType.MACRO_AUDIT: ModelPolicy(
-        model_id="z-ai/glm-5.3-flash",
-        max_input_tokens=MAX_INPUT_TOKENS[TaskType.MACRO_AUDIT],
-        max_output_tokens=2048,
-        caching=False,
-        litellm_model="openrouter/z-ai/glm-5.3-flash:floor",
-    ),
-    # Red-Hat adversary → a cheap non-reasoning chat model. Was a reasoning
-    # model earlier, whose hidden reasoning spent the whole 8192-token output
-    # budget, `content` came back empty, and the reasoning channel was persisted
-    # as the finding (ledger ids 2361/2362, output_tokens=8192 on an identical
-    # 732-token prompt; a 3257-token run of the same prompt produced the real
-    # review). Same lesson as SEMANTIC_VALIDATION and DRAFT_COMPILE above: the
-    # cap is for the answer, and a reasoning model spends it before writing one.
-    # Cap unchanged — this node's answers came back at 1255 and 1436 output
-    # tokens on the chat model.
-    TaskType.REDHAT: ModelPolicy(
-        model_id="openrouter/qwen/qwen3-next-80b-a3b-instruct",
-        max_input_tokens=MAX_INPUT_TOKENS[TaskType.REDHAT],
-        max_output_tokens=8192,
-        caching=False,
-        litellm_model="openrouter/qwen/qwen3-next-80b-a3b-instruct",
-    ),
-    # Parsure field extraction → the same non-reasoning instruct model as
-    # SEMANTIC_VALIDATION: the answer is one strict JSON object of at most a
-    # dozen short quote/value pairs (180–400 output tokens on the golden set),
-    # so a reasoning model would spend the cap before writing it. Every value
-    # the model names is re-found verbatim in the page text before it is used
-    # (services/llm_extraction), which is why a small model is acceptable here.
-    TaskType.FIELD_EXTRACTION: ModelPolicy(
-        model_id="qwen/qwen3-next-80b-a3b-instruct",
-        max_input_tokens=MAX_INPUT_TOKENS[TaskType.FIELD_EXTRACTION],
-        max_output_tokens=1024,
-        caching=False,
-        litellm_model="openrouter/qwen/qwen3-next-80b-a3b-instruct",
-    ),
+    TaskType.SURGICAL_EDIT: _policy(TaskType.SURGICAL_EDIT, 500),
+    TaskType.SUMMARIZE_NODE: _policy(TaskType.SUMMARIZE_NODE, 500),
+    # Output caps are for the answer; the earlier reasoning-model lesson
+    # (hidden reasoning spending the cap, ledger ids 2361/2362) still holds,
+    # and Sonnet 5.5 without extended thinking answers within them.
+    TaskType.SEMANTIC_VALIDATION: _policy(TaskType.SEMANTIC_VALIDATION, 1024),
+    TaskType.DRAFT_COMPILE: _policy(TaskType.DRAFT_COMPILE, 2048),
+    TaskType.DEEP_SYNTHESIS: _policy(TaskType.DEEP_SYNTHESIS, 2048),
+    TaskType.MACRO_AUDIT: _policy(TaskType.MACRO_AUDIT, 2048),
+    TaskType.REDHAT: _policy(TaskType.REDHAT, 8192),
+    # Parsure grounded field extraction: one strict JSON object; every value
+    # is re-found verbatim in the page text before it is used.
+    TaskType.FIELD_EXTRACTION: _policy(TaskType.FIELD_EXTRACTION, 2048),
 }
 
 def llm_backend() -> str:
-    """``ASSURE_LLM_BACKEND``: ``"ollama"`` (every task on the local Ollama
-    container, one model per stage), ``"bedrock"`` (Amazon Bedrock, Sonnet
-    drafts / Opus analyses), ``"openrouter"`` (OpenRouter, one hosted model per
-    stage — see OPENROUTER_STAGE_DEFAULTS), or ``""``/``"cloud"`` (the policies
-    above). User decision 2026-09-25: an OpenRouter key in .env with the switch
-    unset means OpenRouter — "if OpenRouter is in the env file, send every
-    request there"."""
+    """``ASSURE_LLM_BACKEND``: ``"bedrock"`` (default — Amazon Bedrock, Claude
+    Sonnet 5.5 for every prompt, Opus 5.5 for the document read) or
+    ``"ollama"`` (every task on the local Ollama container, set explicitly).
+    OpenRouter was removed on 2026-10-01 (user decision); a leftover
+    ``openrouter`` / ``cloud`` value reads as Bedrock rather than as a backend
+    nothing can serve."""
     explicit = os.environ.get("ASSURE_LLM_BACKEND", "").strip().lower()
-    if explicit:
-        return "" if explicit == "cloud" else explicit
-    if os.environ.get("OPENROUTER_API_KEY", "").strip():
-        return "openrouter"
-    # Nothing set and no OpenRouter key: the models on this machine. The legacy
-    # cloud policies (OpenRouter/DeepSeek ids) are still reachable with
-    # ASSURE_LLM_BACKEND=cloud.
-    return "ollama"
+    if explicit == "ollama":
+        return "ollama"
+    return "bedrock"
 
 
-# Bedrock defaults (user decision 2026-09-25: "LLM tarafı Sonnet, analiz tarafı
-# Opus"): the drafting tasks write with Claude Sonnet 5, the analysis tasks —
-# entailment, Red-Hat, macro audit, field extraction, lock inference — judge
-# with Claude Opus 5. Both ids were listed by `bedrock list-foundation-models`
-# in eu-central-1 and answered a Converse call through the `eu.` inference
-# profile on 2026-09-25 (1.9 s each). Override per role in .env:
-#   ASSURE_BEDROCK_MODEL_DRAFT, ASSURE_BEDROCK_MODEL_ANALYSIS, ASSURE_BEDROCK_MODEL_B
-# (ASSURE_BEDROCK_MODEL alone still sets both draft and analysis, as before).
-BEDROCK_MODEL_DRAFT = "anthropic.claude-sonnet-5"
-BEDROCK_MODEL_ANALYSIS = "anthropic.claude-opus-5"
+# Bedrock defaults (user decision 2026-10-01): the document is read by Claude
+# Opus 5.5 (services/llm_parse — handwriting, ticked boxes, stamps), every
+# other prompt — compile, entailment, Red-Hat, field extraction, surgical edit,
+# Compare — is Claude Sonnet 5.5, the cheaper model. Both ids were listed by
+# `bedrock list-foundation-models` in us-east-1 and answered through the `us.`
+# inference profile on 2026-10-01. Override per role in .env:
+#   ASSURE_BEDROCK_MODEL_PARSE, ASSURE_BEDROCK_MODEL_DRAFT,
+#   ASSURE_BEDROCK_MODEL_ANALYSIS, ASSURE_BEDROCK_MODEL_B
+# (ASSURE_BEDROCK_MODEL alone sets draft and analysis).
+BEDROCK_MODEL_PARSE = "anthropic.claude-opus-5-5"
+BEDROCK_MODEL_DRAFT = "anthropic.claude-sonnet-5-5"
+BEDROCK_MODEL_ANALYSIS = "anthropic.claude-sonnet-5-5"
 BEDROCK_MODEL_A = BEDROCK_MODEL_DRAFT
-BEDROCK_MODEL_B = "anthropic.claude-opus-5"  # Compare's second column
+BEDROCK_MODEL_B = "anthropic.claude-sonnet-5-5"  # Compare's second column
 
 #: Which task class each policy belongs to on the Bedrock backend.
 BEDROCK_ANALYSIS_TASKS = frozenset(
@@ -245,11 +189,34 @@ BEDROCK_ANALYSIS_TASKS = frozenset(
 _GEO_PREFIXES = ("us.", "eu.", "apac.", "global.")
 
 
+def bedrock_region() -> str:
+    """The Bedrock region: ``ASSURE_BEDROCK_REGION``, else the AWS region.
+    Optional and separate from S3's region (2026-10-01): the models are
+    invoked through the ``us.`` profiles in us-east-1 whatever region the
+    bucket is in; unset, the AWS region serves both."""
+    return (os.environ.get("ASSURE_BEDROCK_REGION") or os.environ.get("AWS_DEFAULT_REGION")
+            or os.environ.get("AWS_REGION") or "us-east-1").strip().lower()
+
+
+def bedrock_api_key() -> str:
+    """The Bedrock API key (bearer token), or "".
+
+    User decision 2026-10-01: Bedrock is reached with an API key only, no IAM
+    identity. ``AWS_BEARER_TOKEN_BEDROCK`` is the name boto3/botocore and
+    litellm read themselves; ``ASSURE_BEDROCK_API_KEY`` is accepted as an
+    alias and copied onto it so both clients see the same token. Without a
+    key the boto3 credential chain (keys, role) signs as before."""
+    token = (os.environ.get("AWS_BEARER_TOKEN_BEDROCK") or os.environ.get("ASSURE_BEDROCK_API_KEY") or "").strip()
+    if token and not os.environ.get("AWS_BEARER_TOKEN_BEDROCK"):
+        os.environ["AWS_BEARER_TOKEN_BEDROCK"] = token
+    return token
+
+
 def _bedrock_geo_prefix() -> str:
     """Cross-region inference profile prefix for the configured region:
     ``us.`` / ``eu.`` / ``apac.`` — the ids Bedrock serves the Anthropic models
     under (a bare model id is not invocable on-demand in most regions)."""
-    region = (os.environ.get("AWS_DEFAULT_REGION") or os.environ.get("AWS_REGION") or "us-east-1").lower()
+    region = bedrock_region()
     if region.startswith("eu-"):
         return "eu."
     if region.startswith("ap-"):
@@ -264,7 +231,7 @@ def _bedrock_qualify(raw: str) -> str:
     ``apac.``/``global.``, an ARN, or the ``bedrock/`` prefix pass through."""
     raw = raw.strip()
     if raw.startswith("bedrock/"):
-        return raw
+        raw = raw[len("bedrock/"):]
     if raw.startswith("anthropic."):
         raw = _bedrock_geo_prefix() + raw
     return f"bedrock/{raw}"
@@ -276,14 +243,17 @@ def bedrock_model(role: str = "a") -> str:
     ``"analysis"`` → ``ASSURE_BEDROCK_MODEL_ANALYSIS`` (entailment, Red-Hat,
     macro audit, field extraction, lock inference); ``"b"`` →
     ``ASSURE_BEDROCK_MODEL_B`` (Compare's second column). ``ASSURE_BEDROCK_MODEL``
-    is the shared fallback for draft and analysis. Defaults: Sonnet 5 / Opus 5 /
-    Opus 5, through the region's inference profile."""
+    is the shared fallback for draft and analysis; ``"parse"`` →
+    ``ASSURE_BEDROCK_MODEL_PARSE`` (the document read). Defaults: Sonnet 5.5
+    everywhere, Opus 5.5 for the parse, through the region's inference profile."""
     shared = os.environ.get("ASSURE_BEDROCK_MODEL", "").strip()
-    if role == "anchor":
+    if role in ("anchor", "evidence", "redhat"):
         role = "analysis"
     elif role == "edit":
         role = "draft"
-    if role == "b":
+    if role == "parse":
+        raw = os.environ.get("ASSURE_BEDROCK_MODEL_PARSE", "").strip() or BEDROCK_MODEL_PARSE
+    elif role == "b":
         raw = os.environ.get("ASSURE_BEDROCK_MODEL_B", "").strip() or BEDROCK_MODEL_B
     elif role == "analysis":
         raw = os.environ.get("ASSURE_BEDROCK_MODEL_ANALYSIS", "").strip() or shared or BEDROCK_MODEL_ANALYSIS
@@ -319,65 +289,6 @@ OLLAMA_TASK_STAGE = {
 OLLAMA_DEFAULT_MODEL = "qwen2.5:1.5b"
 OLLAMA_DEFAULT_COMPARE = "llama3.2:1b"
 _OLLAMA_ROLE_ALIASES = {"a": "draft", "b": "compare", "analysis": "evidence", "anchor": "evidence", "edit": "draft"}
-
-
-#: OpenRouter, one hosted model per stage (user's table, 2026-09-25, with the
-#: prices they quoted): Parsing & Intake → Amazon Nova Lite 1.0 (300k context,
-#: $0.06/$0.24 per M); Document Compile → Llama 3.3 70B Instruct ($0.10/$0.32);
-#: Claim anchoring → Cohere Command R7B (built for citations); Entailment
-#: verdict → Mistral Small 3 (sub-second checks); Surgical paraphrasing →
-#: Mistral Small 3. Red-Hat and Compare were not in the table: Red-Hat gets the
-#: drafting model (a critique needs the stronger writer), Compare's second
-#: column Mistral Small 3 (a different family from the first column).
-OPENROUTER_STAGE_ENV = {
-    "parse": "ASSURE_OPENROUTER_MODEL_PARSE",
-    "draft": "ASSURE_OPENROUTER_MODEL_DRAFT",
-    "anchor": "ASSURE_OPENROUTER_MODEL_ANCHOR",
-    "evidence": "ASSURE_OPENROUTER_MODEL_EVIDENCE",
-    "edit": "ASSURE_OPENROUTER_MODEL_EDIT",
-    "redhat": "ASSURE_OPENROUTER_MODEL_REDHAT",
-    "compare": "ASSURE_OPENROUTER_MODEL_COMPARE",
-}
-OPENROUTER_STAGE_DEFAULTS = {
-    "parse": "amazon/nova-lite-v1",
-    "draft": "meta-llama/llama-3.3-70b-instruct",
-    "anchor": "cohere/command-r7b-12-2024",
-    "evidence": "mistralai/mistral-small-24b-instruct-2501",
-    "edit": "mistralai/mistral-small-24b-instruct-2501",
-    "redhat": "meta-llama/llama-3.3-70b-instruct",
-    "compare": "mistralai/mistral-small-24b-instruct-2501",
-}
-OPENROUTER_TASK_STAGE = {
-    TaskType.FIELD_EXTRACTION: "parse",
-    TaskType.DRAFT_COMPILE: "draft",
-    TaskType.DEEP_SYNTHESIS: "draft",
-    TaskType.SUMMARIZE_NODE: "draft",
-    TaskType.SURGICAL_EDIT: "edit",
-    TaskType.SEMANTIC_VALIDATION: "evidence",
-    TaskType.REDHAT: "redhat",
-    TaskType.MACRO_AUDIT: "redhat",
-}
-_OPENROUTER_ROLE_ALIASES = {"a": "draft", "b": "compare", "analysis": "evidence"}
-
-
-def openrouter_model(role: str = "a") -> str:
-    """OpenRouter model for one stage (``parse`` / ``draft`` / ``anchor`` /
-    ``evidence`` / ``edit`` / ``redhat`` / ``compare``; aliases ``a``, ``b``,
-    ``analysis``). Stage variable → ``ASSURE_OPENROUTER_MODEL`` → the table
-    default. Returns the litellm id (``openrouter/<vendor>/<model>``)."""
-    stage = _OPENROUTER_ROLE_ALIASES.get(role, role)
-    if stage not in OPENROUTER_STAGE_ENV:
-        stage = "draft"
-    raw = (
-        os.environ.get(OPENROUTER_STAGE_ENV[stage], "").strip()
-        or os.environ.get("ASSURE_OPENROUTER_MODEL", "").strip()
-        or OPENROUTER_STAGE_DEFAULTS[stage]
-    )
-    return raw if raw.startswith("openrouter/") else f"openrouter/{raw}"
-
-
-def openrouter_models_by_stage() -> dict[str, str]:
-    return {stage: openrouter_model(stage).split("/", 1)[-1] for stage in OPENROUTER_STAGE_ENV}
 
 
 def local_model(role: str = "a") -> str:
@@ -416,28 +327,23 @@ def resolve_model(default: str, *, role: str = "a") -> str:
     One switch instead of six hard-coded ids (compile, locks, entailment,
     Red-Hat, surgical edit, Compare) so `docker compose up` runs every model
     call against the `ollama` service with no provider key, and production
-    keeps the OpenRouter/DeepSeek policies untouched (user decision 2026-09-23:
-    small local containers in development, cloud models in production)."""
+    runs on Bedrock (OpenRouter removed 2026-10-01)."""
     backend = llm_backend()
     if backend == "ollama":
         return local_model(role)
     if backend == "bedrock":
         return bedrock_model(role)
-    if backend == "openrouter":
-        return openrouter_model(role)
     return default
 
 
 def _apply_llm_backend(policies: dict) -> dict:
     backend = llm_backend()
-    if backend not in ("ollama", "bedrock", "openrouter"):
+    if backend not in ("ollama", "bedrock"):
         return policies
 
     def _model_for(task: TaskType) -> str:
         if backend == "ollama":
             return local_model(OLLAMA_TASK_STAGE.get(task, "draft"))
-        if backend == "openrouter":
-            return openrouter_model(OPENROUTER_TASK_STAGE.get(task, "draft"))
         return bedrock_model("analysis" if task in BEDROCK_ANALYSIS_TASKS else "draft")
 
     return {
@@ -783,60 +689,12 @@ class CostGovernor:
         if use_cache:
             payload = inject_bedrock_cache_control(payload)
 
-        # Prefer Bedrock Converse stream when boto3 credentials exist.
-        try:
-            import boto3
-
-            if model.startswith("bedrock/") or model.startswith("anthropic."):
-                bedrock_model = model.split("/", 1)[-1]
-                client = boto3.client("bedrock-runtime")
-                _mc = _model_calls()
-                _started = __import__("time").monotonic()
-                converse_messages = []
-                for msg in payload:
-                    role = msg.get("role", "user")
-                    content = msg.get("content")
-                    if isinstance(content, list):
-                        blocks = []
-                        for block in content:
-                            blocks.append(
-                                {"text": str(block.get("text") or block.get("content") or "")}
-                            )
-                        converse_messages.append({"role": role, "content": blocks})
-                    else:
-                        converse_messages.append(
-                            {"role": role, "content": [{"text": str(content or "")}]}
-                        )
-                try:
-                    resp = client.converse(
-                        modelId=bedrock_model,
-                        messages=converse_messages,
-                        inferenceConfig={"maxTokens": max_output},
-                    )
-                except Exception as exc:
-                    # Converse bypasses litellm, so its ledger row is written here.
-                    _mc.record(model=model, status="error", ms=(__import__("time").monotonic() - _started) * 1000,
-                               prompt_chars=_mc._prompt_chars(payload), error=f"{type(exc).__name__}: {exc}", path="bedrock_converse")
-                    raise
-                out = resp.get("output", {}).get("message", {}).get("content", [])
-                text = "".join(part.get("text", "") for part in out if isinstance(part, dict))
-                usage = resp.get("usage") or {}
-                text = ensure_response_language(text, locale)
-                # Converse spells the ceiling "max_tokens", which the one
-                # reading in litellm_runner already counts as truncation.
-                _completion_meta.set(completion_meta(resp.get("stopReason"), max_output))
-                _mc.record(model=model, status="ok", ms=(__import__("time").monotonic() - _started) * 1000,
-                           prompt_chars=_mc._prompt_chars(payload), completion_chars=len(text),
-                           input_tokens=usage.get("inputTokens"), output_tokens=usage.get("outputTokens"),
-                           http_status=200, path="bedrock_converse")
-                return (
-                    text,
-                    int(usage.get("inputTokens") or self.accountant.count_messages(messages)),
-                    int(usage.get("outputTokens") or self.accountant.count(text)),
-                )
-        except Exception:
-            pass
-
+        # Bedrock goes through litellm like every other provider (2026-10-01).
+        # The hand-written Converse branch that stood here put the language
+        # guard's system message inside `messages`, which Converse rejects, so
+        # every Bedrock call wrote an error ledger row and then silently fell
+        # through to litellm — two rows, double latency. litellm maps `system`,
+        # content parts and cache_control to Converse itself.
         try:
             import litellm
 
@@ -845,7 +703,7 @@ class CostGovernor:
 
             def _complete():
                 return litellm.completion(
-                    model=model if not model.startswith("anthropic.") else f"bedrock/{model}",
+                    model=model if not model.startswith(("anthropic.", "us.", "eu.", "apac.", "global.")) else f"bedrock/{model}",
                     messages=payload,
                     max_tokens=max_output,
                     stream=False,

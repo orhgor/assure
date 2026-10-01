@@ -217,7 +217,8 @@ SIGNATURE_PENALTIES: dict[str, float] = {
 Z3_VIOLATION_PENALTY = 0.9
 
 #: Parser-confidence defaults when the parser reported none (spec §4).
-#: ``llm`` (2026-09-29, PARSER_BACKEND=openrouter): a frontier multimodal model
+#: ``llm`` (2026-09-29; PARSER_BACKEND=bedrock since 2026-10-01, ``openrouter``
+#: kept as an alias in parser_router): a frontier multimodal model
 #: transcribing a rendered page; it reports no measured confidence, so this
 #: policy default stands in — the text-layer figure, stated in the basis as
 #: ``parser_default[llm]`` so a reader knows it is a default, not a measurement.
@@ -828,7 +829,7 @@ def page_quality_score(
 ) -> tuple[float | None, str]:
     """Combine the page's real signals into one 0–1 score, or ``None``.
 
-    ``reader_default`` (2026-09-29, PARSER_BACKEND=openrouter): a hosted model
+    ``reader_default`` (2026-09-29; PARSER_BACKEND=bedrock, alias ``openrouter``): a hosted model
     that read the page reports no confidence figure; the caller passes the
     parser's stated default (``PARSER_CONFIDENCE_DEFAULTS["llm"]``) and the
     page is scored ``reader_default × coverage`` like an OCR page — the visual

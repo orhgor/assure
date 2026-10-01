@@ -71,7 +71,8 @@ def _migrate_v37(db: sqlite3.Connection) -> None:
     """``model_calls`` (2026-09-28): one row per model request the application
     makes — stage, model, HTTP status, latency, tokens, error — written from
     litellm's callbacks (``services/model_calls``). A customer reported that
-    requests were not reaching OpenRouter and nothing in the UI could show
+    requests were not reaching OpenRouter (the backend until 2026-10-01; Bedrock
+    since) and nothing in the UI could show
     whether a stage's request had left the server; the stage summaries record
     outcomes, this table records the requests. The table is created in the
     base block above; this migration exists so the schema version names it."""

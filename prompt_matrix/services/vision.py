@@ -26,8 +26,8 @@ Rules this module keeps (``docs/anti-claims.md`` "Vision (2026-09-27)"):
 Model access is the app's own path: ``cost_governance.llm_backend()`` picks
 the backend, ``ASSURE_<BACKEND>_MODEL_VISION`` the multimodal model, and
 litellm carries the PNG as an ``image_url`` data URI (the one content shape
-OpenRouter, Bedrock Converse and Ollama's OpenAI-compatible endpoint all
-accept through litellm). Tests inject ``completion(prompt, png_bytes)`` and
+Bedrock Converse and Ollama's OpenAI-compatible endpoint both accept
+through litellm). Tests inject ``completion(prompt, png_bytes)`` and
 never touch the network, the same pattern ``llm_extraction`` uses.
 
 Integration point (the orchestrator owner calls it once, after the report
@@ -60,12 +60,10 @@ log = logging.getLogger(__name__)
 #: Vision model per backend. Ollama: ``qwen2.5vl:3b`` (the smallest Qwen2.5-VL
 #: tag Ollama serves, ~3.2 GB; NOT pulled by ``ollama-pull``, so on the local
 #: backend vision is off until the variable is set — see ``vision_enabled``).
-#: OpenRouter: ``amazon/nova-lite-v1`` (multimodal, the same id the parse
-#: stage already uses). Bedrock: the drafting Sonnet id (multimodal).
+#: Bedrock: the drafting model, Claude Sonnet 5.5 (multimodal). The OpenRouter
+#: default (``amazon/nova-lite-v1``) went with OpenRouter on 2026-10-01.
 OLLAMA_VISION_ENV = "ASSURE_OLLAMA_MODEL_VISION"
 OLLAMA_VISION_DEFAULT = "qwen2.5vl:3b"
-OPENROUTER_VISION_ENV = "ASSURE_OPENROUTER_MODEL_VISION"
-OPENROUTER_VISION_DEFAULT = "amazon/nova-lite-v1"
 BEDROCK_VISION_ENV = "ASSURE_BEDROCK_MODEL_VISION"
 
 #: Hard wall-clock bound for one model call on one picture (seconds). Same
@@ -157,9 +155,8 @@ def vision_model(backend: str | None = None) -> tuple[str | None, str | None]:
     """``(litellm model id, None)`` for the active backend, or ``(None, reason)``.
 
     ``ollama`` → ``ollama/<ASSURE_OLLAMA_MODEL_VISION or qwen2.5vl:3b>``;
-    ``openrouter`` (and the legacy ``cloud`` policies when an OpenRouter key
-    exists) → ``openrouter/<ASSURE_OPENROUTER_MODEL_VISION or amazon/nova-lite-v1>``;
-    ``bedrock`` → ``ASSURE_BEDROCK_MODEL_VISION`` or the drafting Sonnet id,
+    ``bedrock`` (the default) → ``ASSURE_BEDROCK_MODEL_VISION`` or the drafting
+    Sonnet 5.5 id (``bedrock_model("a")``),
     qualified with the region's inference-profile prefix exactly as
     ``cost_governance.bedrock_model`` does.
     """
@@ -170,11 +167,8 @@ def vision_model(backend: str | None = None) -> tuple[str | None, str | None]:
         return (raw if raw.startswith("ollama/") else f"ollama/{raw}"), None
     if backend == "bedrock":
         raw = os.environ.get(BEDROCK_VISION_ENV, "").strip()
-        return (cg._bedrock_qualify(raw) if raw else cg.bedrock_model("draft")), None  # noqa: SLF001
-    if backend == "openrouter" or (backend == "" and os.environ.get("OPENROUTER_API_KEY", "").strip()):
-        raw = os.environ.get(OPENROUTER_VISION_ENV, "").strip() or OPENROUTER_VISION_DEFAULT
-        return (raw if raw.startswith("openrouter/") else f"openrouter/{raw}"), None
-    return None, f"no vision model for backend {backend or 'cloud'!r} (no OpenRouter key; set ASSURE_LLM_BACKEND); {model_table()}"
+        return (cg._bedrock_qualify(raw) if raw else cg.bedrock_model("a")), None  # noqa: SLF001
+    return None, f"no vision model for backend {backend or 'unset'!r} (set ASSURE_LLM_BACKEND=bedrock or ollama); {model_table()}"
 
 
 def model_table() -> str:
@@ -183,7 +177,6 @@ def model_table() -> str:
     return (
         "vision models: "
         f"ollama={OLLAMA_VISION_ENV} (default {OLLAMA_VISION_DEFAULT}, off until set), "
-        f"openrouter={OPENROUTER_VISION_ENV} (default {OPENROUTER_VISION_DEFAULT}), "
         f"bedrock={BEDROCK_VISION_ENV} (default ASSURE_BEDROCK_MODEL_DRAFT)"
     )
 
@@ -193,8 +186,8 @@ def vision_enabled() -> tuple[bool, str | None, str | None]:
 
     ``0/false/no/off`` → off. ``1/true/yes/on`` → on with the backend's model
     (a missing model still disables, with the reason). Unset → on when a
-    vision model is configured for the active backend: OpenRouter and Bedrock
-    defaults are multimodal, so they count; on Ollama only an explicit
+    vision model is configured for the active backend: the Bedrock default
+    (Sonnet 5.5) is multimodal, so it counts; on Ollama only an explicit
     ``ASSURE_OLLAMA_MODEL_VISION`` counts, because the default tag is not
     part of ``ollama-pull`` and every photo would otherwise fail with
     "model not found" on a stock compose stack.
@@ -511,8 +504,8 @@ def normalise_facts(raw: list[Any], *, allowed: tuple[str, ...]) -> tuple[list[d
 
 def default_completion(prompt: str, image_png_bytes: bytes, *, model: str) -> str:
     """One multimodal call through litellm with the app's provider kwargs
-    (``cost_governance._litellm_api_kwargs``: OpenRouter key + headers,
-    Ollama api_base, Bedrock region). The PNG travels as an ``image_url``
+    (``cost_governance._litellm_api_kwargs``: Bedrock region, Ollama
+    api_base). The PNG travels as an ``image_url``
     data URI. Raises ``VisionUnavailable`` on any provider error."""
     import litellm
 

@@ -56,20 +56,26 @@ def _mock_orchestrate_payload(intent: str) -> dict:
 
 
 def _provider_keys_configured() -> bool:
+    """Can both Compare columns be called? Bedrock (the default backend) signs
+    with the IAM credential chain and Ollama is the local container, so neither
+    takes a key; a hosted id needs its provider key. Until 2026-10-01 the
+    production path required ANTHROPIC_API_KEY and OPENROUTER_API_KEY whatever
+    the pair was — OpenRouter was removed that day."""
     try:
-        from ..llm.orchestrator import get_compare_pair, use_free_models
+        from ..llm.orchestrator import get_compare_pair
     except ImportError:
-        from llm.orchestrator import get_compare_pair, use_free_models
+        from llm.orchestrator import get_compare_pair
 
     model_a, model_b = get_compare_pair()
     gemini_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
     anthropic_key = os.getenv("ANTHROPIC_API_KEY") or os.getenv("CLAUDE_API_KEY")
     openai_key = os.getenv("OPENAI_API_KEY")
     groq_key = os.getenv("GROQ_API_KEY")
-    openrouter_key = os.getenv("OPENROUTER_API_KEY")
 
     def _has_key(model: str) -> bool:
         provider = model.split("/")[0].lower()
+        if provider in ("bedrock", "ollama"):
+            return True
         if provider == "gemini":
             return bool(gemini_key)
         if provider == "anthropic":
@@ -78,13 +84,9 @@ def _provider_keys_configured() -> bool:
             return bool(openai_key)
         if provider == "groq":
             return bool(groq_key)
-        if provider == "openrouter":
-            return bool(openrouter_key)
         return False
 
-    if use_free_models():
-        return _has_key(model_a) and _has_key(model_b)
-    return bool(anthropic_key and openrouter_key)
+    return _has_key(model_a) and _has_key(model_b)
 
 
 def _live_orchestrate_payload(intent: str) -> dict:

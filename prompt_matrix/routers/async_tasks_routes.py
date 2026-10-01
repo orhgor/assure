@@ -74,7 +74,10 @@ def register_async_task_routes(app) -> None:
                 return jsonify({"ok": False, "error": "Task not found."}), 404
             body["job"] = job
             if body["status"] in ("pending", "processing") and job["status"] in ("done", "failed", "skipped"):
-                body["status"] = "success" if job["status"] == "done" else job["status"]
+                # The shell polls for "success" / "failure" (shell.js); a job's
+                # "failed" must read as the task's "failure" or the poll runs
+                # its full 15 minutes (review 2026-10-01).
+                body["status"] = {"done": "success", "failed": "failure"}.get(job["status"], job["status"])
             elif body["status"] == "pending" and job["status"] != "queued":
                 body["status"] = "processing"
         else:

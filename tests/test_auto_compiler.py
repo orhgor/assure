@@ -27,8 +27,9 @@ from prompt_matrix.services.verifier import claims_from_text, verify_claims
 
 @pytest.fixture(autouse=True)
 def fake_provider_keys(monkeypatch):
-    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
-    monkeypatch.setenv("ASSURE_USE_FREE_MODELS", "1")
+    # Runs default to the configured backend; Bedrock is keyless (2026-10-01,
+    # OpenRouter removed). The model calls themselves are faked per test.
+    monkeypatch.setenv("ASSURE_LLM_BACKEND", "bedrock")
     yield
 
 
@@ -224,7 +225,7 @@ def test_sse_multiplexing_token_and_lock(monkeypatch):
             "Summarize revenue",
             workspace_id="default",
             source_ids=["s1"],
-            model="gemini",
+            model="bedrock",
         )
     )
     events = _collect_sse_events(frames)

@@ -65,9 +65,11 @@ If a fact is not in the prompt, answer from general knowledge or state briefly t
 
 
 def _use_free_models() -> bool:
-    import os
-
-    return os.environ.get("ASSURE_USE_FREE_MODELS", "0").strip().lower() in ("1", "true", "yes")
+    """Always ``False``: the OpenRouter free stack this flag selected was removed
+    on 2026-10-01. Comparison prompts now get the base instruction like every
+    other intent (what production always did); Compare still sends
+    ``COMPARE_FREE_INSTRUCTION`` as its own system message."""
+    return False
 
 
 def apply_base_instruction(prompt: str, intent: str = "") -> str:

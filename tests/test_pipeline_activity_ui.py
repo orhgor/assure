@@ -1,5 +1,6 @@
 """The Pipeline activity panel in the prototype shell (customer complaint 2026-09-28:
-"requests are not reaching OpenRouter and I cannot see whether the pipeline ran").
+"requests are not reaching OpenRouter and I cannot see whether the pipeline ran";
+OpenRouter removed 2026-10-01 — the fixtures use Bedrock ids).
 
 Static checks over ``prototype/index.html`` / ``prototype/shell.js`` and the seven
 catalogs, plus the shipped normalisers executed in node against the backend contract
@@ -43,7 +44,7 @@ STAGE_LABELS = {
 FIXTURE: dict[str, Any] = {
     "ok": True,
     "llm": {
-        "backend": "openrouter", "provider": "openrouter", "key_present": True, "key_hint": "sk-or-…9f3a",
+        "backend": "bedrock", "provider": "bedrock", "key_present": True, "key_hint": "sk-or-…9f3a",
         "probe": {"status": "reachable", "detail": "HTTP 200 …", "checked_at": "2026-09-28T13:00:00Z", "ms": 412},
         "last_call_at": "2026-09-28T13:02:11Z", "calls_24h": 37, "failed_24h": 2,
     },
@@ -51,10 +52,10 @@ FIXTURE: dict[str, Any] = {
         {"stage": "parse", "label": "Parse", "status": "ran", "detail": "jdf-cli+tesseract · 1 page · OCR 0.80 · 18.2 s",
          "model": None, "calls": 0, "ok": 0, "failed": 0, "last_at": "2026-09-28T12:59:00Z", "last_ms": 18212,
          "last_http_status": None, "last_error": None, "source": "ingest_job"},
-        {"stage": "llm_grounding", "label": "Grounded field pass", "status": "ran", "model": "openrouter/amazon/nova-lite-v1",
+        {"stage": "llm_grounding", "label": "Grounded field pass", "status": "ran", "model": "bedrock/us.anthropic.claude-sonnet-5-5",
          "calls": 3, "ok": 3, "failed": 0, "last_at": "2026-09-28T13:01:00Z", "last_ms": 2140, "last_http_status": 200,
          "last_error": None, "detail": "3 fields offered, 2 grounded", "source": "model_calls+execution"},
-        {"stage": "entailment", "label": "Entailment", "status": "failed", "model": "openrouter/mistralai/mistral-small-24b-instruct-2501",
+        {"stage": "entailment", "label": "Entailment", "status": "failed", "model": "bedrock/us.anthropic.claude-sonnet-5-5",
          "calls": 2, "ok": 1, "failed": 1, "last_at": "2026-09-28T13:02:11Z", "last_ms": 1830, "last_http_status": 401,
          "last_error": "HTTP 401 Unauthorized: invalid API key", "detail": None, "source": "model_calls"},
         {"stage": "compare", "label": "Compare", "status": "no_record"},
@@ -62,14 +63,14 @@ FIXTURE: dict[str, Any] = {
         {"stage": "vision", "label": "Vision", "status": "completed", "calls": 1, "ok": 1, "failed": 0},
     ],
     "calls": [
-        {"id": "mc-1", "stage": "llm_grounding", "backend": "openrouter", "provider": "openrouter", "model": "openrouter/amazon/nova-lite-v1",
+        {"id": "mc-1", "stage": "llm_grounding", "backend": "bedrock", "provider": "bedrock", "model": "bedrock/us.anthropic.claude-sonnet-5-5",
          "status": "ok", "http_status": 200, "ms": 2140, "prompt_chars": 4210, "completion_chars": 120, "input_tokens": 1100,
          "output_tokens": 40, "error": None, "task": "draft-1", "created_at": "2026-09-28T13:01:00Z"},
-        {"id": "mc-2", "stage": "entailment", "backend": "openrouter", "provider": "openrouter",
-         "model": "openrouter/mistralai/mistral-small-24b-instruct-2501", "status": "error", "http_status": 401, "ms": 1830,
+        {"id": "mc-2", "stage": "entailment", "backend": "bedrock", "provider": "bedrock",
+         "model": "bedrock/us.anthropic.claude-sonnet-5-5", "status": "error", "http_status": 401, "ms": 1830,
          "prompt_chars": 4210, "completion_chars": 0, "input_tokens": None, "output_tokens": None,
          "error": "HTTP 401 Unauthorized: invalid API key", "task": "draft-1", "created_at": "2026-09-28T13:02:11Z"},
-        {"id": "mc-0", "stage": "entailment", "model": "openrouter/x", "status": "ok", "created_at": "2026-09-28T12:00:00Z"},
+        {"id": "mc-0", "stage": "entailment", "model": "bedrock/x", "status": "ok", "created_at": "2026-09-28T12:00:00Z"},
     ],
 }
 
@@ -238,7 +239,7 @@ def test_stage_rows_follow_the_fixed_order_and_missing_stages_read_no_record() -
     by = {r["stage"]: r for r in rows}
     assert by["parse"]["status"] == "ran" and by["parse"]["recorded"] is True
     assert by["parse"]["model"] == "" and by["parse"]["last_ms"] == 18212 and by["parse"]["last_http_status"] is None
-    assert by["llm_grounding"]["model"] == "openrouter/amazon/nova-lite-v1"
+    assert by["llm_grounding"]["model"] == "bedrock/us.anthropic.claude-sonnet-5-5"
     assert (by["llm_grounding"]["calls"], by["llm_grounding"]["ok"], by["llm_grounding"]["failed"]) == (3, 3, 0)
     assert by["entailment"]["status"] == "failed" and by["entailment"]["last_http_status"] == 401
     assert by["entailment"]["last_error"] == "HTTP 401 Unauthorized: invalid API key"
@@ -260,10 +261,10 @@ def test_unknown_stages_are_appended_after_the_fixed_list() -> None:
 
 def test_warnings_follow_the_probe_and_the_24h_counter_only() -> None:
     reachable = FIXTURE
-    unauthorized = {"llm": {"backend": "openrouter", "probe": {"status": "unauthorized", "detail": "HTTP 401 invalid key"}, "calls_24h": 0}}
-    no_key = {"llm": {"backend": "openrouter", "key_present": False, "probe": {"status": "no_key", "detail": None}, "calls_24h": 5}}
+    unauthorized = {"llm": {"backend": "bedrock", "probe": {"status": "unauthorized", "detail": "HTTP 401 invalid key"}, "calls_24h": 0}}
+    no_key = {"llm": {"backend": "bedrock", "key_present": False, "probe": {"status": "no_key", "detail": None}, "calls_24h": 5}}
     ollama_idle = {"llm": {"backend": "ollama", "probe": {"status": "reachable"}, "calls_24h": 0}}
-    not_probed = {"llm": {"backend": "openrouter", "probe": {"status": "not_probed"}, "calls_24h": None}}
+    not_probed = {"llm": {"backend": "bedrock", "probe": {"status": "not_probed"}, "calls_24h": None}}
     outs = _run_in_node([reachable, unauthorized, no_key, ollama_idle, not_probed, {}])
     assert outs[0]["warnings"] == []
     assert outs[1]["warnings"] == [

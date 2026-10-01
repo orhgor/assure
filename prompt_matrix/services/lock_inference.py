@@ -2,14 +2,14 @@
 
 Backend routing (2026-09-27): the model follows ``cost_governance.llm_backend``
 like every other stage — ``resolve_model(..., role="anchor")`` gives the local
-Ollama tag, the Bedrock analysis model or the OpenRouter stage model, and the
-call goes through ``CostGovernor._default_executor`` (the executor
+Ollama tag or the Bedrock analysis model (Claude Sonnet 5.5; OpenRouter was
+removed 2026-10-01), and the call goes through ``CostGovernor._default_executor`` (the executor
 ``llm_extraction.default_completion``, entailment and Red-Hat use). Until then
 ``_ensure_provider_key`` accepted only ``gemini/`` and ``openrouter/`` ids and
 raised "OpenRouter API key not configured for lock inference." on an Ollama or
 Bedrock box, so every compile there skipped its locks and the Math Check had
-nothing to check. The hosted providers keep their key check; a key is not
-needed for the local or IAM-authenticated backends.
+nothing to check. An explicitly passed ``gemini/`` model keeps its key check;
+a key is not needed for the local or IAM-authenticated backends.
 """
 
 from __future__ import annotations
@@ -22,19 +22,20 @@ from dataclasses import dataclass
 from typing import Any
 
 try:
-    from ..cost_governance import llm_backend, resolve_model
+    from ..cost_governance import resolve_model
     from ..keys import key_present, load_keys
     from ..litellm_runner import call_model
     from ..upload_limits import pdf_has_visual_content
 except ImportError:
-    from cost_governance import llm_backend, resolve_model
+    from cost_governance import resolve_model
     from keys import key_present, load_keys
     from litellm_runner import call_model
     from upload_limits import pdf_has_visual_content
 
 MIN_CONFIDENCE = 0.7
-TEXT_MODEL = "openrouter/qwen/qwen3-next-80b-a3b-instruct"
-VISION_MODEL = "gemini/gemini-3.6-flash"
+#: The Bedrock default the anchor role resolves to (decision 2026-10-01); the
+#: real id comes from ``resolve_model(..., role="anchor")`` at call time.
+TEXT_MODEL = "bedrock/us.anthropic.claude-sonnet-5-5"
 
 try:
     from . import model_calls as _mc
@@ -78,22 +79,21 @@ class LockInferenceResult:
     has_visual_content: bool
 
 
-#: Prefixes of the hosted providers whose key must be present before a call.
-HOSTED_PREFIXES = ("gemini/", "openrouter/")
+#: Prefixes of the hosted providers whose key must be present before a call
+#: (only reached when a caller passes such a model explicitly).
+HOSTED_PREFIXES = ("gemini/",)
 
 
 def resolve_lock_inference_model(has_visual_content: bool) -> str:
     """The model lock inference calls on this box.
 
-    On the cloud backend (no ``ASSURE_LLM_BACKEND``, no OpenRouter key) the
-    legacy ids stand: Gemini for a PDF with charts, the OpenRouter Qwen for
-    text. On ``ollama`` / ``bedrock`` / ``openrouter`` the anchor-stage model of
-    that backend is used for both — none of them takes a PDF as an image here,
-    so a visual document is read from its extracted text.
+    The anchor-stage model of the backend (``bedrock`` by default, ``ollama``
+    when set) for both text and visual documents — neither takes a PDF as an
+    image here, so a visual document is read from its extracted text. The
+    legacy cloud split (Gemini for charts, an OpenRouter Qwen for text) went
+    with OpenRouter on 2026-10-01; ``has_visual_content`` is kept for callers.
     """
-    if llm_backend() in ("ollama", "bedrock", "openrouter"):
-        return resolve_model(TEXT_MODEL, role="anchor")
-    return VISION_MODEL if has_visual_content else TEXT_MODEL
+    return resolve_model(TEXT_MODEL, role="anchor")
 
 
 def is_hosted_model(model: str) -> bool:
@@ -319,15 +319,11 @@ def _ensure_provider_key(model: str) -> None:
     if model.startswith("gemini/"):
         if not key_present("gemini"):
             raise RuntimeError("Gemini API key not configured for visual lock inference.")
-    elif model.startswith("openrouter/"):
-        if not key_present("openrouter"):
-            raise RuntimeError("OpenRouter API key not configured for lock inference.")
 
 
 def _backend_completion(model: str, messages: list[dict[str, Any]]) -> str:
-    """One call through ``CostGovernor._default_executor`` — Bedrock Converse
-    for ``anthropic.``/``bedrock/`` ids, litellm with the backend's api_base
-    for the rest — under the anchor policy's output cap. Returns the text;
+    """One call through ``CostGovernor._default_executor`` (litellm: Bedrock
+    region for ``bedrock/`` ids, the Ollama api_base for ``ollama/``) under the anchor policy's output cap. Returns the text;
     raises ``RuntimeError`` on the executor's ``"ERROR: …"`` answer so the
     caller reports the locks as skipped with the reason."""
     try:

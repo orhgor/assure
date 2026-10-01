@@ -34,9 +34,9 @@ request still leaves its evidence.
 ## The probe
 
 `probe_backend()` asks the configured backend whether a request can leave at
-all: OpenRouter `GET /api/v1/auth/key` (200 = key valid and network open, 401 =
-key rejected, anything else = unreachable, empty key = `no_key`), Ollama
-`/api/tags`; Bedrock is `not_probed`. Cached 30 s per (backend, key).
+all: Ollama `/api/tags`; Bedrock (the default since OpenRouter was removed on
+2026-10-01) is `not_probed` — the model-call rows are the evidence there. The
+OpenRouter `GET /api/v1/auth/key` probe went with OpenRouter. Cached 30 s per (backend, key).
 `/health` carries it as `checks.llm`; a rejected or unreachable hosted backend
 degrades the box, a missing key is reported without degrading.
 

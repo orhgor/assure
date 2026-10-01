@@ -493,7 +493,8 @@ def opening_token(draft: str) -> str:
         if raw_line.strip().startswith("#"):
             # A heading is the section's name, not a claim: the ICP shapes open
             # on "## claim_snapshot" and that token is in no source (measured
-            # 2026-09-27 on OpenRouter/Llama 3.3 70B: a fully cited draft was
+            # 2026-09-27 on OpenRouter/Llama 3.3 70B, the backend before the
+            # 2026-10-01 switch to Bedrock: a fully cited draft was
             # refused as "opening token ungrounded" on its own heading).
             continue
         line = _HEADING_MARKUP.sub("", raw_line.strip())
@@ -548,7 +549,8 @@ def verbatim_prompt_echo(draft: str, system_prompt: str, *, user_text: str = "")
     # "## policy_snapshot" …) are the document's skeleton, not the prompt's
     # secret: a draft whose empty sections leave two headings adjacent matched
     # the prompt's heading list as a 40-char run and was refused as a
-    # disclosure (live, OpenRouter/Llama 3.3 70B, 2026-09-28). They are blanked
+    # disclosure (live, OpenRouter/Llama 3.3 70B, 2026-09-28 — pre-Bedrock
+    # backend; the rule is model-independent). They are blanked
     # (same length) before the scan; instruction sentences are still scanned.
     system_prompt = re.sub(r"(?m)^[ \t]*#{1,6}[ \t]+\S[^\n]*$", lambda m: " " * len(m.group(0)), system_prompt or "")
     prompt = _collapse(system_prompt)

@@ -1,10 +1,11 @@
 """A compile with no provider key is refused before the first token, by name.
 
-Observed on the local stack 2026-09-22 (OPENROUTER_API_KEY empty): the stream
-announced "Drafting with openrouter/…" and then surfaced litellm's raw
-"AuthenticationError: OpenrouterException - No cookie auth credentials found".
+Observed on the local stack 2026-09-22 (the hosted key empty): the stream
+announced "Drafting with …" and then surfaced litellm's raw AuthenticationError.
 ``_stream_model`` now checks the key first and yields one error frame that names
-the variable to set (424, reason ``provider_key_missing``).
+the variable to set (424, reason ``provider_key_missing``). Since 2026-10-01 the
+default backend is Bedrock, which signs with the IAM credential chain and takes
+no key; the preflight applies to a keyed ``target_ai`` override (``gemini/…``).
 """
 
 from __future__ import annotations
@@ -26,7 +27,7 @@ def _frames(gen):
 @pytest.fixture
 def no_keys(monkeypatch):
     for name in (
-        "OPENROUTER_API_KEY", "DEEPSEEK_API_KEY", "ANTHROPIC_API_KEY", "CLAUDE_API_KEY",
+        "DEEPSEEK_API_KEY", "ANTHROPIC_API_KEY", "CLAUDE_API_KEY",
         "GEMINI_API_KEY", "GOOGLE_API_KEY", "GROQ_API_KEY",
     ):
         monkeypatch.delenv(name, raising=False)
@@ -51,7 +52,7 @@ def test_missing_provider_key_is_one_named_error_frame(no_keys):
         draft_mod._stream_model(
             _Gov(),
             [{"role": "user", "content": "hi"}],
-            target_ai="openrouter/qwen/qwen3-next-80b-a3b-instruct",
+            target_ai="gemini/gemini-3.6-flash",
         )
     )
     assert len(frames) == 1, frames
@@ -60,12 +61,12 @@ def test_missing_provider_key_is_one_named_error_frame(no_keys):
     assert payload["ok"] is False
     assert payload["http_status"] == 424
     assert payload["reason"] == "provider_key_missing"
-    assert payload["provider"] == "openrouter"
-    assert "OPENROUTER_API_KEY" in payload["error"]
+    assert payload["provider"] == "gemini"
+    assert "GEMINI_API_KEY" in payload["error"]
 
 
 def test_present_key_reaches_the_model_call(no_keys, monkeypatch):
-    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-or-test")
+    monkeypatch.setenv("GEMINI_API_KEY", "test-gemini-key")
 
     class _Boom(Exception):
         pass
@@ -80,10 +81,40 @@ def test_present_key_reaches_the_model_call(no_keys, monkeypatch):
         draft_mod._stream_model(
             _Gov(),
             [{"role": "user", "content": "hi"}],
-            target_ai="openrouter/qwen/qwen3-next-80b-a3b-instruct",
+            target_ai="gemini/gemini-3.6-flash",
         )
     )
     # The key check passed and the call was attempted; the fake failure is
     # reported as the stream's own error frame, not swallowed.
     assert any('"type": "error"' in f for f in frames if isinstance(f, str))
     assert not any("provider_key_missing" in f for f in frames if isinstance(f, str))
+
+
+def test_bedrock_needs_no_key_and_sends_no_top_p(no_keys, monkeypatch):
+    """Bedrock is keyless (IAM); the call reaches litellm with the region and
+    without the OpenRouter-era ``top_p`` / ``extra_body`` provider pin."""
+    monkeypatch.delenv("AWS_DEFAULT_REGION", raising=False)
+    monkeypatch.delenv("AWS_REGION", raising=False)
+    seen: dict = {}
+
+    class _Boom(Exception):
+        pass
+
+    def fake_completion(**kwargs):
+        seen.update(kwargs)
+        raise _Boom("reached litellm.completion")
+
+    import litellm
+
+    monkeypatch.setattr(litellm, "completion", fake_completion)
+    frames = _frames(
+        draft_mod._stream_model(
+            _Gov(),
+            [{"role": "user", "content": "hi"}],
+            target_ai="bedrock/us.anthropic.claude-sonnet-5-5",
+        )
+    )
+    assert not any("provider_key_missing" in f for f in frames if isinstance(f, str))
+    assert seen["model"] == "bedrock/us.anthropic.claude-sonnet-5-5"
+    assert seen["aws_region_name"] == "us-east-1"
+    assert "top_p" not in seen and "extra_body" not in seen

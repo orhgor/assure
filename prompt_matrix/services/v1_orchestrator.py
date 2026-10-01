@@ -302,7 +302,9 @@ def score_pages(bundle: dict, texts: list[str], intake: dict | None, layout: lis
     visual_pages = list((intake or {}).get("visual_pages") or [])
     visual_by_page = {int(v.get("page") or i + 1): v for i, v in enumerate(visual_pages) if isinstance(v, dict)}
     doc_ocr = bundle.get("ocr_confidence")
-    jdf = bundle.get("jdf")
+    # The per-page OCR lines live on the reader's own document (jdf_source);
+    # ``bundle["jdf"]`` is the Assure tree by now (review 2026-10-01).
+    jdf = bundle.get("jdf_source") or bundle.get("jdf")
     pages: list[dict[str, Any]] = []
     signatures: list[dict[str, Any]] = []
     for i, text in enumerate(texts):

@@ -54,9 +54,11 @@ def _migrated_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     # This suite counts the compile's cache rows under the legacy cloud policies
     # (one `ast` row). Since 2026-09-25 an empty ASSURE_LLM_BACKEND resolves to
     # the local models, where the stubbed entailment pass also writes its own
-    # cache row; pin the policies the assertions were written against.
-    monkeypatch.setenv("ASSURE_LLM_BACKEND", "cloud")
-    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    # cache row; pin the policies the assertions were written against. The
+    # legacy `cloud` policies went with OpenRouter on 2026-10-01 (`cloud` now
+    # reads as Bedrock); NOT re-run since — if the row count moves, the
+    # entailment pass is the first place to look.
+    monkeypatch.setenv("ASSURE_LLM_BACKEND", "bedrock")
     import prompt_matrix.history as history_mod
 
     history_mod.DB_PATH = history_mod._resolve_db_path()

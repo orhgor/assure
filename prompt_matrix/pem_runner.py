@@ -20,9 +20,9 @@ _PREFLIGHT: dict[str, Any] | None = None
 def _quiet_startup() -> bool:
     import os
 
-    if os.environ.get("ASSURE_QUIET_START", "").strip().lower() in ("1", "true", "yes"):
-        return True
-    return os.environ.get("ASSURE_USE_FREE_MODELS", "0").strip().lower() in ("1", "true", "yes")
+    # ASSURE_USE_FREE_MODELS also silenced this until the OpenRouter free
+    # stack was removed (2026-10-01); ASSURE_QUIET_START is the switch now.
+    return os.environ.get("ASSURE_QUIET_START", "").strip().lower() in ("1", "true", "yes")
 
 
 def preflight_check(stream: TextIO | None = None) -> dict[str, Any]:
@@ -52,13 +52,7 @@ def ensure_preflight(*, announce: bool = True) -> dict[str, Any]:
 
 
 def tool_availability_lines() -> str:
-    import os
-
-    if os.environ.get("ASSURE_USE_FREE_MODELS", "0").strip().lower() in ("1", "true", "yes"):
-        return (
-            "- Compare mode: answer the user intent directly. No web search. "
-            "Do not refuse for missing uploaded sources unless the user required a specific document.\n"
-        )
+    # The free-stack "Compare mode" variant went with OpenRouter (2026-10-01).
     tools = ensure_preflight(announce=False)["tool_availability"]
     return (
         "- tool_availability: "

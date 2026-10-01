@@ -53,10 +53,10 @@ def test_analyze_page_reaches_the_multimodal_call_through_the_module_binding(mon
 
     monkeypatch.setattr(litellm, "completion", fake_completion)
     monkeypatch.setattr(vision, "model_cannot_see", lambda model: None)
-    out = vision.analyze_page(_png(), analysis_type="generic", model="openrouter/amazon/nova-lite-v1", timeout_s=10)
+    out = vision.analyze_page(_png(), analysis_type="generic", model="bedrock/us.anthropic.claude-sonnet-5-5", timeout_s=10)
     assert out["status"] == "completed", out
     assert out["calls"] == 1 and out["facts"] and out["facts"][0]["evidence"].startswith("a silver sedan")
-    assert seen["model"] == "openrouter/amazon/nova-lite-v1" and seen["has_image"] is True
+    assert seen["model"] == "bedrock/us.anthropic.claude-sonnet-5-5" and seen["has_image"] is True
     assert seen["stage"] == "vision"  # V-C: the call is booked under its stage
     assert "TypeError" not in json.dumps(out)
 
@@ -79,8 +79,8 @@ def test_redhat_graph_default_completion_is_booked_under_its_stage(monkeypatch):
 
         def policy_for(self, _t):
             class P:
-                litellm_model = "openrouter/meta-llama/llama-3.3-70b-instruct"
-                model_id = "llama"
+                litellm_model = "bedrock/us.anthropic.claude-sonnet-5-5"
+                model_id = "us.anthropic.claude-sonnet-5-5"
                 max_output_tokens = 64
                 caching = False
 

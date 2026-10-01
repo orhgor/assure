@@ -1,4 +1,4 @@
-"""LiteLLM Router + Difference Engine model-pair selection (staging free stack)."""
+"""LiteLLM Router + Difference Engine model-pair selection (Bedrock / Ollama)."""
 
 from __future__ import annotations
 
@@ -18,12 +18,13 @@ except ImportError:
 
 log = logging.getLogger(__name__)
 
-# Fail fast if someone reintroduces a divergent env_map in this module.
+# Fail fast if someone reintroduces a divergent env_map in this module. Bedrock
+# and Ollama are absent on purpose: neither takes an API key (boto3 credential
+# chain / local container). OpenRouter was removed on 2026-10-01 (user decision).
 assert set(ORCHESTRATOR_ENV_MAP) == {
     "claude",
     "gemini",
     "groq",
-    "openrouter",
 }
 
 # Longer keys first — family_of() scans with substring match.
@@ -33,15 +34,11 @@ FAMILY_PREFIXES: dict[str, str] = {
     "microsoft": "microsoft",
     "nemotron": "nvidia",
     "nvidia": "nvidia",
-    "nex-agi": "nex",
-    "poolside": "poolside",
-    "inclusionai": "inclusionai",
-    "thinkingmachines": "thinkingmachines",
-    "dots-studio": "dots",
-    "openrouter": "openrouter",  # only if no vendor remains after strip
-    "liquid": "liquid",
+    "anthropic": "anthropic",
+    "claude": "anthropic",
     "cohere": "cohere",
     "google": "google",
+    "gemini": "google",
     "gemma": "google",
     "mistral": "mistral",
     "qwen": "qwen",
@@ -50,36 +47,20 @@ FAMILY_PREFIXES: dict[str, str] = {
     "groq": "meta",
 }
 
-# OpenRouter-only free stack (no Groq — Cloudflare 403/1010 from AWS EC2).
-# Each pair must be two DIFFERENT families so the Difference Engine can diverge.
-FREE_MODEL_A = "openrouter/google/gemma-4-26b-a4b-it:free"
-FREE_MODEL_B = "openrouter/nvidia/nemotron-3.5-lightning:free"
-
-FREE_MODEL_PAIRS: list[tuple[str, str]] = [
-    (FREE_MODEL_A, FREE_MODEL_B),  # google vs nvidia
-    (
-        "openrouter/nex-agi/nex-n2.5-mini:free",
-        "openrouter/nvidia/nemotron-3.5-lightning:free",
-    ),  # nex vs nvidia
-    (
-        "openrouter/liquid/lfm-2.5-2.6b:free",
-        "openrouter/google/gemma-4-31b-it:free",
-    ),  # liquid vs google
-    (
-        "openrouter/poolside/laguna-xs-2.1:free",
-        "openrouter/nvidia/nemotron-3.5-lightning:free",
-    ),  # poolside vs nvidia
-]
-
+# The OpenRouter `:free` Difference-Engine stack (ASSURE_USE_FREE_MODELS=1,
+# staging since 2026-09-10) was removed with OpenRouter on 2026-10-01: every
+# pair was an `openrouter/…:free` id. Compare now runs the configured backend's
+# two columns — Bedrock: bedrock_model("a") / bedrock_model("b"), both Claude
+# Sonnet 5.5 by default; Ollama: the draft and compare models.
+#: The default Bedrock pair, for display and tests; get_compare_pair() reads
+#: the per-role env overrides at call time.
 PRODUCTION_MODEL_PAIRS: list[tuple[str, str]] = [
-    ("anthropic/claude-sonnet-4-5", "openrouter/qwen/qwen3-next-80b-a3b-instruct"),
-    ("openai/gpt-4o", "anthropic/claude-sonnet-4-5"),
+    ("bedrock/us.anthropic.claude-sonnet-5-5", "bedrock/us.anthropic.claude-sonnet-5-5"),
 ]
 
 PROVIDER_TIMEOUTS: dict[str, int] = {
     "ollama": 600,  # CPU inference in a container: a 3B model streams ~5–15 tok/s
     "bedrock": 180,
-    "openrouter": 180,
     "groq": 180,
     "llm7": 180,
     "huggingface": 180,
@@ -89,70 +70,24 @@ PROVIDER_TIMEOUTS: dict[str, int] = {
     "anthropic": 60,
 }
 
-_paid_router_models = [
-    {
-        "model_name": "text-reasoning",
-        "litellm_params": {
-            "model": "openrouter/qwen/qwen3-next-80b-a3b-instruct",
-            "api_key": os.getenv("OPENROUTER_API_KEY"),
-            "max_tokens": 4096,
-        },
-    },
-    {
-        "model_name": "table-parsing",
-        "litellm_params": {
-            "model": "gemini/gemini-1.5-pro",
-            "api_key": os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY"),
-        },
-    },
-    {
-        "model_name": "vision-analysis",
-        "litellm_params": {
-            "model": "anthropic/claude-3-5-sonnet-20240620",
-            "api_key": os.getenv("ANTHROPIC_API_KEY") or os.getenv("CLAUDE_API_KEY"),
-        },
-    },
-]
-
 _assure_router: Any | None = None
 
 
 def use_free_models() -> bool:
-    return os.environ.get("ASSURE_USE_FREE_MODELS", "0").strip().lower() in ("1", "true", "yes")
+    """Always ``False``: the free stack was OpenRouter-only and went with it on
+    2026-10-01. A leftover ``ASSURE_USE_FREE_MODELS=1`` in an old .env is
+    ignored rather than routing Compare to ids nothing can serve."""
+    return False
 
 
 def family_of(slug: str) -> str:
-    """Detect model family from a LiteLLM / OpenRouter slug."""
+    """Detect model family from a LiteLLM slug (``bedrock/us.anthropic.…`` →
+    ``anthropic``)."""
     s = str(slug or "").lower()
-    # Prefer the vendor segment after openrouter/
-    probe = s
-    if probe.startswith("openrouter/"):
-        probe = probe[len("openrouter/") :]
     for key, fam in FAMILY_PREFIXES.items():
-        if key == "openrouter":
-            continue
-        if key in probe:
+        if key in s:
             return fam
     return "unknown"
-
-
-def select_free_pair() -> tuple[str, str]:
-    """Return the first free pair whose models belong to different families."""
-    for model_a, model_b in FREE_MODEL_PAIRS:
-        if family_of(model_a) != family_of(model_b):
-            return model_a, model_b
-    raise RuntimeError(
-        "No free model pair has two different families. Diff engine cannot produce divergence."
-    )
-
-
-def free_pairs_different_families() -> list[tuple[str, str]]:
-    """All free pairs that qualify for the Difference Engine."""
-    return [
-        (model_a, model_b)
-        for model_a, model_b in FREE_MODEL_PAIRS
-        if family_of(model_a) != family_of(model_b)
-    ]
 
 
 def timeout_for(model_slug: str) -> int:
@@ -164,52 +99,40 @@ def timeout_for(model_slug: str) -> int:
 
 
 def get_compare_pair(index: int = 0) -> tuple[str, str]:
-    """Compare's two models. Local backend: the two Ollama models
-    (``ASSURE_OLLAMA_MODEL`` / ``ASSURE_OLLAMA_MODEL_B``); otherwise the
-    free or production pair."""
+    """Compare's two models on the configured backend. Bedrock (default):
+    ``bedrock_model("a")`` / ``bedrock_model("b")``; Ollama: the draft and
+    compare models. ``index`` is kept for callers that rotated through the
+    retired free pairs; there is one pair per backend."""
     try:
-        from ..cost_governance import bedrock_model, llm_backend, local_model, openrouter_model
+        from ..cost_governance import bedrock_model, llm_backend, local_model
     except ImportError:
-        from cost_governance import bedrock_model, llm_backend, local_model, openrouter_model
+        from cost_governance import bedrock_model, llm_backend, local_model
     if llm_backend() == "ollama":
         return local_model("a"), local_model("b")
-    if llm_backend() == "bedrock":
-        return bedrock_model("a"), bedrock_model("b")
-    if llm_backend() == "openrouter":
-        return openrouter_model("a"), openrouter_model("b")
-    return _cloud_compare_pair(index)
-
-
-def _cloud_compare_pair(index: int = 0) -> tuple[str, str]:
-    if use_free_models():
-        pairs = free_pairs_different_families()
-        if not pairs:
-            raise RuntimeError(
-                "No free model pair has two different families. "
-                "Diff engine cannot produce divergence."
-            )
-        return pairs[index % len(pairs)]
-    pairs = PRODUCTION_MODEL_PAIRS
-    return pairs[index % len(pairs)]
+    return bedrock_model("a"), bedrock_model("b")
 
 
 def get_active_model_stack() -> str:
-    return "free" if use_free_models() else "production"
+    return "production"
+
+
+_BEDROCK_DISPLAY = {
+    "anthropic.claude-sonnet-5-5": "Claude Sonnet 5.5 (Bedrock)",
+    "anthropic.claude-opus-5-5": "Claude Opus 5.5 (Bedrock)",
+}
 
 
 def display_name_for_model(model: str) -> str:
     slug = str(model or "").split("/")[-1]
+    # Bedrock ids carry the inference-profile prefix (`us.anthropic.…`).
+    bare = slug.split(".", 1)[1] if slug.startswith(("us.", "eu.", "apac.", "global.")) else slug
+    if bare in _BEDROCK_DISPLAY:
+        return _BEDROCK_DISPLAY[bare]
     labels = {
         "gemini-3.6-flash": "Gemini 3.6 Flash",
         "gemini-2.5-flash": "Gemini 2.5 Flash",
         "gemini-2.0-flash": "Gemini 2.0 Flash",
         "llama-3.3-70b-versatile": "Llama 3.3 70B (Groq)",
-        "nemotron-3.5-lightning:free": "Nemotron 3.5 Lightning (OpenRouter)",
-        "nex-n2.5-mini:free": "Nex N2.5 Mini (OpenRouter)",
-        "lfm-2.5-2.6b:free": "LFM 2.5 (OpenRouter)",
-        "laguna-xs-2.1:free": "Laguna XS (OpenRouter)",
-        "gemma-4-26b-a4b-it:free": "Gemma 4 26B (OpenRouter)",
-        "gemma-4-31b-it:free": "Gemma 4 31B (OpenRouter)",
         "claude-sonnet-4-5": "Claude Sonnet 4.5",
         "gpt-4o": "GPT-4o",
     }
@@ -250,54 +173,42 @@ def _api_key_env_for_model(model: str) -> str | None:
 def _litellm_params_for(model: str, *, max_tokens: int | None = None) -> dict[str, Any]:
     params: dict[str, Any] = {
         "model": model,
-        "api_key": _api_key_env_for_model(model),
         "timeout": timeout_for(model),
     }
+    slug = provider_slug_for_litellm(model)
+    if slug in ("bedrock", "ollama"):
+        # Keyless: Bedrock gets the region (boto3 signs with the task role or
+        # the .env AWS_* keys), Ollama the container's api_base.
+        try:
+            from ..keys import litellm_kwargs_for
+        except ImportError:
+            from keys import litellm_kwargs_for
+        params.update(litellm_kwargs_for(slug))
+    else:
+        params["api_key"] = _api_key_env_for_model(model)
     if max_tokens is not None:
         params["max_tokens"] = max_tokens
-    if provider_slug_for_litellm(model) == "openrouter":
-        params["api_base"] = os.getenv("OPENROUTER_API_BASE", "https://openrouter.ai/api/v1")
-        params["extra_headers"] = {
-            "HTTP-Referer": os.getenv("OPENROUTER_HTTP_REFERER", "https://staging.getassureai.com"),
-            "X-Title": os.getenv("OPENROUTER_APP_TITLE", "Assure AI"),
-        }
     return params
 
 
 def _build_model_list() -> list[dict[str, Any]]:
-    if not use_free_models():
-        return _paid_router_models
-    seen: set[str] = set()
-    entries: list[dict[str, Any]] = []
-    for model_a, model_b in free_pairs_different_families() or FREE_MODEL_PAIRS:
-        for model in (model_a, model_b):
-            if model in seen:
-                continue
-            seen.add(model)
-            entries.append(
-                {
-                    "model_name": model,
-                    "litellm_params": _litellm_params_for(model, max_tokens=4096),
-                }
-            )
-    default_a, default_b = get_compare_pair()
-    entries.extend(
-        [
-            {
-                "model_name": "text-reasoning",
-                "litellm_params": _litellm_params_for(default_a, max_tokens=4096),
-            },
-            {
-                "model_name": "table-parsing",
-                "litellm_params": _litellm_params_for(default_b),
-            },
-            {
-                "model_name": "vision-analysis",
-                "litellm_params": _litellm_params_for(default_a),
-            },
-        ]
-    )
-    return entries
+    """The Router's three task names, all on the configured backend.
+
+    Before 2026-10-01 ``text-reasoning`` was an OpenRouter Qwen id and the other
+    two needed Gemini / Anthropic keys, so refine_node and compile_tasks failed
+    on a Bedrock-only deployment. Now: text and vision → the draft model
+    (``bedrock_model("a")``), tables → the analysis model."""
+    try:
+        from ..cost_governance import resolve_model
+    except ImportError:
+        from cost_governance import resolve_model
+    text_model = resolve_model("", role="a")
+    table_model = resolve_model("", role="analysis")
+    return [
+        {"model_name": "text-reasoning", "litellm_params": _litellm_params_for(text_model, max_tokens=4096)},
+        {"model_name": "table-parsing", "litellm_params": _litellm_params_for(table_model)},
+        {"model_name": "vision-analysis", "litellm_params": _litellm_params_for(text_model)},
+    ]
 
 
 def get_router() -> Any:
@@ -353,19 +264,3 @@ def orchestrate_node_compilation_sync(node_type: str, prompt_messages: list[dict
         return loop.run_until_complete(orchestrate_node_compilation(node_type, prompt_messages))
     except RuntimeError:
         return asyncio.run(orchestrate_node_compilation(node_type, prompt_messages))
-
-
-def log_free_pair_at_startup() -> None:
-    """Print the selected free pair when ASSURE_USE_FREE_MODELS=1."""
-    if not use_free_models():
-        return
-    try:
-        model_a, model_b = select_free_pair()
-        print(
-            f"[orchestrator] free pair: {model_a} ({family_of(model_a)}) "
-            f"vs {model_b} ({family_of(model_b)})",
-            flush=True,
-        )
-    except Exception as exc:
-        print(f"[orchestrator] free pair selection failed: {exc}", flush=True)
-        raise

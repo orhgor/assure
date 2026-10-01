@@ -63,7 +63,8 @@ def test_generator_runs_nothing_and_writes_the_file(tmp_path: Path, target: str)
     values = dict(
         line.split("=", 1) for line in out.read_text().splitlines() if line and not line.startswith("#")
     )
-    assert values["ASSURE_LLM_BACKEND"] == "ollama"
+    # Bedrock is the default backend since OpenRouter was removed (2026-10-01).
+    assert values["ASSURE_LLM_BACKEND"] == "bedrock"
     assert values["SHELL_PORT"] == "80"
     assert values["SHELL_BIND"] == ("0.0.0.0" if target == "ec2" else "127.0.0.1")
     assert values["ENVIRONMENT"] == ("production" if target == "ec2" else "development")
@@ -71,7 +72,9 @@ def test_generator_runs_nothing_and_writes_the_file(tmp_path: Path, target: str)
     # Fernet: 44 urlsafe-base64 characters
     assert re.fullmatch(r"[A-Za-z0-9_-]{43}=", values["ENCRYPTION_KEY"]), values["ENCRYPTION_KEY"]
     assert values["ASSURE_S3_BUCKET"] == "" and values["AWS_ACCESS_KEY_ID"] == ""
-    assert values["PARSER_BACKEND"] == "auto" and values["PARSER_SCAN_BACKEND"] == "jdf-ocr" and values["ASSURE_TEXTRACT_MODE"] == "detect"
+    assert values["PARSER_BACKEND"] == "bedrock" and values["PARSER_SCAN_BACKEND"] == "jdf-ocr" and values["ASSURE_TEXTRACT_MODE"] == "detect"
+    assert values["AWS_DEFAULT_REGION"] == "us-east-1"
+    assert not any("OPENROUTER" in k for k in values)
     assert "SHELL_ACCESS_KEY" in values and values["SHELL_ACCESS_KEY"]
     # Local accounts (2026-09-27): a server asks for an owner on first open, a
     # laptop stays open; the bootstrap token is generated for both and printed.
@@ -117,7 +120,7 @@ def test_generator_takes_answers_including_the_aws_key_pair(tmp_path: Path) -> N
 def test_generator_gpu_answer_selects_the_overlay_and_bigger_models(tmp_path: Path) -> None:
     """'y' to the GPU question: COMPOSE_FILE adds docker-compose.gpu.yml so a plain
     `docker compose up -d` uses the card, and the 7B/8B tags become defaults."""
-    answers = "\n".join(["", "", "", "", "", "", "", "y", "", "", "", "", "", "", "", "", ""]) + "\n"
+    answers = "\n".join(["", "", "", "", "", "", "local", "y", "", "", "", "", "", "", "", "", ""]) + "\n"
     proc, out = _run(tmp_path, "ec2", "--ask", stdin=answers)
     assert proc.returncode == 0, proc.stderr
     text = out.read_text()
@@ -128,7 +131,7 @@ def test_generator_gpu_answer_selects_the_overlay_and_bigger_models(tmp_path: Pa
                  "ASSURE_OLLAMA_MODEL_COMPARE=gemma3:27b", "ASSURE_OLLAMA_MODEL=qwen2.5:14b", "OLLAMA_CONTEXT_LENGTH=16384"):
         assert line + "\n" in text, line
     # 80 GB tier
-    answers = "\n".join(["", "", "", "", "", "", "", "y", "80", "", "", "", "", "", "", "", ""]) + "\n"
+    answers = "\n".join(["", "", "", "", "", "", "local", "y", "80", "", "", "", "", "", "", "", ""]) + "\n"
     proc, out = _run(tmp_path, "ec2", "--ask", stdin=answers)
     assert "ASSURE_OLLAMA_MODEL_DRAFT=qwen2.5:72b\n" in out.read_text() and "ASSURE_OLLAMA_MODEL_COMPARE=llama3.3:70b\n" in out.read_text()
     proc, out = _run(tmp_path, "ec2", "--yes")
@@ -136,30 +139,33 @@ def test_generator_gpu_answer_selects_the_overlay_and_bigger_models(tmp_path: Pa
 
 
 def test_generator_bedrock_answer_sets_backend_and_both_roles(tmp_path: Path) -> None:
-    """'bedrock' to the models question: backend bedrock, Sonnet 5 for drafting,
-    Opus 5 for analysis (user decision 2026-09-25), overridable per role."""
+    """'bedrock' to the models question (the default since 2026-10-01): Opus 5.5
+    reads the document, Sonnet 5.5 answers every other prompt; both overridable."""
+    answers = "\n".join(["", "", "", "", "", "", "bedrock", "", "", "n", "", "", "", "", "", "", "", ""]) + "\n"
+    proc, out = _run(tmp_path, "ec2", "--ask", stdin=answers)
+    assert proc.returncode == 0, proc.stderr
+    text = out.read_text()
+    assert "ASSURE_LLM_BACKEND=bedrock\n" in text and "PARSER_BACKEND=bedrock\n" in text
+    assert "ASSURE_BEDROCK_MODEL_PARSE=anthropic.claude-opus-5-5\n" in text
+    for role in ("DRAFT", "ANALYSIS", "B", "VISION"):
+        assert f"ASSURE_BEDROCK_MODEL_{role}=anthropic.claude-sonnet-5-5\n" in text, role
     answers = "\n".join(["", "", "", "", "", "", "bedrock", "", "anthropic.claude-opus-5-5", "n", "", "", "", "", "", "", "", ""]) + "\n"
     proc, out = _run(tmp_path, "ec2", "--ask", stdin=answers)
-    assert proc.returncode == 0, proc.stderr
-    text = out.read_text()
-    assert "ASSURE_LLM_BACKEND=bedrock\n" in text
-    assert "ASSURE_BEDROCK_MODEL_DRAFT=anthropic.claude-sonnet-5\n" in text
-    assert "ASSURE_BEDROCK_MODEL_ANALYSIS=anthropic.claude-opus-5-5\n" in text
-    proc, out = _run(tmp_path, "ec2", "--yes")
-    assert "ASSURE_LLM_BACKEND=ollama\n" in out.read_text()  # default stays local
+    assert "ASSURE_BEDROCK_MODEL_DRAFT=anthropic.claude-opus-5-5\n" in out.read_text()
 
 
-def test_generator_openrouter_answer_writes_key_and_stage_models(tmp_path: Path) -> None:
-    # aws key, secret, region, bucket, port, bind, models-where, OR key, 7 stage models, gpu, 5 ollama models, textract
-    answers = "\n".join(["", "", "", "", "", "", "openrouter", "sk-or-abc123", "", "", "", "", "", "", "", "n", "", "", "", "", "", "", "", ""]) + "\n"
+def test_generator_local_answer_selects_ollama_and_writes_no_openrouter(tmp_path: Path) -> None:
+    """'local' keeps the explicit Ollama option; OpenRouter (removed 2026-10-01)
+    is neither asked nor written, and an old 'openrouter' answer means Bedrock."""
+    answers = "\n".join(["", "", "", "", "", "", "local", "n", "", "", "", "", "", "", "", ""]) + "\n"
     proc, out = _run(tmp_path, "ec2", "--ask", stdin=answers)
     assert proc.returncode == 0, proc.stderr
     text = out.read_text()
-    assert "ASSURE_LLM_BACKEND=openrouter\n" in text and "OPENROUTER_API_KEY=sk-or-abc123\n" in text
-    for line in ("ASSURE_OPENROUTER_MODEL_PARSE=amazon/nova-lite-v1", "ASSURE_OPENROUTER_MODEL_DRAFT=meta-llama/llama-3.3-70b-instruct",
-                 "ASSURE_OPENROUTER_MODEL_ANCHOR=cohere/command-r7b-12-2024", "ASSURE_OPENROUTER_MODEL_EVIDENCE=mistralai/mistral-small-24b-instruct-2501",
-                 "ASSURE_OPENROUTER_MODEL_EDIT=mistralai/mistral-small-24b-instruct-2501"):
-        assert line + "\n" in text, line
+    assert "ASSURE_LLM_BACKEND=ollama\n" in text and "PARSER_BACKEND=auto\n" in text
+    assert "OPENROUTER" not in text
+    answers = "\n".join(["", "", "", "", "", "", "openrouter", "", "", "n", "", "", "", "", "", "", "", ""]) + "\n"
+    proc, out = _run(tmp_path, "ec2", "--ask", stdin=answers)
+    assert "ASSURE_LLM_BACKEND=bedrock\n" in out.read_text()
     assert not (tmp_path / "called.log").exists()
 
 

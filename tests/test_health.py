@@ -119,16 +119,25 @@ def test_health_models_check_reads_ollama_inventory(health_client, monkeypatch):
     assert payload["status"] == "degraded" and payload["degraded"] is True
 
 
-def test_health_models_check_not_local_for_cloud_backend(health_client, monkeypatch):
-    monkeypatch.setenv("ASSURE_LLM_BACKEND", "cloud")
-    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
-    payload = health_client.get("/health").get_json()
-    assert payload["checks"]["models"] == {"backend": "cloud", "status": "not local"}
-
-
-def test_health_models_check_openrouter_lists_the_stage_table(health_client, monkeypatch):
-    monkeypatch.setenv("ASSURE_LLM_BACKEND", "")
-    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-or-test")
-    m = health_client.get("/health").get_json()["checks"]["models"]
-    assert m["backend"] == "openrouter" and m["key"] == "present" and m["status"] == "not local"
-    assert m["stages"]["parse"] == "amazon/nova-lite-v1" and m["stages"]["anchor"] == "cohere/command-r7b-12-2024"
+def test_health_models_check_bedrock_lists_the_stage_table(health_client, monkeypatch):
+    """Decision 2026-10-01: Opus 5.5 reads the document, Sonnet 5.5 the rest.
+    A leftover ``cloud`` / ``openrouter`` value reads as Bedrock."""
+    for var in ("ASSURE_BEDROCK_MODEL", "ASSURE_BEDROCK_MODEL_PARSE", "ASSURE_BEDROCK_MODEL_DRAFT",
+                "ASSURE_BEDROCK_MODEL_ANALYSIS", "ASSURE_BEDROCK_MODEL_B", "AWS_DEFAULT_REGION", "AWS_REGION"):
+        monkeypatch.delenv(var, raising=False)
+    for value in ("", "bedrock", "cloud", "openrouter"):
+        monkeypatch.setenv("ASSURE_LLM_BACKEND", value)
+        payload = health_client.get("/health").get_json()
+        m = payload["checks"]["models"]
+        assert m == {
+            "backend": "bedrock",
+            "status": "not local",
+            "stages": {
+                "parse": "us.anthropic.claude-opus-5-5",
+                "draft": "us.anthropic.claude-sonnet-5-5",
+                "analysis": "us.anthropic.claude-sonnet-5-5",
+                "compare": "us.anthropic.claude-sonnet-5-5",
+            },
+        }, value
+        assert payload["checks"]["llm"]["backend"] == "bedrock"
+        assert payload["checks"]["llm"]["probe"]["status"] == "not_probed"

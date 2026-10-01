@@ -80,9 +80,11 @@ def select_parser(
     default behavior (no ``source_kind``, or any unrecognized value) is to
     probe and decide.
     """
-    # 1. Client override takes precedence.
+    # 1. Client override takes precedence. A hosted reader reads scans too, so
+    #    it wins over the local scan backend (review 2026-10-01: a "scanned"
+    #    hint used to bypass PARSER_BACKEND=bedrock and land on tesseract).
     if source_kind == "scanned":
-        return scan_backend()
+        return "textract" if parser_backend() in HOSTED_READERS else scan_backend()
     if source_kind == "text":
         # Caller wraps text as JDF — skip binary parsing entirely.
         return "jdf"
@@ -174,20 +176,21 @@ def route_intake(
 #: Backends that read every page remotely and write the reading as a JDF
 #: document (``services/textract_jdf`` / ``services/llm_parse``). Callers see
 #: one routing answer, ``"textract"``, for both: the bundle builder dispatches.
-HOSTED_READERS = ("textract", "openrouter")
+HOSTED_READERS = ("textract", "bedrock")
 
 
 def parser_backend() -> str:
     """``PARSER_BACKEND``: ``auto`` (default — text layer → jdf-cli, scans →
     ``scan_backend``), ``textract`` (every PDF and image to Amazon Textract) or
-    ``openrouter`` (every page rendered and read by the parse-stage model on
-    OpenRouter, ``ASSURE_OPENROUTER_MODEL_PARSE``; user decision 2026-09-29:
-    "PARSER_BACKEND openrouter olacak"). Either hosted reader's output is
+    ``bedrock`` (the file read by Claude Opus 5.5 on Amazon Bedrock,
+    ``ASSURE_BEDROCK_MODEL_PARSE``; user decision 2026-10-01, OpenRouter
+    removed — the old values ``openrouter``/``llm``/``model`` map here so an
+    unchanged .env keeps working). Either hosted reader's output is
     written as a JDF document and the pipeline continues on it. Text-like
     files are still wrapped as JDF without any parser."""
     raw = (os.environ.get("PARSER_BACKEND") or "").strip().lower()
-    if raw in ("openrouter", "llm", "model"):
-        return "openrouter"
+    if raw in ("bedrock", "openrouter", "llm", "model"):
+        return "bedrock"
     return "textract" if raw == "textract" else "auto"
 
 

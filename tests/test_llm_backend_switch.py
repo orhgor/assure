@@ -1,10 +1,10 @@
-"""ASSURE_LLM_BACKEND routes every task's model: ollama locally, bedrock on an
-IAM-only server, the cloud policies otherwise."""
+"""ASSURE_LLM_BACKEND routes every task's model: bedrock by default, ollama when
+set explicitly. OpenRouter and the legacy ``cloud`` policies were removed on
+2026-10-01 (user decision); a leftover value of either reads as Bedrock."""
 
 from __future__ import annotations
 
 import importlib
-import os
 
 import pytest
 
@@ -24,11 +24,14 @@ def reload_policies(monkeypatch):
     importlib.reload(cost_governance)
 
 
-def test_cloud_backend_keeps_policies(reload_policies, monkeypatch):
-    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
-    mod = reload_policies("cloud")
-    assert mod.TASK_POLICIES[TaskType.DRAFT_COMPILE].litellm_model.startswith("openrouter/")
-    assert mod.resolve_model("deepseek/deepseek-chat") == "deepseek/deepseek-chat"
+def test_leftover_cloud_or_openrouter_reads_as_bedrock(reload_policies, monkeypatch):
+    """An old .env with ``cloud`` / ``openrouter`` must not route to a backend
+    nothing can serve (OpenRouter removed 2026-10-01)."""
+    monkeypatch.setenv("AWS_DEFAULT_REGION", "us-east-1")
+    for value in ("cloud", "openrouter", ""):
+        mod = reload_policies(value)
+        assert mod.llm_backend() == "bedrock", value
+        assert mod.TASK_POLICIES[TaskType.DRAFT_COMPILE].litellm_model == "bedrock/us.anthropic.claude-sonnet-5-5"
 
 
 def test_ollama_backend_routes_every_task(reload_policies, monkeypatch):
@@ -41,7 +44,7 @@ def test_ollama_backend_routes_every_task(reload_policies, monkeypatch):
 
 
 def test_bedrock_backend_needs_no_key(reload_policies, monkeypatch):
-    for k in ("OPENROUTER_API_KEY", "DEEPSEEK_API_KEY", "ANTHROPIC_API_KEY"):
+    for k in ("DEEPSEEK_API_KEY", "ANTHROPIC_API_KEY", "ASSURE_BEDROCK_MODEL_B"):
         monkeypatch.delenv(k, raising=False)
     mod = reload_policies("bedrock")
     model = mod.TASK_POLICIES[TaskType.DRAFT_COMPILE].litellm_model
@@ -54,7 +57,9 @@ def test_bedrock_backend_needs_no_key(reload_policies, monkeypatch):
     from prompt_matrix.llm.orchestrator import get_compare_pair
 
     a, b = get_compare_pair()
-    assert a.startswith("bedrock/") and b.startswith("bedrock/") and a != b
+    # Both Compare columns default to Sonnet 5.5 (2026-10-01): the pair is two
+    # samples of one model unless ASSURE_BEDROCK_MODEL_B names another.
+    assert a.startswith("bedrock/") and b.startswith("bedrock/")
 
 
 def test_litellm_kwargs_turns_on_drop_params(monkeypatch):
@@ -67,20 +72,24 @@ def test_litellm_kwargs_turns_on_drop_params(monkeypatch):
     assert litellm.drop_params is True
 
 
-def test_bedrock_backend_splits_drafting_and_analysis(reload_policies, monkeypatch):
-    """User decision 2026-09-25: drafting on Sonnet, analysis on Opus, both set
-    from .env. A bare ``anthropic.…`` id gets the region's inference-profile
-    prefix; ids that already carry one, or an ARN, pass through."""
-    monkeypatch.setenv("AWS_DEFAULT_REGION", "eu-central-1")
-    for k in ("ASSURE_BEDROCK_MODEL", "ASSURE_BEDROCK_MODEL_DRAFT", "ASSURE_BEDROCK_MODEL_ANALYSIS", "ASSURE_BEDROCK_MODEL_B"):
+def test_bedrock_backend_defaults_and_overrides(reload_policies, monkeypatch):
+    """User decision 2026-10-01: the document read on Opus 5.5, every other
+    prompt on Sonnet 5.5, through the region's inference profile (``us.`` in
+    us-east-1). A bare ``anthropic.…`` id gets the prefix; ids that already
+    carry one, or an ARN, pass through."""
+    monkeypatch.setenv("AWS_DEFAULT_REGION", "us-east-1")
+    for k in ("ASSURE_BEDROCK_MODEL", "ASSURE_BEDROCK_MODEL_DRAFT", "ASSURE_BEDROCK_MODEL_ANALYSIS",
+              "ASSURE_BEDROCK_MODEL_B", "ASSURE_BEDROCK_MODEL_PARSE"):
         monkeypatch.delenv(k, raising=False)
     mod = reload_policies("bedrock")
-    drafting = {TaskType.DRAFT_COMPILE, TaskType.DEEP_SYNTHESIS, TaskType.SUMMARIZE_NODE, TaskType.SURGICAL_EDIT}
     for task, pol in mod.TASK_POLICIES.items():
-        expected = "bedrock/eu.anthropic.claude-sonnet-5" if task in drafting else "bedrock/eu.anthropic.claude-opus-5"
-        assert pol.litellm_model == expected, task
-    assert mod.resolve_model("x", role="analysis") == "bedrock/eu.anthropic.claude-opus-5"
-    assert mod.resolve_model("x") == "bedrock/eu.anthropic.claude-sonnet-5"
+        assert pol.litellm_model == "bedrock/us.anthropic.claude-sonnet-5-5", task
+    assert mod.resolve_model("x", role="analysis") == "bedrock/us.anthropic.claude-sonnet-5-5"
+    assert mod.bedrock_model("parse") == "bedrock/us.anthropic.claude-opus-5-5"
+    assert mod.bedrock_model("b") == "bedrock/us.anthropic.claude-sonnet-5-5"
+
+    monkeypatch.setenv("AWS_DEFAULT_REGION", "eu-central-1")
+    assert mod.bedrock_model("draft") == "bedrock/eu.anthropic.claude-sonnet-5-5"
 
     monkeypatch.setenv("ASSURE_BEDROCK_MODEL_DRAFT", "anthropic.claude-sonnet-4-6")
     monkeypatch.setenv("ASSURE_BEDROCK_MODEL_ANALYSIS", "us.anthropic.claude-opus-5-5")
@@ -122,30 +131,15 @@ def test_ollama_backend_one_model_per_stage(reload_policies, monkeypatch):
     assert mod.local_model("redhat") == "ollama/qwen2.5:32b"
 
 
-def test_openrouter_backend_one_hosted_model_per_stage(reload_policies, monkeypatch):
-    """User's table (2026-09-25): Nova Lite parses, Llama 3.3 70B drafts, Cohere
-    anchors, Mistral Small 3 judges entailment and paraphrases. A key in .env
-    with the switch unset means OpenRouter; no key and no switch means Ollama."""
-    for k in list(os.environ):
-        if k.startswith("ASSURE_OPENROUTER_MODEL"):
-            monkeypatch.delenv(k, raising=False)
+def test_only_an_explicit_ollama_leaves_bedrock(reload_policies, monkeypatch):
+    """No key-sniffing any more: before 2026-10-01 an OPENROUTER_API_KEY with the
+    switch unset meant OpenRouter and no key meant Ollama. Now unset = Bedrock,
+    ``ollama`` = local, and an OpenRouter key changes nothing."""
     monkeypatch.setenv("OPENROUTER_API_KEY", "sk-or-test")
     mod = reload_policies("")
-    assert mod.llm_backend() == "openrouter"
-    P = mod.TASK_POLICIES
-    assert P[TaskType.FIELD_EXTRACTION].litellm_model == "openrouter/amazon/nova-lite-v1"
-    for t in (TaskType.DRAFT_COMPILE, TaskType.DEEP_SYNTHESIS, TaskType.SUMMARIZE_NODE, TaskType.REDHAT, TaskType.MACRO_AUDIT):
-        assert P[t].litellm_model == "openrouter/meta-llama/llama-3.3-70b-instruct", t
-    for t in (TaskType.SEMANTIC_VALIDATION, TaskType.SURGICAL_EDIT):
-        assert P[t].litellm_model == "openrouter/mistralai/mistral-small-24b-instruct-2501", t
-    assert mod.resolve_model("x", role="anchor") == "openrouter/cohere/command-r7b-12-2024"
-    assert mod.resolve_model("x", role="b") == "openrouter/mistralai/mistral-small-24b-instruct-2501"
-    monkeypatch.setenv("ASSURE_OPENROUTER_MODEL_DRAFT", "openrouter/qwen/qwen3-235b-a22b")
-    assert mod.openrouter_model("draft") == "openrouter/qwen/qwen3-235b-a22b"
-    # explicit switch wins over the key; no key + no switch = local
+    assert mod.llm_backend() == "bedrock"
+    assert not hasattr(mod, "openrouter_model")
     monkeypatch.setenv("ASSURE_LLM_BACKEND", "ollama")
     assert mod.llm_backend() == "ollama"
-    monkeypatch.delenv("ASSURE_LLM_BACKEND"); monkeypatch.delenv("OPENROUTER_API_KEY")
+    monkeypatch.setenv("ASSURE_LLM_BACKEND", "OLLAMA ")
     assert mod.llm_backend() == "ollama"
-    monkeypatch.setenv("ASSURE_LLM_BACKEND", "cloud")
-    assert mod.llm_backend() == ""

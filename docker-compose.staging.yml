@@ -3,7 +3,8 @@
 #
 #   docker compose -f docker-compose.yml -f docker-compose.staging.yml up -d
 services:
-  # Cloud model policies here (ASSURE_LLM_BACKEND empty): the local Ollama pair
+  # Amazon Bedrock here (ASSURE_LLM_BACKEND=bedrock, the default since
+  # 2026-10-01; OpenRouter and the free stack were removed): the local Ollama pair
   # from the base file moves behind the `local-llm` profile and the web/worker
   # no longer wait for a model pull. COMPOSE_PROFILES=local-llm in the env file
   # brings the models back (the laptop run of staging does that).
@@ -30,10 +31,9 @@ services:
         required: false
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-assure}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-assure}
-      ASSURE_LLM_BACKEND: ${ASSURE_LLM_BACKEND:-cloud}   # no Ollama service under this overlay; empty would now mean local
+      ASSURE_LLM_BACKEND: ${ASSURE_LLM_BACKEND:-bedrock}   # no Ollama service under this overlay; Bedrock via the instance role / AWS keys
       ENVIRONMENT: staging
       ASSURE_ENV: staging
-      ASSURE_USE_FREE_MODELS: "1"
       PEM_SECRET_KEY: ${PEM_SECRET_KEY:?set PEM_SECRET_KEY}
       ASSURE_REQUIRE_LOGIN: ${ASSURE_REQUIRE_LOGIN:-true}
       WTF_CSRF_ENABLED: ${WTF_CSRF_ENABLED:-1}
@@ -56,7 +56,7 @@ services:
         required: false
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-assure}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-assure}
-      ASSURE_LLM_BACKEND: ${ASSURE_LLM_BACKEND:-cloud}   # no Ollama service under this overlay; empty would now mean local
+      ASSURE_LLM_BACKEND: ${ASSURE_LLM_BACKEND:-bedrock}   # no Ollama service under this overlay; Bedrock via the instance role / AWS keys
       ENVIRONMENT: staging
       ASSURE_ENV: staging
       PEM_SECRET_KEY: ${PEM_SECRET_KEY:?set PEM_SECRET_KEY}

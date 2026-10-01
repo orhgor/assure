@@ -702,6 +702,26 @@ def register_jdf_routes(app) -> None:
             from db import parsure_repository as _reports  # type: ignore
         from flask import Response
 
+        try:
+            from ..services import source_jdf as _sj
+        except ImportError:
+            from services import source_jdf as _sj  # type: ignore
+        # The kept original (services/source_jdf.store_original, 2026-10-01):
+        # beside the document's latest source JDF, named in its meta.assure.
+        src_key = _sj.resolve_source_jdf_key(project_id, document_id)
+        src_doc = _sj.load_source_jdf(src_key) if src_key else None
+        kept = ((src_doc or {}).get("meta") or {}).get("assure", {}).get("original") if src_doc else None
+        if isinstance(kept, dict) and kept.get("key") and str(kept["key"]).startswith(_sj.document_prefix(project_id, document_id)):
+            store = get_object_store()
+            if store.exists(str(kept["key"])):
+                fname = str(((src_doc.get("meta") or {}).get("assure") or {}).get("filename") or "original")
+                resp = Response(store.get_bytes(str(kept["key"])),
+                                mimetype=str(kept.get("content_type") or guess_upload_content_type(fname)))
+                safe_name = re.sub(r"[^A-Za-z0-9._-]+", "_", fname) or "original"
+                resp.headers["Content-Disposition"] = f'inline; filename="{safe_name}"'
+                resp.headers["Cache-Control"] = "private, max-age=300"
+                return resp
+
         report = None
         try:
             for rep in _reports.list_reports(project_id, limit=200) or []:

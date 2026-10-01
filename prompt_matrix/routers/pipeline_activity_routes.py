@@ -2,7 +2,8 @@
 its request leave the server?
 
 Why (customer report, 2026-09-28): "requests are not reaching OpenRouter and I
-cannot see whether the pipeline ran". The stage summaries (the ingest job, the
+cannot see whether the pipeline ran" (OpenRouter was the backend then; it was
+replaced by Amazon Bedrock on 2026-10-01 and the route is backend-neutral). The stage summaries (the ingest job, the
 Parsure ``report.execution`` ledger) say what a stage concluded; the model-call
 ledger (``services/model_calls``) says which requests were made, to which model,
 with what HTTP status and latency. This route joins the three into one list in

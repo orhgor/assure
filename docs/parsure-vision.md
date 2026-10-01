@@ -104,12 +104,13 @@ a DPI estimate that assumes a letter-size page, which a photo is not. A
 
 ## Model and configuration
 
+OpenRouter was removed on 2026-10-01; the `openrouter/amazon/nova-lite-v1` ids
+below are measurements from before that date, not current defaults.
+
 | Backend (`cost_governance.llm_backend()`) | Variable | Default | Counts as configured when unset? |
 |---|---|---|---|
 | `ollama` | `ASSURE_OLLAMA_MODEL_VISION` | `qwen2.5vl:3b` | **No** — the tag is not in `ollama-pull`; a stock compose stack would fail every photo with "model not found". Set the variable (after `ollama pull`) or `PARSURE_VISION=1`. |
-| `openrouter` (also the legacy `cloud` policies when `OPENROUTER_API_KEY` is set) | `ASSURE_OPENROUTER_MODEL_VISION` | `amazon/nova-lite-v1` (multimodal) | Yes |
-| `bedrock` | `ASSURE_BEDROCK_MODEL_VISION` | `ASSURE_BEDROCK_MODEL_DRAFT` (Sonnet), qualified with the region's `eu.`/`us.` inference-profile prefix like every other Bedrock id | Yes |
-| `cloud` without an OpenRouter key | — | — | No vision model: `disabled` with that reason |
+| `bedrock` (default; also a leftover `openrouter`/`cloud`, 2026-10-01) | `ASSURE_BEDROCK_MODEL_VISION` | `ASSURE_BEDROCK_MODEL_DRAFT` (Sonnet 5.5), qualified with the region's `eu.`/`us.` inference-profile prefix like every other Bedrock id | Yes |
 
 `PARSURE_VISION`: `0/false/no/off` → `disabled` ("PARSURE_VISION is off");
 `1/true/yes/on` → on with the backend's model; unset → on when the table

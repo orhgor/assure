@@ -29,7 +29,6 @@ PROVIDER_ENV = {
     "gemini": "GEMINI_API_KEY",
     "kimi": "MOONSHOT_API_KEY",
     "groq": "GROQ_API_KEY",
-    "openrouter": "OPENROUTER_API_KEY",
 }
 
 PROVIDER_LABEL = {
@@ -37,7 +36,6 @@ PROVIDER_LABEL = {
     "gemini": "Google Gemini",
     "kimi": "Kimi",
     "groq": "Groq",
-    "openrouter": "OpenRouter",
 }
 
 
@@ -48,7 +46,6 @@ def provider_slug_for_litellm(model: str) -> str:
         "anthropic": "claude",
         "gemini": "gemini",
         "groq": "groq",
-        "openrouter": "openrouter",
     }.get(prefix, prefix)
 
 
@@ -110,6 +107,12 @@ def _browser_env(name: str) -> str | None:
 
 
 def key_present(target: str) -> bool:
+    if target == "bedrock":
+        # A Bedrock API key (AWS_BEARER_TOKEN_BEDROCK, the user's only Bedrock
+        # credential since 2026-10-01) or, without one, boto3's credential
+        # chain. Neither can be checked without a call, so a missing or
+        # rejected credential surfaces as the call's own error.
+        return True
     if target == "gemini":
         return bool(
             _cloud_env("GEMINI_API_KEY")
@@ -212,7 +215,6 @@ _LITELLM_SLUG_ALIASES: dict[str, str] = {
     "gemini": "gemini",
     "google": "gemini",
     "moonshot": "kimi",
-    "openrouter": "openrouter",
     "groq": "groq",
     "ollama": "ollama",  # local container (ASSURE_LLM_BACKEND=ollama); no key
     "bedrock": "bedrock",  # Amazon Bedrock via the IAM role (ASSURE_LLM_BACKEND=bedrock); no key
@@ -230,54 +232,15 @@ _BARE_MODEL_PREFIXES: tuple[tuple[str, str | None], ...] = (
 
 # Single source of truth for orchestrator._api_key_env_for_model.
 # keys.py and llm/orchestrator.py are a coupled deploy unit — ship together.
+# Bedrock (the product backend since 2026-10-01) and Ollama are keyless here:
+# Bedrock signs with the boto3 credential chain (task role, or the .env AWS_*
+# keys), Ollama is the local container. OpenRouter was removed the same day.
 ORCHESTRATOR_ENV_MAP: dict[str, str] = {
     "claude": "ANTHROPIC_API_KEY",
     "gemini": "GEMINI_API_KEY",
     "groq": "GROQ_API_KEY",
-    "openrouter": "OPENROUTER_API_KEY",
 }
 ORCHESTRATOR_ENV_MAP_KEYS = frozenset(ORCHESTRATOR_ENV_MAP)
-
-
-#: The upstream provider OpenRouter must use, named. Every call that produces a
-#: document or checks one pins this: at temperature 0 the *provider* is what makes
-#: a call reproducible, since an unpinned request is routed per call and OpenRouter
-#: still samples across them. Measured on the compile path: Alibaba 8/8 identical,
-#: Novita 8/8 identical, unpinned 8/8 distinct — and Alibaba and Novita do not
-#: agree with each other (sha 25bbbc92… vs 585f6e9d…), which is why fallbacks stay
-#: off: a provider outage must read as a failed call, never as a different result
-#: under the same inputs. ``extra_body`` carries it, because litellm passes a
-#: caller's extra_body through to the OpenRouter request body and a named kwarg
-#: has no route to that field.
-PROVIDER_PIN: dict = {"order": ["Alibaba"], "allow_fallbacks": False}
-
-
-def provider_pin_for(model: str | None) -> dict:
-    """The OpenRouter ``provider`` block for ``model``.
-
-    The Alibaba pin above was measured on Qwen: Alibaba does not serve
-    ``meta-llama/llama-3.3-70b-instruct`` and OpenRouter answered "No endpoints
-    found … every candidate endpoint was removed during routing" — every
-    compile on a Llama-configured box failed at once (measured 2026-09-27).
-    So: ``ASSURE_OPENROUTER_PROVIDER_ORDER`` (comma list) pins any model
-    explicitly; a Qwen model keeps the measured Alibaba pin; any other model
-    gets no provider block: OpenRouter routes and falls back as it does by
-    default. Measured 2026-09-27 with ``allow_fallbacks: False`` alone:
-    OpenRouter chose Novita, Novita answered 429 (shared upstream pool) and the
-    compile died at once — a pinless "no fallback" buys no determinism (the
-    provider is chosen per call anyway) and costs every compile that lands on
-    a throttled provider. Byte-stable output needs a real pin; set the env
-    var for that.
-    """
-    import os
-
-    explicit = [p.strip() for p in os.environ.get("ASSURE_OPENROUTER_PROVIDER_ORDER", "").split(",") if p.strip()]
-    if explicit:
-        return {"order": explicit, "allow_fallbacks": False}
-    name = str(model or "").lower()
-    if "/qwen" in name or name.startswith("qwen") or "openrouter/qwen" in name:
-        return dict(PROVIDER_PIN)
-    return {}
 
 
 def provider_slug_for_litellm(model: str | None) -> str | None:
@@ -318,22 +281,25 @@ def litellm_kwargs_for(target: str) -> dict:
     if target == "kimi":
         extra["api_base"] = os.environ.get("MOONSHOT_API_BASE", "https://api.moonshot.ai/v1")
     if target == "bedrock":
-        # boto3 credential chain (instance/task role, or the .env keys); litellm
-        # only needs the region.
-        extra["aws_region_name"] = (
-            os.environ.get("AWS_DEFAULT_REGION") or os.environ.get("AWS_REGION") or "eu-central-1"
-        )
+        # The Bedrock API key (bearer token, user decision 2026-10-01: no IAM
+        # for Bedrock) when set — litellm sends it as ``Authorization: Bearer``
+        # and signs nothing; otherwise the boto3 credential chain.
+        # Region default us-east-1: cost_governance qualifies bare ids with the
+        # `us.` inference profile, which eu-central-1 does not serve.
+        try:
+            from .cost_governance import bedrock_api_key, bedrock_region
+        except ImportError:
+            from cost_governance import bedrock_api_key, bedrock_region  # type: ignore
+        token = bedrock_api_key()
+        if token:
+            extra["api_key"] = token
+        extra["aws_region_name"] = bedrock_region()
     if target == "ollama":
         # The compose `ollama` service is not on 127.0.0.1 inside the app
         # container; litellm also honours OLLAMA_API_BASE, this makes it explicit.
         base = os.environ.get("OLLAMA_API_BASE") or os.environ.get("OLLAMA_HOST") or "http://127.0.0.1:11434"
         extra["api_base"] = base.rstrip("/")
         extra["api_key"] = "ollama"
-    if target == "openrouter":
-        extra["api_base"] = os.environ.get("OPENROUTER_API_BASE", "https://openrouter.ai/api/v1")
-        referer = os.environ.get("OPENROUTER_HTTP_REFERER", "https://staging.getassureai.com")
-        title = os.environ.get("OPENROUTER_APP_TITLE", "Assure AI")
-        extra["extra_headers"] = {"HTTP-Referer": referer, "X-Title": title}
     if target == "claude":
         workspace = anthropic_workspace_id()
         if workspace:
@@ -342,7 +308,7 @@ def litellm_kwargs_for(target: str) -> dict:
 
 
 def missing_key_message(target: str) -> str | None:
-    if target == "cursor":
+    if target in ("cursor", "bedrock"):
         return None
     if target == "ollama":
         if local_is_up(wake_ollama=False):

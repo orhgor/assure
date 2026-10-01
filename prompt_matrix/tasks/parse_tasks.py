@@ -89,6 +89,9 @@ def import_project_pdf_task(
         slim = {k: v for k, v in payload.items() if k not in ("document", "tree", "jdf", "chunks", "text")}
         result = {"status": "success", "task_id": self.request.id, "job_id": job_id, "result": slim}
     except PdfIngestError as exc:
+        # A rejected upload never reached the pipeline, so nothing else marks
+        # the job (review 2026-10-01: it stayed "queued" forever).
+        _job("failed", error=str(exc)[:2000])
         result = {
             "status": "failure",
             "task_id": self.request.id,

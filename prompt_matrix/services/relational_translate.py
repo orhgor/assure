@@ -16,13 +16,13 @@ comparison, and failing that to UNVERIFIED with the reason.
 
 Two properties are deliberate:
 
-**The call is pinned.** Same reasoning as the compile path it feeds
-(``routers.draft._COMPILE_PROVIDER_PIN``, now shared as ``keys.PROVIDER_PIN``):
-OpenRouter still samples when asked for temperature 0 unless the upstream
-provider is named, and an unpinned translation is a different question on every
-call. The pin is applied to this call and nowhere assumed — see
-``pinned_request_body``, which is what the wire capture in the evidence run
-reads.
+**The call is fixed to one model.** Until 2026-10-01 the translation went to
+OpenRouter with an upstream-provider pin (``keys.PROVIDER_PIN``), because
+OpenRouter sampled across providers even at temperature 0. On Amazon Bedrock
+(the only hosted backend since then) the model id names the one deployment —
+``bedrock/us.anthropic.claude-sonnet-5-5`` — so there is no routing to pin and
+the pin was removed with OpenRouter. ``pinned_request_body`` keeps the name and
+is still what the wire capture in the evidence run reads.
 
 **The translation is cached.** The key covers everything the JSON depends on::
 
@@ -228,37 +228,28 @@ def cache_key(claim: str, facts: dict[str, float], model_id: str) -> str:
 
 
 def pinned_request_body(model: str, prompt: str) -> dict[str, Any]:
-    """The OpenRouter request body this module sends, pin included.
+    """The request body this module sends.
 
-    Exposed so the pin can be read off the wire instead of asserted: the evidence
-    capture posts this body through a local listener and greps it. ``provider`` is
-    present exactly when the model routes through OpenRouter, and it is the same
-    ``keys.PROVIDER_PIN`` the compile path uses — named, with fallbacks off, so an
-    upstream swap cannot silently change what the check was run against.
+    Exposed so the request can be read off the wire instead of asserted: the
+    evidence capture posts this body through a local listener and greps it. The
+    OpenRouter ``provider`` pin it used to carry went with OpenRouter on
+    2026-10-01 — a Bedrock model id is one deployment. ``temperature`` stays for
+    backends that honour it; Sonnet 5.5 rejects it and ``litellm.drop_params``
+    (litellm_runner) drops it.
     """
-    try:
-        from ..keys import provider_pin_for
-    except ImportError:  # pragma: no cover
-        from keys import provider_pin_for
-
     return {
         "model": model,
         "messages": [{"role": "user", "content": prompt}],
         "temperature": 0.0,
         "max_tokens": MAX_OUTPUT_TOKENS,
-        "provider": provider_pin_for(model),
     }
 
 
 def _pinned_caller(prompt: str, model: str) -> str:
-    """Send one translation request, pinned like the compile it feeds.
+    """Send one translation request to the configured model.
 
-    The key comes from the same ``litellm_kwargs_for`` the compile path uses, and
-    the provider pin rides ``extra_body`` because that is the carrier litellm
-    passes through to the OpenRouter request body — a named kwarg has no route to
-    that field (``routers/draft.py`` measured this, and this call reuses it rather
-    than re-deriving it).
-    """
+    The provider kwargs come from the same ``litellm_kwargs_for`` the compile
+    path uses (Bedrock region, Ollama api_base, a hosted key)."""
     try:
         from ..keys import litellm_kwargs_for, provider_slug_for_litellm
     except ImportError:  # pragma: no cover
@@ -273,15 +264,6 @@ def _pinned_caller(prompt: str, model: str) -> str:
             kwargs = dict(litellm_kwargs_for(slug))
         except Exception:  # a missing key is the caller's error to report
             kwargs = {}
-    if slug == "openrouter":
-        try:
-            from ..keys import provider_pin_for
-        except ImportError:  # pragma: no cover
-            from keys import provider_pin_for
-
-        pin = provider_pin_for(model)
-        if pin:
-            kwargs["extra_body"] = {"provider": pin}
 
     response = litellm.completion(
         model=model,
@@ -299,12 +281,10 @@ def _pinned_caller(prompt: str, model: str) -> str:
 def _governor_policy() -> tuple[str, str]:
     """(model_id, litellm_model) for structured extraction.
 
-    The same policy the entailment check runs on: a non-reasoning Qwen instruct
-    model, which is the repo's measured choice for "answer with one structured
-    line" work, and — relevant here — one Alibaba serves, so the shared provider
-    pin has somewhere to land. The brief named GPT-4o-mini or Qwen2.5-14B;
-    neither is served under ``order: [Alibaba]`` with fallbacks off, so the
-    policy model stands in and the deviation is reported rather than papered over.
+    The same policy the entailment check runs on — Claude Sonnet 5.5 on Bedrock
+    since 2026-10-01 (the Ollama evidence model on the local backend). The brief
+    named GPT-4o-mini or Qwen2.5-14B; the policy model stands in and the
+    deviation is reported rather than papered over.
     """
     try:
         from ..cost_governance import CostGovernor, TaskType

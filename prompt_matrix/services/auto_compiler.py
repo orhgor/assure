@@ -18,7 +18,6 @@ try:
     from ..services.lock_metadata import enrich_extracted_locks
     from ..services.orchestrator import done_sse, orchestrate_sourced_run, typed_sse
     from ..services.parser import extract_claims_from_stream
-    from ..llm.orchestrator import use_free_models
     from ..services.perplexity_agent import (
         perplexity_available,
         stream_perplexity_agent,
@@ -36,7 +35,6 @@ except ImportError:
     from services.lock_metadata import enrich_extracted_locks
     from services.orchestrator import done_sse, orchestrate_sourced_run, typed_sse
     from services.parser import extract_claims_from_stream
-    from llm.orchestrator import use_free_models
     from services.perplexity_agent import (
         perplexity_available,
         stream_perplexity_agent,
@@ -79,9 +77,16 @@ def _verify_locks(locks: list[dict[str, Any]], draft_text: str) -> dict[str, Any
     return {"status": "PASS" if ok else "VIOLATION", "violations": violations}
 
 
+#: Slugs that mean "the configured backend" rather than a named hosted provider.
+#: Before 2026-10-01 only the OpenRouter free stack mapped slugs onto the
+#: Compare pair; with OpenRouter removed the backend (Bedrock by default,
+#: Ollama when chosen) is the default for every run.
+_BACKEND_SLUGS = ("", "bedrock", "ollama", "default", "secondary", "fast-chat")
+
+
 def _litellm_model_name(model: str) -> str:
-    slug = str(model or "gemini").strip().lower()
-    if use_free_models():
+    slug = str(model or "").strip().lower()
+    if slug in _BACKEND_SLUGS:
         try:
             from ..cost_router import rewrite_send_id
             from ..llm.orchestrator import get_compare_pair
@@ -110,18 +115,14 @@ def _stream_litellm(prompt: str, *, model: str) -> Iterator[str]:
     import litellm
 
     try:
-        from ..config.system_prompt import COMPARE_FREE_INSTRUCTION
         from ..keys import litellm_kwargs_for, provider_slug_for_litellm
         from ..litellm_runner import completion_limits
     except ImportError:
-        from config.system_prompt import COMPARE_FREE_INSTRUCTION
         from keys import litellm_kwargs_for, provider_slug_for_litellm
         from litellm_runner import completion_limits
 
     litellm_model = _litellm_model_name(model)
-    system_content = (
-        COMPARE_FREE_INSTRUCTION if use_free_models() else "Follow the compiled prompt exactly."
-    )
+    system_content = "Follow the compiled prompt exactly."
     messages = [
         {"role": "system", "content": system_content},
         {"role": "user", "content": prompt},
@@ -183,7 +184,7 @@ def run_auto_compiler_pipeline(
     *,
     workspace_id: str | None = None,
     source_ids: list[str] | None = None,
-    model: str = "gemini",
+    model: str = "bedrock",
     cancel_check: CancelCheck | None = None,
     request_id: str | None = None,
 ) -> Generator[str, None, None]:
@@ -201,25 +202,14 @@ def run_auto_compiler_pipeline(
     except ImportError:
         from keys import key_present, load_keys, missing_key_message
     load_keys()
-    provider_key = str(model or "gemini").strip().lower()
-    if use_free_models():
+    provider_key = str(model or "").strip().lower()
+    if provider_key not in ("gemini", "claude", "kimi", "groq"):
+        # The configured backend (Bedrock / Ollama) — keyless since 2026-10-01.
         try:
             from ..keys import provider_slug_for_litellm
-            from ..llm.orchestrator import get_compare_pair
         except ImportError:
             from keys import provider_slug_for_litellm
-            from llm.orchestrator import get_compare_pair
-        pair_a, _ = get_compare_pair()
-        provider_key = provider_slug_for_litellm(pair_a)
-    elif provider_key not in (
-        "gemini",
-        "claude",
-        "kimi",
-        "ollama",
-        "groq",
-        "openrouter",
-    ):
-        provider_key = "gemini"
+        provider_key = provider_slug_for_litellm(_litellm_model_name(provider_key)) or "bedrock"
     if not key_present(provider_key):
         msg = missing_key_message(provider_key) or f"No API key configured for {provider_key}."
         yield typed_sse("error", {"ok": False, "error": msg, "request_id": rid})
@@ -245,13 +235,10 @@ def run_auto_compiler_pipeline(
         },
     )
 
-    if use_free_models() and not sources and not (source_ids or []):
-        compiled_prompt = text
-    else:
-        compiled_prompt = compile_prompt(text, intent_type, sources)
+    compiled_prompt = compile_prompt(text, intent_type, sources)
     sources_block = PromptCompiler.format_sources_from_rows(sources)
     use_web = (
-        not sources and not (source_ids or []) and perplexity_available() and not use_free_models()
+        not sources and not (source_ids or []) and perplexity_available()
     )
     model_used = "perplexity-agent" if use_web else model
 
@@ -443,7 +430,7 @@ def create_run_from_directive(
     *,
     workspace_id: str | None = None,
     source_ids: list[str] | None = None,
-    model: str = "gemini",
+    model: str = "bedrock",
 ) -> dict[str, Any]:
     """Sync wrapper — drains SSE pipeline and returns persisted run."""
     run: dict[str, Any] | None = None

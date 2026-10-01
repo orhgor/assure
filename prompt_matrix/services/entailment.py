@@ -13,7 +13,7 @@ Verdicts (frozen contract, persisted at ``node.meta.provenance.entailment``):
     {"verdict": "yes" | "partial" | "no" | "contradicts" | "unverified",
      "contradicted": bool,
      "reasoning": "<one sentence>",
-     "model": "qwen/qwen3-next-80b-a3b-instruct",
+     "model": "bedrock/us.anthropic.claude-sonnet-5-5",
      "checked_at": "<ISO8601>",
      "prompt_version": ENTAILMENT_PROMPT_VERSION}
 

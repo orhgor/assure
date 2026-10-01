@@ -9,27 +9,22 @@ from prompt_matrix.services.compare_models import _model_slot, run_compare_pair
 def test_model_slot_does_not_copy_error_into_text() -> None:
     slot = _model_slot(
         {
-            "name": "Qwen3 Next 80B A3B Instruct",
+            "name": "Claude Sonnet 5.5 (Bedrock)",
             "text": "",
             "error": "ERROR: Run aborted due to timeout (60s).",
         },
-        "openrouter/qwen/qwen3-next-80b-a3b-instruct",
+        "bedrock/us.anthropic.claude-sonnet-5-5",
     )
     assert slot["error"]
     assert slot["text"] == ""
 
 
 def test_run_compare_pair_parallel_not_sequential(monkeypatch) -> None:
-    # Pin the non-free path so use_free_models() is deterministic. Without this,
-    # a leaked ASSURE_USE_FREE_MODELS=1 (e.g. from load_keys() reading .env.local
-    # during an earlier create_app() in the full-suite run) sends _candidate_pairs
-    # through free_pairs_different_families() instead of the mocked get_compare_pair.
-    monkeypatch.setenv("ASSURE_USE_FREE_MODELS", "0")
     calls: list[str] = []
 
     def _fake_single(model: str, intent: str, source_ids=None) -> dict:
         calls.append(model)
-        time.sleep(0.15 if "gemini" in model else 0.05)
+        time.sleep(0.15 if model.startswith("bedrock/us.anthropic.claude-opus") else 0.05)
         return {
             "model": model,
             "name": model,
@@ -39,7 +34,7 @@ def test_run_compare_pair_parallel_not_sequential(monkeypatch) -> None:
 
     monkeypatch.setattr(
         "prompt_matrix.services.compare_models.get_compare_pair",
-        lambda _idx=0: ("gemini/gemini-3.6-flash", "openrouter/qwen/qwen3-next-80b-a3b-instruct"),
+        lambda _idx=0: ("bedrock/us.anthropic.claude-opus-5-5", "bedrock/us.anthropic.claude-sonnet-5-5"),
     )
     monkeypatch.setattr(
         "prompt_matrix.services.compare_models.run_single_model",
@@ -58,23 +53,19 @@ def test_run_compare_pair_parallel_not_sequential(monkeypatch) -> None:
 
 
 def test_run_compare_pair_failed_model_has_empty_text(monkeypatch) -> None:
-    # Hermetic: pin the non-free path so the mocked get_compare_pair (secondary
-    # raises) is actually exercised. See note in test_run_compare_pair_parallel_not_sequential.
-    monkeypatch.setenv("ASSURE_USE_FREE_MODELS", "0")
-
     def _fake_single(model: str, intent: str, source_ids=None) -> dict:
-        if "qwen3-next" in model:
+        if model.endswith("claude-sonnet-5-5"):
             raise RuntimeError("ERROR: Run aborted due to timeout (60s).")
         return {
             "model": model,
-            "name": "Gemini",
+            "name": "Claude",
             "text": "Boston liability limit is $5M.",
             "jdf": {"text": "Boston liability limit is $5M.", "divergences": []},
         }
 
     monkeypatch.setattr(
         "prompt_matrix.services.compare_models.get_compare_pair",
-        lambda _idx=0: ("gemini/gemini-3.6-flash", "openrouter/qwen/qwen3-next-80b-a3b-instruct"),
+        lambda _idx=0: ("bedrock/us.anthropic.claude-opus-5-5", "bedrock/us.anthropic.claude-sonnet-5-5"),
     )
     monkeypatch.setattr(
         "prompt_matrix.services.compare_models.run_single_model",

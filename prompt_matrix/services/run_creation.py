@@ -15,7 +15,7 @@ def create_run_from_directive(
     *,
     workspace_id: str | None = None,
     source_ids: list[str] | None = None,
-    model: str = "gemini",
+    model: str = "bedrock",
 ) -> dict[str, Any]:
     """Parse directive via Auto-Compiler and persist run."""
     return _auto_create_run(

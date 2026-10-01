@@ -79,7 +79,8 @@ ROLES = ("architect", "developer", "reviewer", "tester", "documenter")
 
 DEFAULT_ROLE_MODELS = {
     "architect": "gemini/gemini-3.6-flash",
-    "developer": "openrouter/qwen/qwen3-next-80b-a3b-instruct",
+    # Was the OpenRouter Qwen id until OpenRouter was removed (2026-10-01).
+    "developer": "bedrock/us.anthropic.claude-sonnet-5-5",
     "reviewer": "anthropic/claude-sonnet-4-5",
     "tester": "gemini/gemini-3.6-flash",
     "documenter": "anthropic/claude-sonnet-4-5",

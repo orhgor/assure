@@ -89,9 +89,15 @@ def test_parse_model_json_unreadable_answer_is_not_a_ledger():
     assert _parse_model_json('{"candidates": []}') == []
 
 
-def test_resolve_lock_inference_model():
-    assert resolve_lock_inference_model(False) == "openrouter/qwen/qwen3-next-80b-a3b-instruct"
-    assert resolve_lock_inference_model(True) == "gemini/gemini-3.6-flash"
+def test_resolve_lock_inference_model(monkeypatch):
+    """Since 2026-10-01 both text and visual documents go to the backend's anchor
+    model — Bedrock Sonnet 5.5 by default (the OpenRouter Qwen / Gemini split
+    went with OpenRouter)."""
+    for var in ("ASSURE_LLM_BACKEND", "ASSURE_BEDROCK_MODEL", "ASSURE_BEDROCK_MODEL_ANALYSIS",
+                "AWS_DEFAULT_REGION", "AWS_REGION"):
+        monkeypatch.delenv(var, raising=False)
+    assert resolve_lock_inference_model(False) == "bedrock/us.anthropic.claude-sonnet-5-5"
+    assert resolve_lock_inference_model(True) == "bedrock/us.anthropic.claude-sonnet-5-5"
 
 
 def test_pdf_has_visual_content_empty():

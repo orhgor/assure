@@ -12,8 +12,9 @@
 # Questions (Enter keeps the default shown in brackets):
 #   AWS access key id + secret (hidden; empty = instance IAM role or no AWS at
 #   all), AWS region, S3 bucket (empty = files stay on the instance), app port
-#   and bind, models local/bedrock (bedrock = Sonnet 5 drafts, Opus 5 analyses,
-#   needs the AWS credentials or an instance role with bedrock:InvokeModel), NVIDIA GPU yes/no (auto-detected; yes = docker-compose.gpu.yml
+#   and bind, models bedrock/local (bedrock, the default = Opus 5.5 reads the
+#   document, Sonnet 5.5 every other prompt; needs the AWS credentials or an
+#   instance role with bedrock:InvokeModel), NVIDIA GPU yes/no (auto-detected; yes = docker-compose.gpu.yml
 #   joins every compose command and the 7B/8B models become the default), the
 #   two Ollama model tags, Textract monthly cap.
 # Generated, never asked: POSTGRES_PASSWORD, PEM_SECRET_KEY, ENCRYPTION_KEY,
@@ -79,26 +80,18 @@ fi
 echo "Writing $OUT for target '$TARGET'. Enter keeps the value in brackets."
 ask AWS_KEY_ID       "AWS access key id (empty = instance IAM role, or no AWS)" ""
 ask_secret AWS_SECRET "AWS secret access key (hidden)"
-ask AWS_REGION       "AWS region" "eu-central-1"
+ask AWS_REGION       "AWS region (Bedrock runs on the us. inference profile in us-east-1)" "us-east-1"
 ask S3_BUCKET        "S3 bucket for documents (empty = keep files on this machine)" ""
 ask SHELL_PORT       "Port for the app (shell) on this host" "80"
 ask SHELL_BIND       "Bind address for the app (0.0.0.0 = reachable from outside)" "$DEF_BIND"
-ask MODELS_WHERE     "Models: local Ollama (local), OpenRouter hosted models (openrouter) or Amazon Bedrock (bedrock)" "local"
-case "$MODELS_WHERE" in b|bedrock|B|BEDROCK) MODELS_WHERE="bedrock" ;; o|openrouter|O|OPENROUTER|or) MODELS_WHERE="openrouter" ;; *) MODELS_WHERE="local" ;; esac
+# OpenRouter was removed on 2026-10-01 (user decision): Bedrock or local Ollama.
+ask MODELS_WHERE     "Models: Amazon Bedrock (bedrock) or local Ollama (local)" "bedrock"
+case "$MODELS_WHERE" in l|local|L|LOCAL|ollama|OLLAMA) MODELS_WHERE="local" ;; *) MODELS_WHERE="bedrock" ;; esac
 if [[ "$MODELS_WHERE" == "bedrock" ]]; then
-  ask BEDROCK_DRAFT    "Bedrock model for drafting (compile, edit, summarise)" "anthropic.claude-sonnet-5"
-  ask BEDROCK_ANALYSIS "Bedrock model for analysis (entailment, Red-Hat, field extraction)" "anthropic.claude-opus-5"
-fi
-OPENROUTER_KEY=""
-if [[ "$MODELS_WHERE" == "openrouter" ]]; then
-  ask_secret OPENROUTER_KEY "OpenRouter API key (sk-or-…, hidden)"
-  ask OR_PARSE     "Parsing & intake model" "amazon/nova-lite-v1"
-  ask OR_DRAFT     "Document compile model" "meta-llama/llama-3.3-70b-instruct"
-  ask OR_ANCHOR    "Claim anchoring model" "cohere/command-r7b-12-2024"
-  ask OR_EVIDENCE  "Entailment verdict model" "mistralai/mistral-small-24b-instruct-2501"
-  ask OR_EDIT      "Surgical paraphrasing model" "mistralai/mistral-small-24b-instruct-2501"
-  ask OR_REDHAT    "Red-Hat model" "meta-llama/llama-3.3-70b-instruct"
-  ask OR_COMPARE   "Compare 2nd-column model" "mistralai/mistral-small-24b-instruct-2501"
+  ask BEDROCK_PARSE    "Bedrock model for the document read (parse)" "anthropic.claude-opus-5-5"
+  ask BEDROCK_DRAFT    "Bedrock model for every other prompt (compile, analysis, Red-Hat, Compare)" "anthropic.claude-sonnet-5-5"
+  # Bedrock API key (bearer token) — the Bedrock credential (user decision 2026-10-01: no IAM for Bedrock).
+  ask BEDROCK_API_KEY  "Bedrock API key (AWS_BEARER_TOKEN_BEDROCK; empty = AWS credentials/role)" ""
 fi
 GPU_DEFAULT="n"; command -v nvidia-smi >/dev/null 2>&1 && nvidia-smi >/dev/null 2>&1 && GPU_DEFAULT="y"
 ask GPU              "NVIDIA GPU on this machine? models run on it (y/n)" "$GPU_DEFAULT"
@@ -121,9 +114,11 @@ ask MODEL_REDHAT     "Red-Hat model (critique / compliance)" "$M_REDHAT"
 ask MODEL_EVIDENCE   "Evidence model (claims validation)" "$M_EVIDENCE"
 ask MODEL_COMPARE    "Compare model (policy comparison, 2nd column)" "$M_COMPARE"
 MODEL_A="$MODEL_DRAFT"; MODEL_B="$MODEL_COMPARE"
-PARSER_DEFAULT="auto"; [[ -n "$AWS_KEY_ID" ]] && PARSER_DEFAULT="textract"
-ask PARSER_BACKEND   "Parser: openrouter (every page read by the parse-stage model, saved as JDF), textract (Amazon Textract, saved as JDF) or auto (jdf-cli)" "$PARSER_DEFAULT"
-case "$PARSER_BACKEND" in t|textract|T|TEXTRACT) PARSER_BACKEND="textract" ;; o|openrouter|O|OPENROUTER|llm|model) PARSER_BACKEND="openrouter" ;; *) PARSER_BACKEND="auto" ;; esac
+# Bedrock models → the file is read by the parse model (Opus 5.5); local models
+# with an AWS key → Textract (user decision 2026-09-29); otherwise jdf-cli.
+PARSER_DEFAULT="auto"; [[ -n "$AWS_KEY_ID" ]] && PARSER_DEFAULT="textract"; [[ "$MODELS_WHERE" == "bedrock" ]] && PARSER_DEFAULT="bedrock"
+ask PARSER_BACKEND   "Parser: bedrock (the file read by the Bedrock parse model, saved as JDF), textract (Amazon Textract, saved as JDF) or auto (jdf-cli)" "$PARSER_DEFAULT"
+case "$PARSER_BACKEND" in t|textract|T|TEXTRACT) PARSER_BACKEND="textract" ;; b|bedrock|B|BEDROCK|openrouter|llm|model) PARSER_BACKEND="bedrock" ;; *) PARSER_BACKEND="auto" ;; esac
 TEXTRACT_MODE_DEFAULT="detect"; [[ "$PARSER_BACKEND" == "textract" ]] && TEXTRACT_MODE_DEFAULT="analyze"
 ask TEXTRACT_MODE    "Textract API: analyze (text + tables + forms, 0.065 USD/page) or detect (text only, 0.0015 USD/page)" "$TEXTRACT_MODE_DEFAULT"
 case "$TEXTRACT_MODE" in a|analyze|A|ANALYZE) TEXTRACT_MODE="analyze" ;; *) TEXTRACT_MODE="detect" ;; esac
@@ -167,32 +162,24 @@ ASSURE_BOOTSTRAP_TOKEN=${ASSURE_BOOTSTRAP_TOKEN}
 ASSURE_SESSION_HOURS=12
 
 # ---- models --------------------------------------------------------------------
+# ASSURE_LLM_BACKEND=bedrock → Amazon Bedrock with the API key AWS_BEARER_TOKEN_BEDROCK:
+#                              the document read on ASSURE_BEDROCK_MODEL_PARSE (Opus 5.5),
+#                              every other prompt on Sonnet 5.5 (DRAFT, ANALYSIS, B).
+#                              Bare anthropic.* ids get the region's us./eu. inference-profile
+#                              prefix automatically.
 # ASSURE_LLM_BACKEND=ollama  → every model call on this machine's Ollama (models below;
-#                              ollama-pull downloads them on the first docker compose up)
-# ASSURE_LLM_BACKEND=bedrock → Amazon Bedrock with the AWS credentials/role above:
-#                              drafting on ASSURE_BEDROCK_MODEL_DRAFT, analysis (entailment,
-#                              Red-Hat, field extraction, locks) on ASSURE_BEDROCK_MODEL_ANALYSIS.
-#                              Bare anthropic.* ids get the region's eu./us. inference-profile
-#                              prefix automatically. Flip this line and run docker compose up -d.
-# ASSURE_LLM_BACKEND=openrouter → OpenRouter with OPENROUTER_API_KEY, one hosted model per
-#                              stage (ASSURE_OPENROUTER_MODEL_*). Empty backend + a key = openrouter.
+#                              ollama-pull downloads them on the first docker compose up).
+#                              Flip this line and run docker compose up -d.
 ASSURE_LLM_BACKEND=${MODELS_WHERE/local/ollama}
-OPENROUTER_API_KEY=${OPENROUTER_KEY}
-ASSURE_OPENROUTER_MODEL_PARSE=${OR_PARSE:-amazon/nova-lite-v1}
-ASSURE_OPENROUTER_MODEL_DRAFT=${OR_DRAFT:-meta-llama/llama-3.3-70b-instruct}
-ASSURE_OPENROUTER_MODEL_ANCHOR=${OR_ANCHOR:-cohere/command-r7b-12-2024}
-ASSURE_OPENROUTER_MODEL_EVIDENCE=${OR_EVIDENCE:-mistralai/mistral-small-24b-instruct-2501}
-ASSURE_OPENROUTER_MODEL_EDIT=${OR_EDIT:-mistralai/mistral-small-24b-instruct-2501}
-ASSURE_OPENROUTER_MODEL_REDHAT=${OR_REDHAT:-meta-llama/llama-3.3-70b-instruct}
-ASSURE_OPENROUTER_MODEL_COMPARE=${OR_COMPARE:-mistralai/mistral-small-24b-instruct-2501}
-ASSURE_BEDROCK_MODEL_DRAFT=${BEDROCK_DRAFT:-anthropic.claude-sonnet-5}
-ASSURE_BEDROCK_MODEL_ANALYSIS=${BEDROCK_ANALYSIS:-anthropic.claude-opus-5}
-ASSURE_BEDROCK_MODEL_B=anthropic.claude-opus-5
+AWS_BEARER_TOKEN_BEDROCK=${BEDROCK_API_KEY:-}
+ASSURE_BEDROCK_MODEL_PARSE=${BEDROCK_PARSE:-anthropic.claude-opus-5-5}
+ASSURE_BEDROCK_MODEL_DRAFT=${BEDROCK_DRAFT:-anthropic.claude-sonnet-5-5}
+ASSURE_BEDROCK_MODEL_ANALYSIS=${BEDROCK_DRAFT:-anthropic.claude-sonnet-5-5}
+ASSURE_BEDROCK_MODEL_B=${BEDROCK_DRAFT:-anthropic.claude-sonnet-5-5}
 # Vision model per backend (Parsure picture pages, docs/parsure-vision.md). On Ollama the
 # default tag is not pulled by ollama-pull: pull it (ollama pull qwen2.5vl:3b) and set
 # PARSURE_VISION=1, or leave vision off on the local backend.
-ASSURE_OPENROUTER_MODEL_VISION=amazon/nova-lite-v1
-ASSURE_BEDROCK_MODEL_VISION=anthropic.claude-sonnet-5
+ASSURE_BEDROCK_MODEL_VISION=${BEDROCK_DRAFT:-anthropic.claude-sonnet-5-5}
 ASSURE_OLLAMA_MODEL_VISION=qwen2.5vl:3b
 # Ollama, one open model per stage (see the table in docs/deploy-single-ec2.md):
 ASSURE_OLLAMA_MODEL_PARSE=${MODEL_PARSE}
@@ -204,7 +191,7 @@ ASSURE_OLLAMA_MODEL=${MODEL_A}
 ASSURE_OLLAMA_MODEL_B=${MODEL_B}
 OLLAMA_CONTEXT_LENGTH=$([[ "$GPU" == "y" ]] && echo 16384 || echo 8192)
 
-# ---- AWS (optional: documents in S3, Textract as OCR fallback) -----------------
+# ---- AWS (documents in S3, Textract; Bedrock too only when no API key above) ----
 ASSURE_S3_BUCKET=${S3_BUCKET}
 ASSURE_S3_PREFIX=assure/
 AWS_DEFAULT_REGION=${AWS_REGION}

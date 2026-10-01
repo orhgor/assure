@@ -1,7 +1,8 @@
 """The model-call ledger: one row per request the application makes to a model.
 
-Why this exists (customer report, 2026-09-28): "requests are not reaching
-OpenRouter and I cannot tell whether the pipeline ran". Every stage already
+Why this exists (customer report, 2026-09-28, when the hosted backend was
+OpenRouter — removed 2026-10-01 for Amazon Bedrock): "requests are not
+reaching OpenRouter and I cannot tell whether the pipeline ran". Every stage already
 writes its own summary (``report.execution`` for Parsure, the draft's
 ``meta`` for the compile), but none of them records the request itself —
 whether it left this server, to which model, what came back, how long it
@@ -11,9 +12,9 @@ went out look the same. This module records the request.
 How: litellm runs every callback in ``litellm.callbacks`` after each
 completion (streamed or not) and after each failure, with the kwargs it sent
 and the response or exception it got. ``ModelCallLogger`` turns that into a
-row in ``model_calls`` (``db/model_calls_repository``). The Bedrock Converse
-path in ``cost_governance._default_executor`` bypasses litellm and records
-through ``record()`` directly. The stage a call belongs to is set by the
+row in ``model_calls`` (``db/model_calls_repository``). Bedrock goes through
+litellm like every other backend since 2026-10-01; ``record()`` stays for
+callers that reach a model without litellm. The stage a call belongs to is set by the
 caller with ``stage_context()``; when a caller did not (legacy paths), it is
 inferred from the model's stage role, and the row says so in ``stage_source``.
 
@@ -124,8 +125,8 @@ def _context_from_kwargs(kwargs: dict) -> dict[str, Any]:
 
 def _model_from_kwargs(kwargs: dict) -> str:
     """The model as the application named it: litellm hands the callback the
-    bare id (``meta-llama/llama-3.3-70b-instruct``) with the provider apart in
-    ``litellm_params.custom_llm_provider`` — the row keeps ``openrouter/…`` so
+    bare id (``us.anthropic.claude-sonnet-5-5``) with the provider apart in
+    ``litellm_params.custom_llm_provider`` — the row keeps ``bedrock/…`` so
     the provider column and the configured stage models read the same."""
     model = str(kwargs.get("model") or "")
     params = kwargs.get("litellm_params") or {}
@@ -139,8 +140,6 @@ def _model_from_kwargs(kwargs: dict) -> str:
 
 def provider_of(model: str | None) -> str:
     m = str(model or "")
-    if m.startswith("openrouter/"):
-        return "openrouter"
     if m.startswith("ollama/") or m.startswith("ollama_chat/"):
         return "ollama"
     if m.startswith("bedrock/") or m.startswith("anthropic.") or re.match(r"^(us|eu|apac|global)\.anthropic\.", m):
@@ -161,6 +160,21 @@ def backend_name() -> str:
         return "unknown"
 
 
+def bedrock_models_by_stage() -> dict[str, str]:
+    """Stage → Bedrock id (``us.anthropic.…``, no ``bedrock/`` prefix) for the
+    stages that have their own role in ``cost_governance.bedrock_model``.
+
+    With the 2026-10-01 defaults only ``parse`` (Opus 5.5) is unique; draft,
+    evidence and compare share Sonnet 5.5, so a Sonnet row that arrives without
+    a stage context stays unattributed — ``infer_stage`` does not guess."""
+    try:
+        from .. import cost_governance as cg
+    except ImportError:
+        import cost_governance as cg  # type: ignore
+    roles = {"parse": "parse", "draft": "draft", "evidence": "analysis", "compare": "b"}
+    return {stage: cg.bedrock_model(role).split("/", 1)[-1] for stage, role in roles.items()}
+
+
 def infer_stage(model: str | None) -> str | None:
     """The stage whose configured model this is, or ``None`` when several stages
     share it (then the row keeps ``stage`` null rather than guessing)."""
@@ -171,10 +185,10 @@ def infer_stage(model: str | None) -> str | None:
         except ImportError:
             import cost_governance as cg  # type: ignore
         backend = cg.llm_backend()
-        by_stage = cg.openrouter_models_by_stage() if backend == "openrouter" else cg.local_models_by_stage() if backend == "ollama" else {}
+        by_stage = cg.local_models_by_stage() if backend == "ollama" else bedrock_models_by_stage()
     except Exception:  # noqa: BLE001
         return None
-    roles = [role for role, m in by_stage.items() if m == bare or f"openrouter/{m}" == model or f"ollama/{m}" == model]
+    roles = [role for role, m in by_stage.items() if m == bare or f"bedrock/{m}" == model or f"ollama/{m}" == model]
     if len(roles) == 1:
         return _ROLE_TO_STAGE.get(roles[0])
     return None
@@ -389,46 +403,6 @@ def key_hint(value: str | None) -> str | None:
     return f"{v[:6]}…{v[-4:]}"
 
 
-def _probe_openrouter(timeout_s: float) -> dict[str, Any]:
-    import urllib.error
-    import urllib.request
-
-    key = os.environ.get("OPENROUTER_API_KEY", "").strip()
-    if not key:
-        return {"status": "no_key", "detail": "OPENROUTER_API_KEY is empty", "ms": None}
-    req = urllib.request.Request(
-        "https://openrouter.ai/api/v1/auth/key",
-        headers={"Authorization": f"Bearer {key}", "User-Agent": "assure-health/1.0"},
-    )
-    started = time.monotonic()
-    try:
-        with urllib.request.urlopen(req, timeout=timeout_s) as resp:  # noqa: S310 - fixed https URL
-            body = resp.read(4096).decode("utf-8", "replace")
-            ms = (time.monotonic() - started) * 1000
-            detail = f"HTTP {resp.status}"
-            try:
-                import json
-
-                data = (json.loads(body) or {}).get("data") or {}
-                label = data.get("label")
-                usage = data.get("usage")
-                limit = data.get("limit")
-                if label:
-                    detail += f" · key '{label}'"
-                if usage is not None:
-                    detail += f" · usage ${usage}" + (f" of ${limit}" if limit is not None else "")
-            except Exception:  # noqa: BLE001
-                pass
-            return {"status": "reachable", "detail": detail, "ms": int(ms)}
-    except urllib.error.HTTPError as exc:
-        ms = (time.monotonic() - started) * 1000
-        status = "unauthorized" if exc.code in (401, 403) else "unreachable"
-        return {"status": status, "detail": f"HTTP {exc.code} {exc.reason}", "ms": int(ms)}
-    except Exception as exc:  # noqa: BLE001
-        ms = (time.monotonic() - started) * 1000
-        return {"status": "unreachable", "detail": f"{type(exc).__name__}: {exc}"[:300], "ms": int(ms)}
-
-
 def _probe_ollama(timeout_s: float) -> dict[str, Any]:
     import urllib.request
 
@@ -445,21 +419,20 @@ def _probe_ollama(timeout_s: float) -> dict[str, Any]:
 
 
 def probe_backend(timeout_s: float = 4.0, *, force: bool = False) -> dict[str, Any]:
-    """Live check of the configured backend: OpenRouter's key endpoint (``GET
-    /api/v1/auth/key`` — a 200 proves the key is valid and the network path
-    open; 401 a bad key), Ollama's ``/api/tags``. Bedrock is not probed (an
-    STS call costs credentials the web tier may not hold): ``not_probed``.
-    Cached for 30 s so the UI's polling does not itself become traffic."""
+    """Live check of the configured backend: Ollama's ``/api/tags``. Bedrock is
+    not probed (an STS or ListFoundationModels call needs permissions the task
+    role is not granted for it, and proves nothing about InvokeModel):
+    ``not_probed`` — the ledger shows the real calls. The OpenRouter key probe
+    went with OpenRouter on 2026-10-01. Cached for 30 s so the UI's polling
+    does not itself become traffic."""
     backend = backend_name()
-    cache_key = (backend, key_hint(os.environ.get("OPENROUTER_API_KEY", "").strip()) if backend == "openrouter" else None)
+    cache_key = (backend, None)
     with _probe_lock:
         now = time.monotonic()
         if (not force and _probe_cache["value"] is not None and _probe_cache.get("key") == cache_key
                 and now - _probe_cache["at"] < _PROBE_TTL_S):
             return dict(_probe_cache["value"])
-    if backend == "openrouter":
-        result = _probe_openrouter(timeout_s)
-    elif backend == "ollama":
+    if backend == "ollama":
         result = _probe_ollama(timeout_s)
     elif backend == "bedrock":
         result = {"status": "not_probed", "detail": "Bedrock is not probed; see the ledger for real calls", "ms": None}
@@ -477,8 +450,6 @@ def probe_backend(timeout_s: float = 4.0, *, force: bool = False) -> dict[str, A
 def llm_status(*, probe: bool = True, timeout_s: float = 4.0) -> dict[str, Any]:
     """The ``llm`` block the activity route and /health share."""
     backend = backend_name()
-    key_env = {"openrouter": "OPENROUTER_API_KEY"}.get(backend)
-    key = os.environ.get(key_env, "").strip() if key_env else ""
     summary = {}
     try:
         summary = repo.summary(hours=24)
@@ -486,9 +457,12 @@ def llm_status(*, probe: bool = True, timeout_s: float = 4.0) -> dict[str, Any]:
         summary = {"calls": None, "failed": None, "last_call_at": None, "error": f"{type(exc).__name__}: {exc}"[:200]}
     return {
         "backend": backend,
-        "provider": backend if backend in ("openrouter", "ollama", "bedrock") else "unknown",
-        "key_present": bool(key) if key_env else None,
-        "key_hint": key_hint(key) if key else None,
+        "provider": backend if backend in ("ollama", "bedrock") else "unknown",
+        # Neither backend takes an API key: Bedrock signs with the boto3
+        # credential chain (task role in production, the .env AWS_* keys
+        # locally), Ollama is the local container. The fields stay for the UI.
+        "key_present": None,
+        "key_hint": None,
         "probe": probe_backend(timeout_s) if probe else {"status": "not_probed", "detail": "probe skipped", "ms": None},
         "ledger_installed": installed(),
         "last_call_at": summary.get("last_call_at"),

@@ -1,4 +1,4 @@
-"""Free vs production model-pair selection for Difference Engine."""
+"""Compare model-pair selection for the Difference Engine (Bedrock)."""
 
 from __future__ import annotations
 
@@ -18,21 +18,19 @@ def orchestrator_module(monkeypatch):
     mod._assure_router = None
 
 
-def test_free_stack_selection(orchestrator_module, monkeypatch) -> None:
+def test_free_flag_retired(orchestrator_module, monkeypatch) -> None:
+    """The OpenRouter free stack was removed on 2026-10-01; the flag is ignored."""
     monkeypatch.setenv("ASSURE_USE_FREE_MODELS", "1")
-    orchestrator_module._assure_router = None
-    importlib.reload(orchestrator_module)
+    monkeypatch.delenv("ASSURE_LLM_BACKEND", raising=False)
     model_a, model_b = orchestrator_module.get_compare_pair()
-    assert model_a != model_b, "Free stack must use two different models"
-    assert orchestrator_module.get_active_model_stack() == "free"
-    assert model_a == "openrouter/google/gemma-4-26b-a4b-it:free"
-    assert model_b == "openrouter/nvidia/nemotron-3.5-lightning:free"
+    assert orchestrator_module.get_active_model_stack() == "production"
+    assert model_a.startswith("bedrock/") and model_b.startswith("bedrock/")
 
 
 def test_production_stack_selection(orchestrator_module, monkeypatch) -> None:
-    monkeypatch.setenv("ASSURE_USE_FREE_MODELS", "0")
-    orchestrator_module._assure_router = None
-    importlib.reload(orchestrator_module)
+    monkeypatch.delenv("ASSURE_LLM_BACKEND", raising=False)
+    monkeypatch.setenv("ASSURE_BEDROCK_MODEL_B", "anthropic.claude-opus-5-5")
     model_a, model_b = orchestrator_module.get_compare_pair()
     assert model_a != model_b
+    assert model_b.endswith("anthropic.claude-opus-5-5")
     assert orchestrator_module.get_active_model_stack() == "production"

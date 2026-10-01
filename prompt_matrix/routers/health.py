@@ -55,8 +55,8 @@ def _parse_created_at(raw: str) -> datetime:
 def _local_models_check(timeout_s: float = 1.5) -> dict:
     """Are the configured local models actually on the Ollama daemon?
 
-    Only meaningful with ``ASSURE_LLM_BACKEND=ollama`` (every compose target
-    since 2026-09-25); the cloud backends have no local inventory. Reads
+    Only meaningful with ``ASSURE_LLM_BACKEND=ollama``; Bedrock (the default
+    since 2026-10-01) has no local inventory and reports its stage table. Reads
     ``GET <OLLAMA_API_BASE>/api/tags`` — the same list ``ollama list`` prints —
     and compares it with ``cost_governance.local_model`` for both roles. A
     ``:latest`` suffix on the daemon side is treated as equal to a bare tag.
@@ -67,27 +67,24 @@ def _local_models_check(timeout_s: float = 1.5) -> dict:
         from cost_governance import llm_backend, local_model
     backend = llm_backend()
     if backend == "bedrock":
+        # The stage table the user decided on 2026-10-01: Opus 5.5 reads the
+        # document, Sonnet 5.5 answers every other prompt. Ids are the ones
+        # sent (`us.anthropic.…`), per-role .env overrides applied.
         try:
-            from ..cost_governance import bedrock_model
+            from ..cost_governance import bedrock_api_key, bedrock_model
         except ImportError:
-            from cost_governance import bedrock_model
+            from cost_governance import bedrock_api_key, bedrock_model
         return {
             "backend": "bedrock",
             "status": "not local",
-            "draft": bedrock_model("draft").split("/", 1)[-1],
-            "analysis": bedrock_model("analysis").split("/", 1)[-1],
-            "compare_b": bedrock_model("b").split("/", 1)[-1],
-        }
-    if backend == "openrouter":
-        try:
-            from ..cost_governance import openrouter_models_by_stage
-        except ImportError:
-            from cost_governance import openrouter_models_by_stage
-        return {
-            "backend": "openrouter",
-            "status": "not local",
-            "key": "present" if os.environ.get("OPENROUTER_API_KEY", "").strip() else "missing",
-            "stages": openrouter_models_by_stage(),
+            # Which credential the calls carry; neither is probed here.
+            "auth": "api_key" if bedrock_api_key() else "aws_credentials",
+            "stages": {
+                "parse": bedrock_model("parse").split("/", 1)[-1],
+                "draft": bedrock_model("draft").split("/", 1)[-1],
+                "analysis": bedrock_model("analysis").split("/", 1)[-1],
+                "compare": bedrock_model("b").split("/", 1)[-1],
+            },
         }
     if backend != "ollama":
         return {"backend": backend or "cloud", "status": "not local"}
@@ -237,19 +234,13 @@ def health_check():
         "jdf_workbench": True,
     }
     try:
-        from ..llm.orchestrator import orchestrator_model_pairs, use_free_models
+        from ..llm.orchestrator import get_active_model_stack, use_free_models
     except ImportError:
-        from llm.orchestrator import orchestrator_model_pairs, use_free_models
+        from llm.orchestrator import get_active_model_stack, use_free_models
+    # Always False / "production" since the OpenRouter free stack was removed
+    # (2026-10-01); kept in the payload for the deploy postflight readers.
     status["use_free_models"] = use_free_models()
-    try:
-        from ..llm.orchestrator import get_active_model_stack
-    except ImportError:
-        from llm.orchestrator import get_active_model_stack
     status["stack"] = get_active_model_stack()
-    if use_free_models():
-        status["orchestrator_models"] = {
-            key: pair.get("litellm_model") or "" for key, pair in orchestrator_model_pairs().items()
-        }
     try:
         from ..upload_limits import limits_snapshot
     except ImportError:
@@ -312,18 +303,11 @@ def health_check():
         except ImportError:
             from services import model_calls as _mc  # type: ignore
         # Can a request leave this server, and has one recently? (customer
-        # report 2026-09-28: "requests are not reaching OpenRouter")
+        # report 2026-09-28). Bedrock is not probed (``not_probed``) and so
+        # never degrades the box here; the OpenRouter key probe that did went
+        # with OpenRouter on 2026-10-01. A down Ollama degrades via
+        # ``checks.models`` below.
         status["checks"]["llm"] = _mc.llm_status(probe=True, timeout_s=3.0)
-        # A hosted backend whose key the provider rejects, or that cannot be
-        # reached, degrades the box: a request was attempted and failed. A
-        # missing key is reported (``checks.llm.probe.status = no_key``,
-        # ``checks.models.key = missing``) as it always was, without degrading —
-        # the box may legitimately run without hosted models.
-        if status["checks"]["llm"].get("backend") == "openrouter" and \
-                status["checks"]["llm"].get("probe", {}).get("status") in ("unauthorized", "unreachable"):
-            status["degraded"] = True
-            if status["status"] == "healthy":
-                status["status"] = "degraded"
     except Exception as exc:  # observability only
         status["checks"]["llm"] = {"status": "unknown", "error": exc.__class__.__name__}
     if models.get("status") in ("missing", "unreachable"):

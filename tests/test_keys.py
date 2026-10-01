@@ -78,14 +78,13 @@ class ClaudeKeyTests(unittest.TestCase):
 
 
 class ProviderSlugForLitellmTests(unittest.TestCase):
-    def test_openrouter_uses_first_segment_not_vendor(self):
+    def test_openrouter_is_no_longer_a_provider(self):
+        # OpenRouter was removed on 2026-10-01: its ids resolve to no slug, so
+        # nothing attaches a key or routes to it.
+        self.assertIsNone(provider_slug_for_litellm("openrouter/anthropic/claude-3.5-sonnet"))
         self.assertEqual(
-            provider_slug_for_litellm("openrouter/anthropic/claude-3.5-sonnet"),
-            "openrouter",
-        )
-        self.assertEqual(
-            provider_slug_for_litellm("openrouter/nvidia/llama-3.3-70b-instruct:free"),
-            "openrouter",
+            provider_slug_for_litellm("bedrock/us.anthropic.claude-sonnet-5-5"),
+            "bedrock",
         )
 
     def test_provider_prefixed_models(self):
@@ -109,12 +108,9 @@ class ProviderSlugForLitellmTests(unittest.TestCase):
         self.assertEqual(set(ORCHESTRATOR_ENV_MAP), ORCHESTRATOR_ENV_MAP_KEYS)
 
         samples = (
-            "openrouter/anthropic/claude-3.5-sonnet",
-            "openrouter/nvidia/llama-3.3-70b-instruct:free",
             "anthropic/claude-3-5-sonnet",
             "gemini/gemini-1.5-flash",
             "google/gemini-1.5-pro",
-            "openrouter/qwen/qwen3-next-80b-a3b-instruct",
             "groq/llama-3.3-70b-versatile",
             "claude-3-5-sonnet",
             "gemini-1.5-flash",
@@ -124,28 +120,27 @@ class ProviderSlugForLitellmTests(unittest.TestCase):
             if slug is None:
                 continue
             self.assertIn(slug, orch_mod.ORCHESTRATOR_ENV_MAP)
-            self.assertTrue(slug in ORCHESTRATOR_ENV_MAP_KEYS or slug == "openrouter")
+            self.assertIn(slug, ORCHESTRATOR_ENV_MAP_KEYS)
 
-    def test_api_key_env_attaches_openrouter_and_claude(self):
+    def test_api_key_env_attaches_claude_and_none_for_bedrock(self):
         with patch.dict(
             os.environ,
             {
-                "OPENROUTER_API_KEY": "sk-or-test",
                 "ANTHROPIC_API_KEY": "sk-ant-test",
             },
             clear=False,
         ):
-            self.assertEqual(
-                orch_mod._api_key_env_for_model("openrouter/nvidia/llama-3.1-70b"),
-                "sk-or-test",
+            # Bedrock signs with the IAM credential chain: no key attached.
+            self.assertIsNone(
+                orch_mod._api_key_env_for_model("bedrock/us.anthropic.claude-sonnet-5-5")
             )
             self.assertEqual(
                 orch_mod._api_key_env_for_model("anthropic/claude-3-5-sonnet"),
                 "sk-ant-test",
             )
-            params = orch_mod._litellm_params_for("openrouter/nvidia/llama-3.1-70b")
-            self.assertEqual(params.get("api_key"), "sk-or-test")
-            self.assertIn("extra_headers", params)
+            params = orch_mod._litellm_params_for("bedrock/us.anthropic.claude-sonnet-5-5")
+            self.assertNotIn("api_key", params)
+            self.assertIn("aws_region_name", params)
 
 
 if __name__ == "__main__":

@@ -42,17 +42,9 @@ def register_compare_routes(app) -> None:
         except Exception as exc:
             return jsonify({"error": str(exc)}), 500
 
-        fam_a, fam_b = family_of(model_a), family_of(model_b)
-        if fam_a == fam_b:
-            return jsonify(
-                {
-                    "error": "Free stack requires two different model families for diff",
-                    "model_a": model_a,
-                    "model_b": model_b,
-                    "family_a": fam_a,
-                    "family_b": fam_b,
-                }
-            ), 500
+        # The two-family guard was the OpenRouter free stack's rule; it went with
+        # OpenRouter on 2026-10-01. Bedrock's default pair is Sonnet 5.5 twice,
+        # and two samples of one model still diverge where the source is thin.
 
         try:
             result = asyncio.run(run_compare_pair_async(intent, source_ids))

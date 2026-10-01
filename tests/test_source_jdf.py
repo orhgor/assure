@@ -420,7 +420,7 @@ def _draft_frames(monkeypatch, selection, *, rows=None, intent="Restate the limi
     def fake_locks(_text):
         return [
             {"canonical_key": "policy liability limit", "value": 5000000, "metric": "policy liability limit", "confidence": 0.9}
-        ], "openrouter/qwen/qwen3-next-80b-a3b-instruct"
+        ], "bedrock/us.anthropic.claude-sonnet-5-5"
 
     def stub_check(_claim, _source, *, project_id=""):
         return {"verdict": "yes", "reasoning": "The source states it.", "model": "stub/model", "checked_at": "2026-09-28T00:00:00+00:00"}

@@ -72,9 +72,13 @@ def _job_advance(job_id: str | None, stage: str, **fields: Any) -> None:
 
 
 def _hosted_parse(project_id: str, job_id: str | None, data: bytes, name: str) -> dict:
-    """The hosted reader's parse (Textract, or the model under
-    PARSER_BACKEND=openrouter) booked in the model-call ledger under the
-    ``parse`` stage of this project and job (2026-09-29)."""
+    """The hosted reader's parse (Textract, or Claude Opus 5.5 on Bedrock under
+    PARSER_BACKEND=bedrock) booked in the model-call ledger under the
+    ``parse`` stage of this project and job (2026-09-29).
+
+    A model-read failure becomes a :class:`PdfIngestError` (502): the review
+    of 2026-10-01 found it swallowed by the PyMuPDF fallback below, which
+    saved an empty "done" revision for a scan nobody had read."""
     try:
         from .model_calls import stage_context
     except ImportError:  # pragma: no cover
@@ -83,8 +87,15 @@ def _hosted_parse(project_id: str, job_id: str | None, data: bytes, name: str) -
         from ..routers.jdf_routes import _textract_parse_bundle as _hosted
     except ImportError:  # pragma: no cover
         from routers.jdf_routes import _textract_parse_bundle as _hosted  # type: ignore
-    with stage_context("parse", project_id=project_id, task=job_id):
-        return _hosted(data, name)
+    try:
+        from .llm_parse import LLMParseError
+    except ImportError:  # pragma: no cover
+        from services.llm_parse import LLMParseError  # type: ignore
+    try:
+        with stage_context("parse", project_id=project_id, task=job_id):
+            return _hosted(data, name)
+    except LLMParseError as exc:
+        raise PdfIngestError(f"The document could not be read by the model: {exc}", http_status=502) from exc
 
 
 def ingest_pdf_for_project(
@@ -115,7 +126,7 @@ def ingest_pdf_for_project(
         from ..services.parser_router import is_image_filename, route_intake
         from ..services.pdf_import import pdf_bytes_to_jdf
         from ..services.quality_probe import image_to_pdf_bytes, image_to_png_bytes
-        from ..services.source_jdf import pages_are_ocr, persist_source_jdf, store_page_rasters
+        from ..services.source_jdf import original_display, pages_are_ocr, persist_source_jdf, store_original, store_page_rasters
         from ..services.verification import run_verification_after_parse
     except ImportError:
         from db.jdf_repository import new_revision_id, save_jdf_revision
@@ -133,7 +144,7 @@ def ingest_pdf_for_project(
         from services.parser_router import is_image_filename, route_intake
         from services.pdf_import import pdf_bytes_to_jdf
         from services.quality_probe import image_to_pdf_bytes, image_to_png_bytes
-        from services.source_jdf import pages_are_ocr, persist_source_jdf, store_page_rasters
+        from services.source_jdf import original_display, pages_are_ocr, persist_source_jdf, store_original, store_page_rasters
         from services.verification import run_verification_after_parse
 
     # Parsure's post-parse report hook (another module, may be absent in a
@@ -167,7 +178,12 @@ def ingest_pdf_for_project(
     _parser = intake["parser"]
     source_jdf: dict[str, Any] | None = None
     is_image = is_image_filename(filename)
-    _job_advance(job_id, "parsing", parser_name=_parser, size_bytes=len(file_bytes))
+    try:
+        from .parser_router import parser_backend as _parser_backend
+    except ImportError:  # pragma: no cover
+        from services.parser_router import parser_backend as _parser_backend  # type: ignore
+    _job_parser = "bedrock" if _parser == "textract" and _parser_backend() == "bedrock" else _parser
+    _job_advance(job_id, "parsing", parser_name=_job_parser, size_bytes=len(file_bytes))
 
     # jdf-cli reads PDF only: an image is wrapped losslessly in a one-page PDF
     # for the OCR path (and for the PyMuPDF fallback). Textract reads
@@ -187,8 +203,18 @@ def ingest_pdf_for_project(
                 http_status=400,
             ) from exc
 
+    is_text = filename.lower().rsplit(".", 1)[-1] in ("txt", "md") if "." in filename else False
     try:
-        if _parser == "textract":
+        if is_text:
+            # A text upload is already the document: wrapped as JDF, never
+            # handed to a PDF parser (it used to reach jdf-cli and PyMuPDF and
+            # fail both, review 2026-10-01).
+            try:
+                from ..routers.jdf_memory_routes import _text_bundle_for_ingest
+            except ImportError:  # pragma: no cover
+                from routers.jdf_memory_routes import _text_bundle_for_ingest  # type: ignore
+            bundle = _text_bundle_for_ingest(file_bytes, filename)
+        elif _parser == "textract":
             bundle = _hosted_parse(project_id, job_id, textract_bytes, textract_name)
         elif _parser == "jdf-ocr":
             try:
@@ -241,7 +267,24 @@ def ingest_pdf_for_project(
             title=filename,
             parse_meta=parse_meta,
         )
+    except PdfIngestError as exc:
+        # A decided failure (OCR read nothing, the model could not read the
+        # file): reported as it is, never papered over by the fallback below.
+        _job_advance(job_id, "failed", error=str(exc)[:2000],
+                     duration_ms=int((time.perf_counter() - start_time) * 1000))
+        raise
     except Exception as jdf_exc:
+        if type(jdf_exc).__name__ == "SoftTimeLimitExceeded":
+            # The worker's time limit is the task's to report (parse_tasks),
+            # not a parse failure to fall back from.
+            raise
+        if is_text or _parser == "textract":
+            # The PyMuPDF fallback reads a PDF's text layer only; for a text
+            # file or a hosted reader's failure it would save an empty
+            # revision and call it done.
+            _job_advance(job_id, "failed", error=f"{type(jdf_exc).__name__}: {jdf_exc}"[:2000],
+                         duration_ms=int((time.perf_counter() - start_time) * 1000))
+            raise PdfIngestError(f"The document could not be parsed: {jdf_exc}", http_status=502) from jdf_exc
         # JDF CI is the default, but the PyMuPDF importer is a best-effort
         # fallback that still preserves structure (text + images per page) —
         # a missing jdf-cli binary must not kill an import that can be parsed
@@ -333,9 +376,16 @@ def ingest_pdf_for_project(
             # at its native pixels, never the wrapped PDF), and a page that
             # does not render is simply absent from ``rasters``.
             rasters: list[dict[str, Any]] = []
-            if pages_are_ocr(
+            display = original_display(
+                filename, modality=intake.get("modality"), parser_name=bundle["parser_name"],
+                source_kind=bundle["source_kind"],
+            )
+            original = None if is_text else store_original(
+                project_id, source_document_id, revision_id, file_bytes, filename, display=display
+            )
+            if not is_text and (display == "image" or pages_are_ocr(
                 bundle["parser_name"], modality=intake.get("modality"), source_kind=bundle["source_kind"]
-            ):
+            )):
                 rasters = store_page_rasters(
                     project_id,
                     source_document_id,
@@ -353,6 +403,7 @@ def ingest_pdf_for_project(
                 job_id=job_id,
                 filename=filename,
                 rasters=rasters,
+                original=original,
             )
             if source_jdf:
                 if not isinstance(tree.get("meta"), dict):

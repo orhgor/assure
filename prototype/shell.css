@@ -4540,6 +4540,55 @@ body[data-can-override="0"] #fields-type-change { display: none !important; }
 @keyframes sv-flash { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
 @media (prefers-reduced-motion: reduce) { .sv-mark.is-flash { animation: none; } }
 
+/* The original (2026-10-01): a digital PDF in the browser's own viewer; a
+   scan or photo as its page images, each read field boxed where it sits. */
+.sv-original .sv-stage { overflow: auto; background: var(--soft-wash); }
+.sv-mode-pdf .sv-stage { overflow: hidden; display: flex; }
+.sv-pdf-frame { flex: 1 1 auto; width: 100%; height: 100%; min-height: 480px; border: 0; background: var(--paper); }
+.sv-mode-pdf .sv-zoom, .sv-mode-pdf [data-sv-zoom] { display: none; }
+.sv-img-page {
+  position: relative;
+  width: 100%;
+  margin: var(--space-3, 12px) auto;
+  background: var(--paper);
+  box-shadow: 0 1px 3px color-mix(in srgb, var(--ink) 18%, transparent);
+}
+.sv-page-img { display: block; width: 100%; height: auto; user-select: none; -webkit-user-drag: none; }
+.sv-img-page.is-broken { min-height: 240px; border: 1px dashed var(--rule); }
+.sv-img-page.is-broken .sv-page-img { display: none; }
+.sv-field {
+  position: absolute;
+  box-sizing: border-box;
+  border: 1.5px solid var(--verified);
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--verified) 8%, transparent);
+  pointer-events: auto;
+  cursor: pointer;
+  transition: background-color var(--t-fast, 120ms) var(--ease);
+}
+.sv-field:hover { background: color-mix(in srgb, var(--verified) 20%, transparent); z-index: 4; }
+.sv-field.is-handwritten { border-style: dashed; }
+.sv-field.needs-review { border-color: var(--partial); background: color-mix(in srgb, var(--partial) 10%, transparent); }
+.sv-field-tag {
+  position: absolute;
+  left: -1px;
+  bottom: 100%;
+  max-width: 220px;
+  padding: 1px 5px;
+  border-radius: 2px 2px 0 0;
+  background: var(--verified);
+  color: var(--paper);
+  font: 500 var(--fs-micro, 10px)/1.4 var(--sans);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--t-fast, 120ms) var(--ease);
+}
+.sv-field.needs-review .sv-field-tag { background: var(--partial); }
+.sv-field:hover .sv-field-tag, .sv-root.show-field-tags .sv-field-tag { opacity: 1; }
+
 /* The ask bar: quiet, floating at the foot of the sheet. */
 .source-ask-bar {
   position: absolute;
