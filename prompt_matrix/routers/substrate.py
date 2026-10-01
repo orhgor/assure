@@ -36,7 +36,7 @@ try:
         build_omp_artifact_from_parse,
     )
     from ..services.omp_memory import remember_vault_file
-    from ..services.source_jdf import content_revision, is_source_jdf, original_display, pages_are_ocr, persist_source_jdf, store_original, store_page_rasters
+    from ..services.source_jdf import content_revision, is_source_jdf, original_display, pages_are_ocr, persist_source_jdf, store_analysis, store_original, store_page_rasters
     from ..services.verification import run_verification_after_parse
     from ..upload_limits import UploadRejectedError, validate_upload_bytes
 except ImportError:
@@ -62,7 +62,7 @@ except ImportError:
         build_omp_artifact_from_parse,
     )
     from services.omp_memory import remember_vault_file
-    from services.source_jdf import content_revision, is_source_jdf, original_display, pages_are_ocr, persist_source_jdf, store_original, store_page_rasters
+    from services.source_jdf import content_revision, is_source_jdf, original_display, pages_are_ocr, persist_source_jdf, store_analysis, store_original, store_page_rasters
     from services.verification import run_verification_after_parse
     from upload_limits import UploadRejectedError, validate_upload_bytes
 
@@ -514,6 +514,7 @@ def ingest_substrate_file(
             filename=filename,
             rasters=rasters,
             original=original,
+            analysis=store_analysis(project_id, str(entry["id"]), source_revision, extracted.get("analysis")),
         )
 
     _job_advance(

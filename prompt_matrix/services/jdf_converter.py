@@ -79,6 +79,15 @@ def pdf_to_jdf(pdf_bytes: bytes, *, ocr: str | None = None) -> dict:
     that text into ordinary chunks, so a scanned PDF flows through the same
     pipeline as a born-digital one.
     """
+    try:
+        from .parser_router import parser_backend
+    except ImportError:  # pragma: no cover
+        from services.parser_router import parser_backend  # type: ignore
+    if parser_backend() == "bedrock":
+        # User decision 2026-10-01: with the Bedrock reader jdf-cli reads
+        # nothing, not even as a fallback; every caller's JdfConversionError
+        # branch then hands the document to the model.
+        raise JdfConversionError("jdf-cli is disabled (PARSER_BACKEND=bedrock); the model reads the document")
     with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as f:
         f.write(pdf_bytes)
         pdf_path = f.name

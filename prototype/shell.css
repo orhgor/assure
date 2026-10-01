@@ -4568,6 +4568,48 @@ body[data-can-override="0"] #fields-type-change { display: none !important; }
 }
 .sv-field:hover { background: color-mix(in srgb, var(--verified) 20%, transparent); z-index: 4; }
 .sv-field.is-handwritten { border-style: dashed; }
+/* Opus's analysis (2026-10-01): tables outlined on the page image, and a
+   reading panel under the document — fields as label → value, tables drawn. */
+.sv-table-box {
+  position: absolute;
+  box-sizing: border-box;
+  border: 1.5px solid var(--accent, #1d4ed8);
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--accent, #1d4ed8) 5%, transparent);
+  pointer-events: none;
+}
+.sv-mode-pdf.has-analysis .sv-stage { flex-direction: column; overflow: auto; }
+.sv-mode-pdf.has-analysis .sv-pdf-frame { flex: 0 0 auto; height: 72vh; }
+.sv-analysis {
+  margin: var(--space-3, 12px) auto;
+  padding: var(--space-3, 12px) var(--space-4, 16px);
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--ink);
+}
+.sv-an-title { margin: 0 0 var(--space-2, 8px); font-size: 14px; font-weight: 600; }
+.sv-an-page + .sv-an-page { margin-top: var(--space-4, 16px); padding-top: var(--space-3, 12px); border-top: 1px solid var(--rule); }
+.sv-an-page-title { margin: 0 0 var(--space-2, 8px); font-size: 13px; font-weight: 600; color: var(--muted, inherit); }
+.sv-an-sub { margin: var(--space-3, 12px) 0 var(--space-1, 4px); font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; color: var(--muted, inherit); }
+.sv-an-fields, .sv-an-table { width: 100%; border-collapse: collapse; }
+.sv-an-fields th, .sv-an-fields td, .sv-an-table th, .sv-an-table td {
+  padding: 4px 8px; border: 1px solid var(--rule); text-align: left; vertical-align: top;
+}
+.sv-an-fields th { width: 38%; font-weight: 500; background: var(--soft-wash); }
+.sv-an-table thead th { background: var(--soft-wash); font-weight: 600; }
+.sv-an-table-wrap { overflow-x: auto; }
+.sv-an-fields tr.is-placed { cursor: pointer; }
+.sv-an-fields tr.is-placed:hover td { background: color-mix(in srgb, var(--verified) 8%, transparent); }
+.sv-an-fields tr.is-handwritten td { font-style: italic; }
+.is-illegible, .sv-an-fields tr.is-illegible td { color: var(--partial); }
+.sv-an-chip { margin-left: 6px; padding: 0 6px; border-radius: 8px; font-size: 11px; font-style: normal; background: var(--soft-wash); border: 1px solid var(--rule); }
+.sv-an-text summary { cursor: pointer; margin-top: var(--space-3, 12px); font-size: 12px; font-weight: 600; }
+.sv-an-line { margin: 2px 0; white-space: pre-wrap; }
+.sv-an-line.is-handwritten { font-style: italic; }
+.sv-an-empty { color: var(--muted, inherit); }
 .sv-field.needs-review { border-color: var(--partial); background: color-mix(in srgb, var(--partial) 10%, transparent); }
 .sv-field-tag {
   position: absolute;

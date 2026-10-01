@@ -10136,6 +10136,7 @@
         source_id: _sourceIdForReport(String(rep.report_id || ""), rep.document_id),
         filename: String(rep.filename || ""), parser_name: String(rep.parser_name || ""), kind: "parsure",
         original: src.original && typeof src.original === "object" ? src.original : null, rasters: Number(src.rasters) || 0,
+        analysis: src.analysis && typeof src.analysis === "object" ? src.analysis : null,
       };
     }
     function _sourceJdfOfTree(doc) {
@@ -10147,6 +10148,7 @@
         source_id: String(src.source_id || (SHELL.sources || [])[0] || ""),
         filename: String(src.filename || doc.meta.source_name || ""), parser_name: String(src.parser_name || doc.meta.parser_name || ""), kind: "assure",
         original: src.original && typeof src.original === "object" ? src.original : null, rasters: Number(src.rasters) || 0,
+        analysis: src.analysis && typeof src.analysis === "object" ? src.analysis : null,
       };
     }
     // The source an action refers to: Parsure surfaces prefer the open report's,
@@ -10172,8 +10174,10 @@
       if (!orig || !orig.url || !pid || !src.document_id) return null;
       var fields = (__parsure && String(__parsure.document_id || "") === String(src.document_id || "") && Array.isArray(__parsure.fields))
         ? __parsure.fields : [];
+      // Opus's own reading (…/analysis): tables drawn, fields listed and boxed.
+      var analysisUrl = src.analysis && src.analysis.url ? String(src.analysis.url) : "";
       if (orig.display === "pdf") {
-        return { mode: "pdf", pdfUrl: String(orig.url), pageCount: Number(src.pages) || 0, key: src.key || orig.url };
+        return { mode: "pdf", pdfUrl: String(orig.url), pageCount: Number(src.pages) || 0, key: src.key || orig.url, analysisUrl: analysisUrl };
       }
       var base = "/api/projects/" + encodeURIComponent(pid) + "/documents/" + encodeURIComponent(src.document_id) + "/pages/";
       var pages = [];
@@ -10181,7 +10185,7 @@
       for (var i = 1; i <= n; i++) pages.push({ page: i, url: base + i + ".png" });
       if (!pages.length && /^image\//.test(String(orig.content_type || ""))) pages.push({ page: 1, url: String(orig.url) });
       if (!pages.length) return null;
-      return { mode: "image", pages: pages, pageCount: pages.length, fields: fields, key: src.key || orig.url };
+      return { mode: "image", pages: pages, pageCount: pages.length, fields: fields, key: src.key || orig.url, analysisUrl: analysisUrl };
     }
     function _sourceOf(anchor) {
       var src = anchor && anchor.source_jdf && typeof anchor.source_jdf === "object" && anchor.source_jdf.url ? anchor.source_jdf : null;
@@ -10191,6 +10195,7 @@
         document_id: String(anchor.document_id || src.document_id || _docIdFromSourceUrl(src.url) || ""),
         source_id: "", filename: String(src.filename || ""), parser_name: String(src.parser_name || ""), kind: "anchor",
         original: src.original && typeof src.original === "object" ? src.original : null, rasters: Number(src.rasters) || 0,
+        analysis: src.analysis && typeof src.analysis === "object" ? src.analysis : null,
       };
     }
 
@@ -10714,7 +10719,7 @@
     // the schema layer is empty — so an empty pool says so, and a pool with no
     // projection log says "no projection" per row rather than guessing.
     // Candidates carry provenance only: no confidence is read or drawn here.
-    var RAW_SOURCE_KINDS = ["layout_text", "table_cell", "image_vision", "textract", "discovery"];
+    var RAW_SOURCE_KINDS = ["layout_text", "table_cell", "image_vision", "model_read", "textract", "discovery"];
     function _rawSourceWords(kind) {
       var k = String(kind || "").toLowerCase();
       if (!k) return _t("shell.fields.raw.source.unknown", "unknown source");

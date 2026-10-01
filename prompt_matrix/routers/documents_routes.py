@@ -95,6 +95,33 @@ def register_documents_routes(app) -> None:
         resp.headers["X-Source-Jdf-Key"] = key
         return resp
 
+    @app.get("/api/projects/<project_id>/documents/<document_id>/analysis")
+    @requires("projects.read")
+    @project_ownership_required
+    def document_analysis(project_id: str, document_id: str):
+        """Stream the model's reading of the document (``source_jdf.
+        store_analysis``, 2026-10-01): pages with lines, tables and fields,
+        boxes as page fractions. The shell draws the page from it."""
+        key = _resolve(project_id, document_id)
+        if not key:
+            return jsonify({"ok": False, "error": _NOT_STORED}), 404
+        try:
+            from ..services.source_jdf import analysis_key
+        except ImportError:  # pragma: no cover
+            from services.source_jdf import analysis_key  # type: ignore
+        akey = analysis_key(key)
+        store = get_object_store()
+        try:
+            if not store.exists(akey):
+                return jsonify({"ok": False, "error": "No model analysis is stored for this document."}), 404
+            data = store.get_bytes(akey)
+        except Exception:  # noqa: BLE001
+            log.exception("analysis %s could not be read", akey)
+            return jsonify({"ok": False, "error": "No model analysis is stored for this document."}), 404
+        resp = Response(data, mimetype="application/json")
+        resp.headers["Cache-Control"] = "private, max-age=3600"
+        return resp
+
     @app.get("/api/projects/<project_id>/documents/<document_id>/source.json")
     @requires("projects.read")
     @project_ownership_required

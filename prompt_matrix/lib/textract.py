@@ -56,6 +56,15 @@ class TextractClient:
     def _boto_client(self) -> Any:
         if self._client is not None:
             return self._client
+        # Textract only on an explicit opt-in (user decision 2026-10-01: Bedrock
+        # reads every document, Textract is never called). This is the single
+        # place a Textract client is made, so no fallback path can reach it.
+        try:
+            from ..services.parser_router import parser_backend, scan_backend
+        except ImportError:
+            from services.parser_router import parser_backend, scan_backend
+        if parser_backend() != "textract" and not (parser_backend() == "auto" and scan_backend() == "textract"):
+            raise TextractError("Textract is disabled (PARSER_BACKEND is not textract).")
         try:
             import boto3
         except ImportError as exc:

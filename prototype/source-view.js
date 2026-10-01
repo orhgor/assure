@@ -309,6 +309,7 @@
         Array.prototype.forEach.call(S.nav.querySelectorAll(".sv-zoom-out, .sv-zoom-in, .sv-nav-sep"), function (b) { b.hidden = true; });
       }
       _paintNav();
+      _loadAnalysis(spec);
       return new Promise(function (resolve) {
         var done = false;
         function ok() { if (done) return; done = true; resolve(S.viewer); }
@@ -363,6 +364,7 @@
     _paintNav();
     return Promise.all(loads).then(function () {
       if (Array.isArray(spec.fields)) showFields(spec.fields);
+      _loadAnalysis(spec);
       return S.viewer;
     });
   }
@@ -410,6 +412,134 @@
     if (S.root) S.root.classList.toggle("has-fields", placed > 0);
     return placed;
   }
+  // ---------------------------------------------------------------------
+  // The model's analysis (2026-10-01, user: "upload, Opus reads it, the
+  // analysis is saved, the site draws it — the PDF as it looks; an image with
+  // its tables drawn"). spec.analysisUrl → GET …/analysis
+  // ({pages: [{page, lines, tables, fields}]}, boxes as page fractions):
+  //   * image pages: each table outlined where it sits; the fields boxed
+  //     from the analysis when the report gave none;
+  //   * both modes: a reading panel under the document — per page the fields
+  //     (label → value, handwriting and [illegible] marked) and every table
+  //     drawn as a table, the page's text folded below.
+  // A failed fetch leaves the original alone; nothing is invented.
+  // ---------------------------------------------------------------------
+  function _loadAnalysis(spec) {
+    var url = spec && spec.analysisUrl ? String(spec.analysisUrl) : "";
+    if (!url || typeof fetch !== "function") return;
+    var root = S.root;
+    fetch(url, { credentials: "same-origin" })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (a) { if (a && S.root === root) showAnalysis(a); })
+      .catch(function () {});
+  }
+  function _tableEl(t) {
+    var table = _el("table", "sv-an-table");
+    var headers = Array.isArray(t.headers) ? t.headers : [];
+    if (headers.length) {
+      var thead = _el("thead"), tr = _el("tr");
+      headers.forEach(function (h) { tr.appendChild(_el("th", "", String(h))); });
+      thead.appendChild(tr); table.appendChild(thead);
+    }
+    var tbody = _el("tbody");
+    (Array.isArray(t.rows) ? t.rows : []).forEach(function (row) {
+      var tr = _el("tr");
+      (Array.isArray(row) ? row : []).forEach(function (c) {
+        var td = _el("td", /\[illegible\]/i.test(String(c)) ? "is-illegible" : "", String(c));
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    return table;
+  }
+  function _boxMark(page1, bbox, cls, tagText) {
+    var wrapper = _wrapperFor(page1);
+    if (!wrapper || !bbox) return;
+    var layer = _layerFor(wrapper);
+    var box = _el("div", cls);
+    if (tagText) box.appendChild(_el("span", "sv-field-tag", tagText));
+    layer.appendChild(box);
+    var mark = { wrapper: wrapper, layer: layer, box: box, bbox: bbox, ro: null, timer: null, field: true };
+    _place(mark);
+    if (typeof ResizeObserver !== "undefined") {
+      mark.ro = new ResizeObserver(function () { _place(mark); });
+      mark.ro.observe(wrapper);
+    }
+    S.fieldMarks.push(mark);
+  }
+  function showAnalysis(a) {
+    if (!S.stage || !a || !Array.isArray(a.pages)) return;
+    var old = S.stage.querySelector(".sv-analysis");
+    if (old) old.parentNode.removeChild(old);
+    var pages = a.pages.filter(function (p) { return p && typeof p === "object"; });
+    if (S.mode !== "pdf") {
+      if (!S.fieldMarks.length) {
+        var fields = [];
+        pages.forEach(function (p) {
+          (p.fields || []).forEach(function (f) {
+            if (f && f.bbox) fields.push({ label: f.key, value: f.value, handwritten: f.handwritten, review_required: f.illegible,
+                                           source_span: { page: p.page, bbox: f.bbox } });
+          });
+        });
+        showFields(fields);
+      }
+      pages.forEach(function (p) {
+        (p.tables || []).forEach(function (t, i) {
+          _boxMark(Number(p.page), t.bbox, "sv-table-box", _tf("shell.source_view.analysis_table", "Table {n}", { n: i + 1 }));
+        });
+      });
+    }
+    var panel = _el("section", "sv-analysis");
+    panel.appendChild(_el("h3", "sv-an-title", _tf("shell.source_view.analysis_title", "Read by {model}", { model: String(a.model || "the model") })));
+    pages.forEach(function (p) {
+      var sec = _el("div", "sv-an-page");
+      sec.appendChild(_el("h4", "sv-an-page-title", _tf("shell.source_view.page_of", "Page {n} of {total}", { n: p.page, total: pages.length })));
+      var fields = Array.isArray(p.fields) ? p.fields : [];
+      var tables = Array.isArray(p.tables) ? p.tables : [];
+      if (fields.length) {
+        sec.appendChild(_el("h5", "sv-an-sub", _t("shell.source_view.analysis_fields", "Fields")));
+        var dl = _el("table", "sv-an-fields");
+        var tb = _el("tbody");
+        fields.forEach(function (f) {
+          var tr = _el("tr", (f.handwritten ? "is-handwritten" : "") + (f.illegible ? " is-illegible" : ""));
+          tr.appendChild(_el("th", "", String(f.key || "")));
+          var td = _el("td", "", String(f.value || "") || "—");
+          if (f.handwritten) td.appendChild(_el("span", "sv-an-chip", _t("shell.source_view.analysis_handwritten", "handwritten")));
+          tr.appendChild(td);
+          if (f.bbox && S.mode !== "pdf") {
+            tr.classList.add("is-placed");
+            tr.addEventListener("click", function () { goToPage(Number(p.page)); });
+          }
+          tb.appendChild(tr);
+        });
+        dl.appendChild(tb);
+        sec.appendChild(dl);
+      }
+      tables.forEach(function (t, i) {
+        sec.appendChild(_el("h5", "sv-an-sub", _tf("shell.source_view.analysis_table", "Table {n}", { n: i + 1 })));
+        var wrap = _el("div", "sv-an-table-wrap");
+        wrap.appendChild(_tableEl(t));
+        sec.appendChild(wrap);
+      });
+      var lines = Array.isArray(p.lines) ? p.lines : [];
+      if (lines.length) {
+        var det = _el("details", "sv-an-text");
+        det.appendChild(_el("summary", "", _t("shell.source_view.analysis_text", "Text")));
+        lines.forEach(function (l) {
+          det.appendChild(_el("p", "sv-an-line" + (l.handwritten ? " is-handwritten" : "") + (l.illegible ? " is-illegible" : ""), String(l.text || "")));
+        });
+        sec.appendChild(det);
+      }
+      if (!fields.length && !tables.length && !lines.length) {
+        sec.appendChild(_el("p", "sv-an-empty", _t("shell.source_view.analysis_empty", "Nothing was read on this page.")));
+      }
+      panel.appendChild(sec);
+    });
+    S.stage.appendChild(panel);
+    if (S.root) S.root.classList.add("has-analysis");
+  }
+
   function hideFields() {
     (S.fieldMarks || []).forEach(function (m) {
       if (m.ro) { try { m.ro.disconnect(); } catch (_) {} }
@@ -633,6 +763,7 @@
     open: open,
     openOriginal: openOriginal,
     showFields: showFields,
+    showAnalysis: showAnalysis,
     hideFields: hideFields,
     mode: mode,
     destroy: destroy,

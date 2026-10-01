@@ -7,12 +7,13 @@ written out. The reading is saved as a JDF document so everything downstream
 (layout, table pass, raw candidates, source view, page rasters) continues
 exactly as after Textract or jdf-cli.
 
-How: the file is sent as a native Anthropic ``document`` block (PDF) or
-``image`` block through ``bedrock-runtime.invoke_model`` — the Messages API
-body, not Converse, because it carries the PDF's page images to the model
-(a scanned PDF with no text layer was transcribed verbatim on 2026-10-01,
-1 649 input tokens for one page). A PDF longer than ``PAGES_PER_REQUEST`` is
-split into page ranges that are read in parallel; an answer cut off at the
+How: every PDF page is rendered (``PAGE_LONG_SIDE_PX``, JPEG) and sent as an
+``image`` block, an image upload as itself, through
+``bedrock-runtime.invoke_model`` (the Messages API body). Until 2026-10-01 the
+PDF went as a ``document`` block; on EC2 a scanned PDF then came back without
+its fields while the same file given to Opus directly was read in full — the
+model must see the page picture, not a text extraction of it. A PDF longer
+than ``PAGES_PER_REQUEST`` is split into page ranges that are read in parallel; an answer cut off at the
 output ceiling (``stop_reason: max_tokens``) is re-read in halves rather than
 "repaired" into a document with its last pages missing. The model's pages are
 renumbered 1..N in reading order (its own numbers are kept as metadata) so
@@ -76,7 +77,11 @@ CONCURRENCY = _env_int("ASSURE_LLM_PARSE_CONCURRENCY", 4)
 #: long side keeps handwriting legible and the request small.
 IMAGE_LONG_SIDE_PX = 2400
 IMAGE_MAX_BYTES = 3_750_000
-PROMPT_VERSION = "llm-parse-v3-bedrock"
+PROMPT_VERSION = "llm-parse-v4-page-images"
+#: Long side of a PDF page rendered for the model. 2000 px keeps every page
+#: under the per-image limit that applies once a request carries many images,
+#: and a JPEG at that size is ~0.3–0.8 MB, so 8 pages fit one request body.
+PAGE_LONG_SIDE_PX = 2000
 
 PROMPT = """You are reading a business document (insurance form, claim, policy, invoice, medical form, report) exactly as a careful human data-entry clerk would. The document may mix printed text, HANDWRITING, ticked/crossed boxes, stamps and signatures. Read every page completely; do not stop early.
 
@@ -260,7 +265,7 @@ def answer_to_blocks(data: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 # --------------------------------------------------------------------------
-# File preparation (no rendering of a PDF: the PDF goes as it is)
+# File preparation: every PDF page is rendered and sent as an image
 # --------------------------------------------------------------------------
 
 def pdf_page_count(file_bytes: bytes) -> int:
@@ -283,6 +288,36 @@ def pdf_slice(file_bytes: bytes, first: int, last: int) -> bytes:
             return out.tobytes(garbage=3, deflate=True)
         finally:
             out.close()
+
+
+def pdf_page_images(file_bytes: bytes, first: int, last: int) -> list[tuple[bytes, str]]:
+    """Pages ``first..last`` (1-based, inclusive) rendered as JPEG for the model.
+
+    Why (user finding 2026-10-01 on EC2): a scanned PDF sent as a ``document``
+    block came back without its fields while the same file given to Opus 5.5
+    directly was read in full — on Bedrock the document block can reach the
+    model as extracted text only, and a scan has none. A rendered page is the
+    picture itself, so printed text, handwriting, ticks and stamps all reach
+    the model. Model boxes are page-relative, so they stay valid."""
+    try:
+        import fitz
+    except ImportError as exc:  # pragma: no cover
+        raise LLMParseError("PyMuPDF is not installed; PDF pages cannot be rendered") from exc
+    out: list[tuple[bytes, str]] = []
+    try:
+        with fitz.open(stream=file_bytes, filetype="pdf") as doc:
+            for n in range(first - 1, last):
+                page = doc[n]
+                long_pt = max(page.rect.width, page.rect.height) or 1.0
+                zoom = min(PAGE_LONG_SIDE_PX / long_pt, 300 / 72)
+                pix = page.get_pixmap(matrix=fitz.Matrix(zoom, zoom), alpha=False)
+                data = pix.tobytes("jpeg", jpg_quality=90)
+                if len(data) > IMAGE_MAX_BYTES:
+                    data = pix.tobytes("jpeg", jpg_quality=75)
+                out.append((data, "image/jpeg"))
+    except Exception as exc:  # noqa: BLE001
+        raise LLMParseError(f"the PDF pages could not be rendered: {type(exc).__name__}: {exc}") from exc
+    return out
 
 
 def prepare_image(file_bytes: bytes, filename: str | None) -> tuple[bytes, str]:
@@ -349,22 +384,31 @@ def _bedrock_client() -> Any:
     return _CLIENT
 
 
-def _content_block(data: bytes, filename: str | None) -> dict[str, Any]:
-    if _is_pdf(filename, data):
-        return {"type": "document", "source": {"type": "base64", "media_type": "application/pdf",
-                                               "data": base64.b64encode(data).decode("ascii")}}
-    img, mime = prepare_image(data, filename)
+def _image_block(img: bytes, mime: str) -> dict[str, Any]:
     return {"type": "image", "source": {"type": "base64", "media_type": mime, "data": base64.b64encode(img).decode("ascii")}}
 
 
-def _invoke(data: bytes, filename: str | None, *, model: str, page_hint: str = "") -> tuple[str, dict[str, Any]]:
+def _content_blocks(file_bytes: bytes, filename: str | None, first: int, last: int) -> list[dict[str, Any]]:
+    """The page pictures of one request: rendered PDF pages ``first..last``,
+    each preceded by its page number, or the uploaded image itself."""
+    if _is_pdf(filename, file_bytes):
+        blocks: list[dict[str, Any]] = []
+        for n, (img, mime) in enumerate(pdf_page_images(file_bytes, first, last), start=1):
+            blocks.append({"type": "text", "text": f"Page {n}:"})
+            blocks.append(_image_block(img, mime))
+        return blocks
+    img, mime = prepare_image(file_bytes, filename)
+    return [_image_block(img, mime)]
+
+
+def _invoke(content: list[dict[str, Any]], *, model: str, page_hint: str = "") -> tuple[str, dict[str, Any]]:
     """One ``invoke_model`` call → ``(answer_text, meta)``; raises LLMParseError."""
     t0 = time.monotonic()
     prompt = PROMPT + (f"\n{page_hint}\n" if page_hint else "")
     body = {
         "anthropic_version": "bedrock-2023-05-31",
         "max_tokens": MAX_OUTPUT_TOKENS,
-        "messages": [{"role": "user", "content": [_content_block(data, filename), {"type": "text", "text": prompt}]}],
+        "messages": [{"role": "user", "content": content + [{"type": "text", "text": prompt}]}],
     }
     ledger_model = f"bedrock/{_bare(model)}"
     try:
@@ -402,15 +446,15 @@ def _read_range(file_bytes: bytes, filename: str, first: int, last: int, total: 
     An answer cut off at the output ceiling is re-read in two halves (up to a
     single page); a single page that still does not fit is kept with its
     ``truncated`` flag rather than dropped."""
-    whole = total == 0 or (first == 1 and last == total)
-    blob = file_bytes if whole else pdf_slice(file_bytes, first, last)
     count = 1 if total == 0 else last - first + 1
-    hint = f"This file has {count} page(s); return exactly {count} entries in \"pages\"." if total else ""
+    hint = (f"The {count} picture(s) above are the page(s) of one document, in order; return exactly {count} "
+            f"entries in \"pages\", one per picture." if total else "")
     if completion is not None:
-        raw = completion(PROMPT, blob, filename)
+        whole = total == 0 or (first == 1 and last == total)
+        raw = completion(PROMPT, file_bytes if whole else pdf_slice(file_bytes, first, last), filename)
         meta = {"model": model, "ms": 0, "stop_reason": "end_turn"}
     else:
-        raw, meta = _invoke(blob, filename, model=model, page_hint=hint)
+        raw, meta = _invoke(_content_blocks(file_bytes, filename, first, last), model=model, page_hint=hint)
     meta = dict(meta, first_page=first, last_page=last)
     data = parse_answer(raw)
     truncated = meta.get("stop_reason") == "max_tokens" or data is None and bool(raw.strip())
@@ -488,6 +532,48 @@ def read_document(file_bytes: bytes, filename: str, *, model: str, completion: A
     return pages, meta
 
 
+def _rect(b: Any) -> list[float] | None:
+    """A model box as ``[x0, y0, x1, y1]`` page fractions (scaled like ``_box``)."""
+    g = _box(b)
+    if not g:
+        return None
+    bb = g["BoundingBox"]
+    return [round(bb["Left"], 4), round(bb["Top"], 4), round(bb["Left"] + bb["Width"], 4), round(bb["Top"] + bb["Height"], 4)]
+
+
+def _text(v: Any) -> str:
+    return "" if v is None else str(v)
+
+
+def analysis_of(answer_pages: list[dict[str, Any]], *, model: str) -> dict[str, Any]:
+    """Opus's own reading, kept as it answered (user decision 2026-10-01: the
+    upload goes to Opus, its analysis is saved, and the site draws the page
+    from that analysis — not from a derived JDF). Only the shape is cleaned:
+    pages numbered 1..N, boxes as ``[x0, y0, x1, y1]`` fractions, strings."""
+    pages: list[dict[str, Any]] = []
+    for a in answer_pages:
+        lines = [{"text": _text(l.get("text")).strip(), "bbox": _rect(l.get("bbox")),
+                  "handwritten": l.get("handwritten") is True, "illegible": l.get("illegible") is True}
+                 for l in (a.get("lines") or []) if isinstance(l, dict) and _text(l.get("text")).strip()]
+        tables = []
+        for t in a.get("tables") or []:
+            if not isinstance(t, dict):
+                continue
+            rows = [[_text(c) for c in r] for r in (t.get("rows") or []) if isinstance(r, list)]
+            headers = [_text(c) for c in (t.get("headers") or [])] if isinstance(t.get("headers"), list) else []
+            if rows or headers:
+                tables.append({"headers": headers, "rows": rows, "bbox": _rect(t.get("bbox"))})
+        fields = [{"key": _text(kv.get("key")).strip(), "value": _text(kv.get("value")).strip(),
+                   "bbox": _rect(kv.get("bbox")), "key_bbox": _rect(kv.get("key_bbox")),
+                   "handwritten": kv.get("handwritten") is True, "illegible": kv.get("illegible") is True,
+                   "kind": _text(kv.get("kind") or "text")}
+                  for kv in (a.get("key_values") or []) if isinstance(kv, dict) and _text(kv.get("key")).strip()]
+        pages.append({"page": a["_page"], "lines": lines, "tables": tables, "fields": fields,
+                      "truncated": bool(a.get("_truncated"))})
+    return {"model": _bare(model), "prompt_version": PROMPT_VERSION, "bbox_source": "model_estimate",
+            "read_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "pages": pages}
+
+
 def llm_parse_bundle(file_bytes: bytes, filename: str, *, completion: Any = None, model: str | None = None) -> dict[str, Any]:
     """The parse bundle for ``PARSER_BACKEND=bedrock`` — the keys
     ``jdf_converter.pdf_to_parse_bundle`` returns, the JDF in the scan shape."""
@@ -502,6 +588,8 @@ def llm_parse_bundle(file_bytes: bytes, filename: str, *, completion: Any = None
     bare = _bare(model)
     jdf, chunks, forms = _tj.build_jdf(pages, filename=filename, sizes_mm=sizes[: len(pages)], api=f"model:{bare}")
     jdf["meta"]["source"] = f"llm:{bare}"
+    for f in forms:
+        f["reader"] = "model"  # raw_candidates labels these "model read", not Textract
     for p in jdf["pages"]:
         for el in p["elements"]:
             if el.get("type") == "image" and isinstance(el.get("ocr"), dict):
@@ -526,6 +614,7 @@ def llm_parse_bundle(file_bytes: bytes, filename: str, *, completion: Any = None
         "orientation": None,
         "wrapped_image": False,
         "forms": forms,
+        "analysis": analysis_of(answer_pages, model=model),
         "llm_parse": {
             "model": model,
             "request": meta,

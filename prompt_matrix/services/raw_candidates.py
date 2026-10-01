@@ -91,10 +91,10 @@ except ImportError:  # pragma: no cover - flat-import fallback
 
 log = logging.getLogger(__name__)
 
-SOURCE_KINDS = ("textract", "table_cell", "layout_text", "discovery", "image_vision")
+SOURCE_KINDS = ("model_read", "textract", "table_cell", "layout_text", "discovery", "image_vision")
 #: Plan Part 1.2: ``textract > table_cell > layout_text > discovery > image_vision``
 #: (uncorroborated); a corroborated vision read (verbatim on the page) outranks all.
-SOURCE_PRIORITY: dict[str, int] = {"textract": 5, "table_cell": 4, "layout_text": 3, "discovery": 2, "image_vision": 1}
+SOURCE_PRIORITY: dict[str, int] = {"model_read": 5, "textract": 5, "table_cell": 4, "layout_text": 3, "discovery": 2, "image_vision": 1}
 CORROBORATED_VISION_PRIORITY = 6
 MAX_PER_SEGMENT: int | None = None
 #: Label/value pairs the heuristic discovery offers the pool (its own bound).
@@ -259,8 +259,11 @@ def textract_form_candidates(forms: Iterable[dict[str, Any]] | None, texts: list
         for flag in ("handwritten", "illegible", "kind"):
             if form.get(flag):
                 span = dict(span, **{flag: form[flag]})
-        yield _candidate(name_hint=key, raw_text=value, label_anchor=key, page=page, span=span, source_kind="textract",
-                         trace=f"textract: KEY_VALUE_SET #{i}", node_id=span.get("node_id"), element_id=span.get("element_id"))
+        # The model reader's pairs say so (user finding 2026-10-01: Opus-read
+        # fields were labelled "Textract" in the UI).
+        kind = "model_read" if form.get("reader") == "model" else "textract"
+        yield _candidate(name_hint=key, raw_text=value, label_anchor=key, page=page, span=span, source_kind=kind,
+                         trace=f"{kind}: KEY_VALUE_SET #{i}", node_id=span.get("node_id"), element_id=span.get("element_id"))
 
 
 def vision_candidates(vision: dict[str, Any] | None, texts: list[str], layout: list[list[dict]] | None) -> Iterator[dict[str, Any]]:
@@ -390,7 +393,7 @@ def build_pool(
     for kind, fn in sources:
         try:
             for c in fn():
-                by_source[kind] += 1
+                by_source[c.get("source_kind") or kind] = by_source.get(c.get("source_kind") or kind, 0) + 1
                 collected.append(c)
         except Exception as exc:  # noqa: BLE001 — one source must not empty the pool
             log.exception("raw_candidates: %s source failed", kind)
@@ -713,7 +716,7 @@ def grounding_success_by_page(fields: list[dict[str, Any]], *, discovered: list[
 
 #: Sources whose candidates are a document's own labelled facts — the reading
 #: of a key/value pair on the page, not a model's inference.
-DYNAMIC_FIELD_SOURCES = ("textract", "discovery")
+DYNAMIC_FIELD_SOURCES = ("model_read", "textract", "discovery")
 
 
 def dynamic_fields(pool: list[dict[str, Any]], projection: dict[str, Any] | None = None) -> list[dict[str, Any]]:

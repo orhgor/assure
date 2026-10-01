@@ -172,6 +172,40 @@ def original_url(project_id: str, document_id: str) -> str:
     return f"/api/projects/{project_id}/documents/{document_id}/original"
 
 
+def analysis_key(source_key: str) -> str:
+    """``documents/<project>/<doc>/<revision>/analysis.json`` beside the ``.jdf``."""
+    if not source_key.endswith(".jdf"):
+        raise ValueError(f"not a source JDF key: {source_key!r}")
+    return f"{source_key[:-len('.jdf')]}/analysis.json"
+
+
+def analysis_url(project_id: str, document_id: str) -> str:
+    return f"/api/projects/{project_id}/documents/{document_id}/analysis"
+
+
+def store_analysis(project_id: str, document_id: str, revision: str, analysis: dict[str, Any] | None) -> dict[str, Any] | None:
+    """Keep the model's own reading (``llm_parse.analysis_of``) beside the
+    revision and return ``{"key", "url", "pages", "fields", "tables"}``, or None.
+
+    User decision 2026-10-01: the upload goes to Opus, its analysis is saved,
+    and the site draws the document from it — fields on the page, tables as
+    tables. Never raises: a store failure is logged and the view falls back
+    to the original alone."""
+    if not isinstance(analysis, dict) or not isinstance(analysis.get("pages"), list):
+        return None
+    try:
+        key = analysis_key(source_jdf_key(project_id, document_id, revision))
+        payload = json.dumps(analysis, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+        get_object_store().put_bytes(key, payload, content_type="application/json")
+    except Exception:
+        log.exception("analysis of %s/%s could not be stored", project_id, document_id)
+        return None
+    pages = [p for p in analysis["pages"] if isinstance(p, dict)]
+    return {"key": key, "url": analysis_url(project_id, document_id), "pages": len(pages),
+            "fields": sum(len(p.get("fields") or []) for p in pages),
+            "tables": sum(len(p.get("tables") or []) for p in pages)}
+
+
 def store_original(
     project_id: str,
     document_id: str,
@@ -654,6 +688,7 @@ def persist_source_jdf(
     filename: str | None = None,
     rasters: list[dict[str, Any]] | None = None,
     original: dict[str, Any] | None = None,
+    analysis: dict[str, Any] | None = None,
 ) -> dict[str, Any] | None:
     """Store the raw jdf-cli document and return its descriptor, or None.
 
@@ -693,6 +728,8 @@ def persist_source_jdf(
         }
         if original:
             meta["assure"]["original"] = dict(original)
+        if analysis:
+            meta["assure"]["analysis"] = dict(analysis)
         doc["meta"] = meta
         key = source_jdf_key(project_id, document_id, revision)
         payload = json.dumps(doc, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
@@ -711,6 +748,8 @@ def persist_source_jdf(
         }
         if original:
             descriptor["original"] = {k: original[k] for k in ("url", "content_type", "display") if k in original}
+        if analysis:
+            descriptor["analysis"] = {k: analysis[k] for k in ("url", "pages", "fields", "tables") if k in analysis}
     except Exception:
         log.exception("source JDF for %s/%s could not be stored", project_id, document_id)
         return None
@@ -804,6 +843,8 @@ def describe_source_jdf(key: str, doc: dict) -> dict[str, Any]:
         "element_id_policy": assure.get("element_id_policy"),
         **({"original": {k: assure["original"][k] for k in ("url", "content_type", "display") if k in assure["original"]}}
            if isinstance(assure.get("original"), dict) else {}),
+        **({"analysis": {k: assure["analysis"][k] for k in ("url", "pages", "fields", "tables") if k in assure["analysis"]}}
+           if isinstance(assure.get("analysis"), dict) else {}),
     }
 
 

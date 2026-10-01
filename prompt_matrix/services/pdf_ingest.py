@@ -126,7 +126,7 @@ def ingest_pdf_for_project(
         from ..services.parser_router import is_image_filename, route_intake
         from ..services.pdf_import import pdf_bytes_to_jdf
         from ..services.quality_probe import image_to_pdf_bytes, image_to_png_bytes
-        from ..services.source_jdf import original_display, pages_are_ocr, persist_source_jdf, store_original, store_page_rasters
+        from ..services.source_jdf import original_display, pages_are_ocr, persist_source_jdf, store_analysis, store_original, store_page_rasters
         from ..services.verification import run_verification_after_parse
     except ImportError:
         from db.jdf_repository import new_revision_id, save_jdf_revision
@@ -144,7 +144,7 @@ def ingest_pdf_for_project(
         from services.parser_router import is_image_filename, route_intake
         from services.pdf_import import pdf_bytes_to_jdf
         from services.quality_probe import image_to_pdf_bytes, image_to_png_bytes
-        from services.source_jdf import original_display, pages_are_ocr, persist_source_jdf, store_original, store_page_rasters
+        from services.source_jdf import original_display, pages_are_ocr, persist_source_jdf, store_analysis, store_original, store_page_rasters
         from services.verification import run_verification_after_parse
 
     # Parsure's post-parse report hook (another module, may be absent in a
@@ -404,6 +404,7 @@ def ingest_pdf_for_project(
                 filename=filename,
                 rasters=rasters,
                 original=original,
+                analysis=store_analysis(project_id, source_document_id, revision_id, bundle.get("analysis")),
             )
             if source_jdf:
                 if not isinstance(tree.get("meta"), dict):

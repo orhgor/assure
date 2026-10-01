@@ -402,7 +402,7 @@ def execution_view(report: dict[str, Any]) -> dict[str, Any]:
 #: ``source_kind`` in words, the same five ``raw_candidates.SOURCE_KINDS``.
 RAW_SOURCE_WORDS = {
     "layout_text": "layout text", "table_cell": "table cell", "image_vision": "image vision",
-    "textract": "Textract", "discovery": "discovery",
+    "model_read": "model read", "textract": "Textract", "discovery": "discovery",
 }
 RAW_OUTCOME_WORDS = {"mapped": "mapped", "unmapped": "unmapped", "conflicting": "conflicting", "review_needed": "review needed"}
 
