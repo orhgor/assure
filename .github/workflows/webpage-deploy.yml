@@ -1,0 +1,99 @@
+# Webpage deploy — build static marketing site from main and sync to Cloudflare R2.
+#
+# WHAT THIS DOES
+#   push to main (webpage files) -> build -> upload to R2 (assure-marketing-prod)
+#   -> deploy marketing Worker if its source changed -> smoke check.
+#
+# ONE-TIME SETUP (repo admin, ~2 min):
+#   1. Cloudflare dashboard -> My Profile -> API Tokens -> Create Token
+#      Permissions: Account | Workers Scripts | Edit
+#                   Account | Cloudflare Pages | Edit
+#                   Account | R2 Storage | Edit  (wrangler needs it for bucket sync)
+#                   Zone   | Workers Routes | Edit
+#      Account Resources: include this account.
+#   2. GitHub repo -> Settings -> Secrets and variables -> Actions -> New secret:
+#      CLOUDFLARE_API_TOKEN = <the token>
+#   Until the secret exists, this workflow fails at the deploy step. Builds still
+#   run, so template errors are caught either way.
+#
+# Editors: just edit the webpage files and push to main. That is the whole job.
+
+name: Webpage deploy (R2)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'prompt_matrix/templates/**'
+      - 'prompt_matrix/static/**'
+      - 'prompt_matrix/i18n.py'
+      - 'prompt_matrix/ui_cache.py'
+      - 'prompt_matrix/web.py'
+      - 'scripts/build-marketing-static.sh'
+      - 'scripts/render_static.py'
+      - 'scripts/deploy-marketing-r2.sh'
+      - 'scripts/r2_sync_marketing.py'
+      - 'scripts/marketing_worker_changed.py'
+      - 'scripts/cloudflare/**'
+
+concurrency:
+  group: webpage-deploy
+  cancel-in-progress: true
+
+env:
+  CLOUDFLARE_ACCOUNT_ID: '381b292d419f2efdc1c85a3636268e91'
+  MARKETING_R2_BUCKET: 'assure-marketing-prod'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: assure
+          POSTGRES_USER: assure
+          POSTGRES_PASSWORD: assure
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U assure -d assure"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: pip
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Python deps
+        run: pip install -q -r requirements.txt
+
+      - name: Build static marketing site
+        env:
+          DATABASE_URL: postgresql://assure:assure@localhost:5432/assure
+        run: bash scripts/build-marketing-static.sh
+
+      - name: Sync to R2 + deploy Worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          MARKETING_DEPLOY_FORCE: '1'   # CI has no cooldown; force replaces the local-time guard
+        run: bash scripts/deploy-marketing-r2.sh --skip-build
+
+      - name: Verify deploy
+        run: |
+          sleep 10
+          echo "-- R2 canary (uploaded index.html parses):"
+          npx wrangler@4 r2 object get assure-marketing-prod/index.html --pipe | grep -c '<html'
+          echo "-- Live page:"
+          code=$(curl -s -o /dev/null -w '%{http_code}' https://www.getassureai.com/)
+          echo "status=$code"
+          test "$code" = "200"
