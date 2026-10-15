@@ -57,8 +57,26 @@
 
         <section id="why-now" class="why-now">
             <div class="container">
-                <h2 class="section-title" data-i18n-html="landing.why.title_html">{{ strings.get('landing.why.title_html', strings.get('landing.why.title', ''))|safe }}</h2>
-                <p class="why-copy" data-i18n="landing.why.body">{{ strings.get('landing.why.body', '') }}</p>
+                <h2 class="section-title" data-i18n="landing.why.title">{{ strings.get('landing.why.title', 'Why now') }}</h2>
+                <div class="why-split">
+                    <div class="why-col">
+                        <h3 data-i18n="landing.why.status_quo">{{ strings.get('landing.why.status_quo', 'The status quo') }}</h3>
+                        <ul>
+                            <li data-i18n="landing.why.q1">{{ strings.get('landing.why.q1', 'AI writes the text.') }}</li>
+                            <li data-i18n="landing.why.q2">{{ strings.get('landing.why.q2', 'Humans blindly trust it.') }}</li>
+                            <li data-i18n="landing.why.q3">{{ strings.get('landing.why.q3', 'Liability hides in drafts.') }}</li>
+                        </ul>
+                    </div>
+                    <div class="why-col why-col-standard">
+                        <h3 data-i18n="landing.why.standard">{{ strings.get('landing.why.standard', 'The Assure AI standard') }}</h3>
+                        <ul>
+                            <li data-i18n="landing.why.a1">{{ strings.get('landing.why.a1', 'AI writes the text.') }}</li>
+                            <li data-i18n="landing.why.a2">{{ strings.get('landing.why.a2', 'Deterministic engines prove it.') }}</li>
+                            <li data-i18n="landing.why.a3">{{ strings.get('landing.why.a3', 'Every claim is locked before it ships.') }}</li>
+                        </ul>
+                    </div>
+                </div>
+                <p class="why-copy" data-i18n="landing.why.copy">{{ strings.get('landing.why.copy', 'Generative AI is fast, but it is fundamentally unverified. In enterprise compliance, guessing is a liability. Assure AI places a deterministic verification engine between your models and your output. It checks math with formal logic, tracks source provenance down to the exact page, and flags every logical gap before a human ever has to look twice.') }}</p>
             </div>
         </section>
 
@@ -92,6 +110,38 @@
                     </article>
                 </div>
                 <p class="diff-close" data-i18n="landing.diff.close">{{ strings.get('landing.diff.close', 'The market is full of tools that process documents. Assure is built to prove them.') }}</p>
+            </div>
+        </section>
+
+        <section id="personas" class="persona-section">
+            <div class="container">
+                <h2 data-i18n="landing.personas.title">{{ strings.get('landing.personas.title', 'Engineered for High-Stakes Work') }}</h2>
+                <div class="persona-grid">
+                    <div class="persona-card">
+                        <h3 data-i18n="landing.personas.bankers.title">{{ strings.get('landing.personas.bankers.title', 'For Investment Bankers & Analysts') }}</h3>
+                        <p data-i18n-html="landing.personas.bankers.body">{{ strings.get('landing.personas.bankers.body', '<strong>Numerical Precision.</strong> Eliminate data drift across 50-page CIMs. The Z3 Truth Ledger locks your financial variables from model to final narrative.') | safe }}</p>
+                    </div>
+                    <div class="persona-card">
+                        <h3 data-i18n="landing.personas.researchers.title">{{ strings.get('landing.personas.researchers.title', 'For Clinical & Grant Researchers') }}</h3>
+                        <p data-i18n-html="landing.personas.researchers.body">{{ strings.get('landing.personas.researchers.body', '<strong>No contradiction survives.</strong> Abstracts are checked against raw tables, claim by claim. One drifted data point and the Red-Hat flags it before a reviewer ever sees it.') | safe }}</p>
+                    </div>
+                    <div class="persona-card">
+                        <h3 data-i18n="landing.personas.legal.title">{{ strings.get('landing.personas.legal.title', 'For Legal Counsel & Compliance') }}</h3>
+                        <p data-i18n-html="landing.personas.legal.body">{{ strings.get('landing.personas.legal.body', '<strong>Audit-Ready Precision.</strong> Treat complex documentation like source code. Every variable is symbolically verified, leaving a permanent audit trail.') | safe }}</p>
+                    </div>
+                    <div class="persona-card">
+                        <h3 data-i18n="landing.personas.architects.title">{{ strings.get('landing.personas.architects.title', 'For Technical Architects') }}</h3>
+                        <p data-i18n-html="landing.personas.architects.body">{{ strings.get('landing.personas.architects.body', '<strong>Banish Documentation Rot.</strong> Componentize specs and architecture proposals into version-controlled nodes that stay synchronized.') | safe }}</p>
+                    </div>
+                    <div class="persona-card">
+                        <h3 data-i18n="landing.personas.journalists.title">{{ strings.get('landing.personas.journalists.title', 'For Journalists & Fact-Checkers') }}</h3>
+                        <p data-i18n-html="landing.personas.journalists.body">{{ strings.get('landing.personas.journalists.body', '<strong>Source-Grounded Truth.</strong> Lock every quote, date, and statistic to its original transcript or court record to eliminate defamation risk.') | safe }}</p>
+                    </div>
+                    <div class="persona-card">
+                        <h3 data-i18n="landing.personas.creators.title">{{ strings.get('landing.personas.creators.title', 'For Regulated Content Teams') }}</h3>
+                        <p data-i18n-html="landing.personas.creators.body">{{ strings.get('landing.personas.creators.body', "<strong>A tireless devil's advocate.</strong> The Red-Hat adversary attacks your draft before your critics do — finding the unsupported claims that end careers.") | safe }}</p>
+                    </div>
+                </div>
             </div>
         </section>
 

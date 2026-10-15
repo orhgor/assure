@@ -63,9 +63,10 @@ EN = {
     "brand.tagline": "Compile. Verify. Trust what you ship.",
     "tagline_html": 'The right question produces a <span class="trust">trusted</span> answer.',
     "brand.tagline_html": "The Intellectual Compiler",
-    "brand.page_title": "Assure AI — Zero hallucination. Absolute verification.",
+    "brand.page_title": "Assure AI — Documents in. Verified output out.",
     "brand.meta_description": (
-        "The enterprise document platform that proves every word, number, and clause before you ship."
+        "Parsure parses your documents into structured data. Assure verifies every claim, "
+        "number, and citation against the source — page-level provenance you can defend."
     ),
     "brand.architecture_title": "How It Works · Assure — The Intellectual Compiler",
     "brand.architecture_meta_description": (
@@ -1492,7 +1493,6 @@ ES = {
     "hero": "Assure",
     "brand.category": "El Compilador Intelectual",
     "brand.eyebrow": "Compila. Verifica. Confía en lo que envías.",
-    "brand.hero_title": "Cero alucinación. Verificación absoluta.",
     "landing.hero.badge": "Listo para empresas · Trae tus propias claves · 7 idiomas",
     "landing.proof.tab1.body": (
 
@@ -1514,17 +1514,17 @@ ES = {
         "envíe sin poder defenderlo de inmediato."
     ),
     "landing.footer.engineer_tagline": (
-
         "Seguro por diseño. Procesado en nuestros servidores, nunca usado para entrenar nuestros modelos."
     ),
-    "landing.hero.subtitle": "La IA plausible es un riesgo. Assure reduce el riesgo.",
     "brand.tagline": "Compila. Verifica. Confía en lo que envías.",
     "tagline_html": 'La pregunta correcta produce una respuesta de <span class="trust">confianza</span>.',
     "brand.tagline_html": "El Compilador Intelectual",
-    "brand.page_title": "Assure AI — Cero alucinación. Verificación absoluta.",
+    "brand.page_title": "Assure AI — Documentos dentro. Resultados verificados.",
+    "brand.hero_title": "Documentos dentro. Resultados verificados.",
+    "landing.hero.subtitle": "Parsure convierte los archivos entrantes en datos estructurados. Assure verifica las afirmaciones, cifras y evidencias para que los equipos confíen en lo que usan, envían y deciden.",
     "brand.meta_description": (
-        "Assure es el primer Compilador Intelectual: convierte la intención en bruto, "
-        "documentos desordenados y datos no estructurados en entregables verificables y auditables."
+        "Parsure analiza tus documentos en datos estructurados. Assure verifica cada afirmación, "
+        "cifra y cita contra la fuente — trazabilidad a nivel de página que puedes defender."
     ),
     "brand.architecture_title": "Cómo funciona · Assure — El Compilador Intelectual",
     "brand.architecture_meta_description": (
@@ -2814,7 +2814,7 @@ ZH = {
     "hero": "Assure",
     "brand.category": "智能编译器",
     "brand.eyebrow": "编译。验证。信任所交付的内容。",
-    "brand.hero_title": "零幻觉。绝对核验。",
+    "brand.hero_title": "文档输入。输出可信。",
     "landing.hero.badge": "企业就绪 · 自带密钥 · 7 种语言",
     "landing.proof.tab1.body": (
 
@@ -3937,11 +3937,11 @@ ZH = {
     "privacy.chip.tip.closed": (
         "对互联网关闭：在 Assure 的安全服务器上处理，绝不发送给第三方提供商。"
     ),
-    "landing.hero.subtitle": "似是而非的 AI 是一种风险。Assure 降低这一风险。",
+    "landing.hero.subtitle": "Parsure 将传入文件解析为结构化数据。Assure 验证其中的声明、数字和证据，让团队可以放心使用、发送和决策。",
     "brand.tagline": "编译。验证。信任所交付的内容。",
     "tagline_html": '正确的问题产生<span class="trust">可信</span>的答案。',
     "brand.tagline_html": "智能编译器",
-    "brand.page_title": "Assure AI — 零幻觉。绝对核验。",
+    "brand.page_title": "Assure AI — 文档输入。输出可信。",
     "brand.meta_description": (
         "Assure 是首个智能编译器——将原始意图、杂乱的文档和非结构化数据"
         "转化为经数学验证、可审计的交付成果。"
@@ -5234,7 +5234,7 @@ FR = {
     "hero": "Assure",
     "brand.category": "Le Compilateur Intellectuel",
     "brand.eyebrow": "Compilez. Vérifiez. Faites confiance à ce que vous livrez.",
-    "brand.hero_title": "Zéro hallucination. Vérification absolue.",
+    "brand.hero_title": "Documents à l'entrée. Résultats vérifiés.",
     "landing.hero.badge": "Prêt pour l'entreprise · Apportez vos propres clés · 7 langues",
     "landing.proof.tab1.body": (
 
@@ -5258,14 +5258,13 @@ FR = {
 
         "Sécurisé par conception. Traité sur nos serveurs, jamais utilisé pour entraîner nos modèles."
     ),
-    "landing.hero.subtitle": "L'IA plausible est un risque. Assure réduit le risque.",
+    "landing.hero.subtitle": "Parsure analyse les fichiers entrants en données structurées. Assure vérifie affirmations, chiffres et preuves — les équipes font confiance à ce qu'elles utilisent, envoient et décident.",
     "brand.tagline": "Compilez. Vérifiez. Faites confiance à ce que vous livrez.",
     "tagline_html": 'La bonne question produit une réponse de <span class="trust">confiance</span>.',
     "brand.tagline_html": "Le Compilateur Intellectuel",
-    "brand.page_title": "Assure AI — Zéro hallucination. Vérification absolue.",
+    "brand.page_title": "Assure AI — Documents à l'entrée. Résultats vérifiés.",
     "brand.meta_description": (
-        "Assure est le premier Compilateur Intellectuel — transformant l'intention brute, "
-        "les documents désordonnés et les données non structurées en livrables vérifiables et auditables."
+        "Parsure analyse vos documents en données structurées. Assure vérifie chaque affirmation, chiffre et citation contre la source — traçabilité au niveau de la page."
     ),
     "brand.architecture_title": "Comment ça marche · Assure — Le Compilateur Intellectuel",
     "brand.architecture_meta_description": (
@@ -6542,7 +6541,7 @@ DE = {
     "hero": "Assure",
     "brand.category": "Der Intellektuelle Compiler",
     "brand.eyebrow": "Kompilieren. Prüfen. Vertrauen, was Sie liefern.",
-    "brand.hero_title": "Null Halluzination. Absolute Prüfung.",
+    "brand.hero_title": "Dokumente hinein. Verifiziertes Ergebnis heraus.",
     "landing.hero.badge": "Enterprise-ready · Eigene Schlüssel mitbringen · 7 Sprachen",
     "landing.proof.tab1.body": (
 
@@ -6569,10 +6568,9 @@ DE = {
     "brand.tagline": "Kompilieren. Prüfen. Vertrauen, was Sie liefern.",
     "tagline_html": 'Die richtige Frage erzeugt eine <span class="trust">vertrauenswürdige</span> Antwort.',
     "brand.tagline_html": "Der Intellektuelle Compiler",
-    "brand.page_title": "Assure AI — Null Halluzination. Absolute Prüfung.",
+    "brand.page_title": "Assure AI — Dokumente hinein. Verifiziertes Ergebnis heraus.",
     "brand.meta_description": (
-        "Assure ist der erste Intellektuelle Compiler — er verwandelt rohe Absicht, "
-        "unordentliche Dokumente und unstrukturierte Daten in mathematisch verifizierte, auditierbare Lieferungen."
+        "Parsure parst Ihre Dokumente in strukturierte Daten. Assure prüft jede Aussage, Zahl und jeden Verweis gegen die Quelle — Nachvollziehbarkeit bis auf Seitenebene."
     ),
     "brand.architecture_title": "So funktioniert's · Assure — Der Intellektuelle Compiler",
     "brand.architecture_meta_description": (
@@ -7862,7 +7860,7 @@ JA = {
     "hero": "Assure",
     "brand.category": "インテレクチュアル・コンパイラー",
     "brand.eyebrow": "コンパイル。検証。出荷するものを信頼する。",
-    "brand.hero_title": "幻覚ゼロ。絶対検証。",
+    "brand.hero_title": "ドキュメント入力。検証された成果物。",
     "landing.hero.badge": "エンタープライズ対応 · 独自キーを持ち込み · 7言語",
     "landing.proof.tab1.body": (
 
@@ -7885,14 +7883,13 @@ JA = {
 
         "セキュア by デザイン。当社サーバーで処理、モデル学習には一切使用しません。"
     ),
-    "landing.hero.subtitle": "もっともらしいAIはリスク。Assureがそのリスクを減らします。",
+    "landing.hero.subtitle": "Parsure が入力ファイルを構造化データへ解析し、Assure が主張・数値・エビデンスを検証。チームは、利用・送信・意思決定する内容を信頼できます。",
     "brand.tagline": "コンパイル。検証。出荷するものを信頼する。",
     "tagline_html": '正しい問いが<span class="trust">信頼</span>できる答えを生む。',
     "brand.tagline_html": "インテレクチュアル・コンパイラー",
-    "brand.page_title": "Assure AI — 幻覚ゼロ。絶対検証。",
+    "brand.page_title": "Assure AI — ドキュメント入力。検証された成果物。",
     "brand.meta_description": (
-        "Assure は最初のインテレクチュアル・コンパイラーです。生の意図、乱雑な文書、"
-        "非構造化データを数学的に検証可能で監査可能な成果物に変換します。"
+        "Parsure が文書を構造化データへ解析し、Assure がすべての主張と数値をソースに対して検証します。ページ単位のトレーサビリティを提供します。"
     ),
     "brand.architecture_title": "仕組み · Assure — 知能コンパイラ",
     "brand.architecture_meta_description": (
@@ -9182,7 +9179,7 @@ TR = {
     "hero": "Assure",
     "brand.category": "Zihinsel Derleyici",
     "brand.eyebrow": "Derleyin. Doğrulayın. Gönderdiğinize güvenin.",
-    "brand.hero_title": "Sıfır halüsinasyon. Mutlak doğrulama.",
+    "brand.hero_title": "Belgeler girer. Doğrulanmış çıktı çıkar.",
     "landing.hero.badge": "Şirket düzeyinde hazır · Kendi anahtarlarınızı getirin · 7 dil",
     "landing.proof.tab1.body": (
 
@@ -9206,15 +9203,14 @@ TR = {
 
         "Tasarım gereği güvenli. Sunucularımızda işlenir, modellerimizi eğitmek için asla kullanılmaz."
     ),
-    "landing.hero.subtitle": "Olası AI bir risktir. Assure riski azaltır.",
+    "landing.hero.subtitle": "Parsure gelen dosyaları yapılandırılmış veriye ayrıştırır. Assure iddiaları, rakamları ve kanıtları doğrular; ekipler kullandıklarına, gönderdiklerine ve kararlarına güvenir.",
     "brand.tagline": "Derleyin. Doğrulayın. Gönderdiğinize güvenin.",
     "how.restructure": "Bir soru yazarsın. Assure, seçtiğin yapay zeka için promptu yeniden yazar. Aşağıdaki panel, yazdıkça promptu gösterir. Yanıtla onu o sağlayıcıya gönderir. Kopya bu bilgisayarda kalır.",
     "tagline_html": 'Doğru soru <span class="trust">güvenilir</span> yanıt üretir.',
     "brand.tagline_html": "Zihinsel Derleyici",
-    "brand.page_title": "Assure AI — Sıfır halüsinasyon. Mutlak doğrulama.",
+    "brand.page_title": "Assure AI — Belgeler girer. Doğrulanmış çıktı çıkar.",
     "brand.meta_description": (
-        "Assure, ham niyet, dağınık belgeler ve yapılandırılmamış verileri "
-        "matematiksel olarak doğrulanmış, denetlenebilir teslimatlara dönüştüren ilk Zihinsel Derleyicidir."
+        "Parsure belgelerinizi yapılandırılmış veriye ayrıştırır. Assure her iddia, rakam ve atfı kaynağa karşı doğrular — sayfa seviyesinde izlenebilirlik sağlar."
     ),
     "brand.architecture_title": "Nasıl çalışır · Assure — Zihinsel Derleyici",
     "brand.architecture_meta_description": (
