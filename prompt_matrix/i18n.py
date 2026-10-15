@@ -35,7 +35,7 @@ EN = {
     "hero": "Assure",
     "brand.category": "The Intellectual Compiler",
     "brand.eyebrow": "Compile. Verify. Trust what you ship.",
-    "brand.hero_title": "Every claim checked against your source.",
+    "brand.hero_title": "Documents in. Verified output out.",
     "landing.hero.badge": "Enterprise ready · Bring your own keys · 7 languages",
     "landing.proof.tab1.body": (
 
@@ -59,7 +59,7 @@ EN = {
 
         "Secure by design. Processed on our servers, never used to train our models."
     ),
-    "landing.hero.subtitle": "AI guesses. Assure proves.",
+    "landing.hero.subtitle": "Parsure parses incoming files into structured data. Assure verifies the claims, numbers, and evidence so teams can trust what they use, send, and decide on.",
     "brand.tagline": "Compile. Verify. Trust what you ship.",
     "tagline_html": 'The right question produces a <span class="trust">trusted</span> answer.',
     "brand.tagline_html": "The Intellectual Compiler",
