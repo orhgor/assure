@@ -942,6 +942,8 @@ body {
 }
 
 .pipeline-card, .persona-card {
+.persona-card p, .pipeline-card p { color: #fff; }
+.persona-card h3, .pipeline-card h3 { color: #fff; }
     background: var(--bg-card);
     border: 1px solid var(--border-color);
     padding: 2rem;
