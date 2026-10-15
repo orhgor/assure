@@ -138,11 +138,11 @@ Flask still registers the same routes for local/staging render; production apex 
 
 | Section ID | Content |
 |------------|---------|
-| Hero | H1 two lines (*Draft at the speed of AI.* / *Verify with mathematical certainty.*) · sub *Plausible AI is a liability. Before you export, Assure verifies every clause, every citation, and every financial figure against your source documents.* · CTAs (Request Enterprise Pilot · Run a 60-Second Red-Hat Audit), matched 280px. **No kicker or badge in hero.** |
+| Hero | H1 two lines (*Draft at the speed of AI.* / *Verify with mathematical certainty.*) · sub *Plausible AI is a liability. Before you export, Assure verifies every clause, every citation, and every financial figure against your source documents.* · CTAs (Run a 60-Second Red-Hat Audit · Book a Demo), matched 280px. **No kicker or badge in hero.** |
 | `#proof` | Role tabs: Coverage Counsel & Litigators · Public Adjusters & Risk Managers · Compliance Officers |
 | `#why-now` | *Plausibility is a liability. Certainty is a competitive advantage.* + left-aligned body (max 680px) |
 | `#trust` | Trust badge *Enterprise ready · Bring your own keys · 7 languages* + **2×2** cards (Orchestration Engine, Mathematical Logic Engine, Adversarial Audit, Audit-Ready Export) |
-| `#pricing` | Free ($0) vs Enterprise Pilot — equal 48px price type, shared padding / min-height |
+| `#pricing` | Evaluation (free) vs Enterprise (Custom pricing) — equal 48px price type, shared padding / min-height |
 | Modal `#download-modal` | Pilot form → `POST https://app.getassureai.com/api/waitlist` |
 
 ### 2.4 Brand defaults (English source)
@@ -473,7 +473,7 @@ Before claiming webpage work done:
 | Hero sub | Plausible AI is a liability. Before you export, Assure verifies every clause, every citation, and every financial figure against your source documents. | BYOK / zero retention badges in hero |
 | Trust badge | Enterprise ready · BYOK · 7 languages (in `#trust`) | In hero |
 | Trust cards | 2×2 grid (`.trust-arch-grid-four`) | Persona / simulator layout |
-| Primary CTA | Request Enterprise Pilot | Launch Free Workbench |
+| Primary CTA | Run a 60-Second Red-Hat Audit | Book a Demo |
 | `/privacy` | Enterprise 12-section policy (`landing_privacy.html`) | Legacy static `privacy.html` |
 | `/guide` | **404** | `guide.html` exists |
 | Hosting | R2 + Worker | Not on apex |

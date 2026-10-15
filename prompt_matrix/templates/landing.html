@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ brand.page_title }}</title>
-    <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}" type="image/svg+xml">
-    <link rel="apple-touch-icon" href="{{ url_for('static', filename='favicon.svg') }}">
+    <link rel="icon" href="{{ url_for('static', filename='assure-logo.png') }}" type="image/png">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='assure-logo.png') }}">
     <meta name="description" content="{{ brand.meta_description }}">
     <meta property="og:title" content="{{ brand.page_title }}">
     <meta property="og:description" content="{{ brand.meta_description }}">
@@ -29,8 +29,8 @@
                 <h1 class="hero-title" data-i18n-html="brand.hero_title_html">{{ strings.get('brand.hero_title_html', strings.get('brand.hero_title', ''))|safe }}</h1>
                 <p class="hero-sub" data-i18n="landing.hero.subtitle">{{ strings.get('landing.hero.subtitle', '') }}</p>
                 <div class="hero-cta-group">
-                    <button type="button" class="btn-primary" data-waitlist-open data-i18n="landing.hero.cta_primary">{{ strings.get('landing.hero.cta_primary', 'Request Enterprise Pilot') }}</button>
-                    <a href="#proof" class="btn-secondary" data-i18n="landing.hero.cta_secondary">{{ strings.get('landing.hero.cta_secondary', 'Run a 60-Second Red-Hat Audit') }}</a>
+                    <a href="#proof" class="btn-primary" data-i18n="landing.hero.cta_secondary">{{ strings.get('landing.hero.cta_secondary', 'Run a 60-Second Red-Hat Audit') }}</a>
+                    <button type="button" class="btn-secondary" data-waitlist-open data-i18n="landing.hero.cta_primary">{{ strings.get('landing.hero.cta_primary', 'Book a Demo') }}</button>
                 </div>
             </div>
         </section>
@@ -66,6 +66,7 @@
             <div class="container">
                 <h2 class="section-title" data-i18n="landing.trust.title">{{ strings.get('landing.trust.title', 'Enterprise trust architecture') }}</h2>
                 <p class="trust-badge" data-i18n="landing.hero.badge">{{ strings.get('landing.hero.badge', '') }}</p>
+                <p class="trust-lead" data-i18n="landing.trust.lead">{{ strings.get('landing.trust.lead', 'Grounded in your documents, not the model\'s memory. Assure\'s parsing engine extracts every page, table, and clause of your source documents — with per-page confidence — so every check points at a real source, not a statistical guess.') }}</p>
                 <div class="trust-arch-grid trust-arch-grid-four">
                     <article class="trust-card">
                         <h3 data-i18n="landing.trust.card1.title">{{ strings.get('landing.trust.card1.title', '') }}</h3>
@@ -93,24 +94,24 @@
                 <p class="trust-lead" data-i18n="landing.plans.lead">{{ strings.get('landing.plans.lead', 'You bring your own keys. Assure charges for the workbench, not the models.') }}</p>
                 <div class="pricing-grid">
                     <article class="plan">
-                        <div class="plan-name" data-i18n="landing.plans.free">{{ strings.get('landing.plans.free', 'Free') }}</div>
-                        <div class="price">$0 <small>/mo</small></div>
+                        <div class="plan-name" data-i18n="landing.plans.free">{{ strings.get('landing.plans.free', 'Evaluation') }}</div>
+                        <div class="price" data-i18n="landing.plans.free.price">{{ strings.get('landing.plans.free.price', 'Free while you evaluate') }}</div>
                         <ul>
-                            <li data-i18n="landing.plans.free.1">{{ strings.get('landing.plans.free.1', '5 checks / day') }}</li>
-                            <li data-i18n="landing.plans.free.2">{{ strings.get('landing.plans.free.2', 'Single-model verification') }}</li>
-                            <li data-i18n="landing.plans.free.3">{{ strings.get('landing.plans.free.3', '7-day history') }}</li>
+                            <li data-i18n="landing.plans.free.1">{{ strings.get('landing.plans.free.1', 'Full engine: math check, stress test, provenance') }}</li>
+                            <li data-i18n="landing.plans.free.2">{{ strings.get('landing.plans.free.2', 'Free while you evaluate') }}</li>
+                            <li data-i18n="landing.plans.free.3">{{ strings.get('landing.plans.free.3', 'No card required') }}</li>
                         </ul>
                         <a href="https://app.getassureai.com/?lang={{ locale|default('en') }}" class="btn-primary-small" data-i18n="landing.nav.launch">{{ strings.get('landing.nav.launch', 'Launch App') }}</a>
                     </article>
                     <article class="plan plan-featured">
                         <div class="plan-name" data-i18n="landing.plans.enterprise">{{ strings.get('landing.plans.enterprise', 'Enterprise') }}</div>
-                        <div class="price" data-i18n="landing.plans.pilot">{{ strings.get('landing.plans.pilot', 'Pilot') }}</div>
+                        <div class="price" data-i18n="landing.plans.pilot">{{ strings.get('landing.plans.pilot', 'Custom pricing') }}</div>
                         <ul>
                             <li data-i18n="landing.plans.ent.1">{{ strings.get('landing.plans.ent.1', 'Dedicated sandbox') }}</li>
                             <li data-i18n="landing.plans.ent.2">{{ strings.get('landing.plans.ent.2', 'Audit packages for regulated work') }}</li>
                             <li data-i18n="landing.plans.ent.3">{{ strings.get('landing.plans.ent.3', 'Your keys or managed routers') }}</li>
                         </ul>
-                        <button type="button" class="btn-primary-small" data-waitlist-open data-i18n="landing.hero.cta_primary">{{ strings.get('landing.hero.cta_primary', 'Request Enterprise Pilot') }}</button>
+                        <button type="button" class="btn-primary-small" data-waitlist-open data-i18n="landing.hero.cta_primary">{{ strings.get('landing.hero.cta_primary', 'Book a Demo') }}</button>
                     </article>
                 </div>
             </div>
@@ -130,8 +131,8 @@
         <div class="waitlist-panel">
             <button type="button" class="waitlist-close" data-waitlist-close aria-label="Close">&times;</button>
             <div id="pilot-form-wrap">
-                <h2 id="waitlist-title" data-i18n="landing.pilot.title">{{ strings.get('landing.pilot.title', 'Request an enterprise pilot') }}</h2>
-                <p class="text-small" data-i18n="landing.pilot.lead">{{ strings.get('landing.pilot.lead', 'Three fields. We open a live sandbox for your team.') }}</p>
+                <h2 id="waitlist-title" data-i18n="landing.pilot.title">{{ strings.get('landing.pilot.title', 'Book a demo') }}</h2>
+                <p class="text-small" data-i18n="landing.pilot.lead">{{ strings.get('landing.pilot.lead', 'Three fields. We set up your team workspace.') }}</p>
                 <form id="waitlist-form" method="post" action="#">
                     <label for="waitlist-email" data-i18n="landing.pilot.email">{{ strings.get('landing.pilot.email', 'Work email') }}</label>
                     <input id="waitlist-email" class="waitlist-input" name="email" type="email" autocomplete="email" required>
@@ -145,16 +146,16 @@
                         <option value="Contract Review">{{ strings.get('landing.pilot.workflow.contract', 'Contract Review') }}</option>
                         <option value="Other">{{ strings.get('landing.pilot.workflow.other', 'Other') }}</option>
                     </select>
-                    <button type="submit" class="waitlist-submit" data-i18n="landing.pilot.submit">{{ strings.get('landing.pilot.submit', 'Activate live sandbox') }}</button>
+                    <button type="submit" class="waitlist-submit" data-i18n="landing.pilot.submit">{{ strings.get('landing.pilot.submit', 'Submit request') }}</button>
                     <p class="waitlist-error" id="waitlist-error" hidden></p>
                 </form>
             </div>
             <div id="waitlist-done" class="pilot-sandbox" hidden>
                 <span class="waitlist-success-icon" aria-hidden="true">✓</span>
-                <p class="role-badge" data-i18n="landing.pilot.ready_badge">{{ strings.get('landing.pilot.ready_badge', 'Live sandbox session') }}</p>
-                <h2 data-i18n="landing.pilot.ready_title">{{ strings.get('landing.pilot.ready_title', 'Sandbox is ready') }}</h2>
-                <p data-i18n="landing.pilot.ready_body">{{ strings.get('landing.pilot.ready_body', 'Your session is queued. Open the workbench to compile and verify a document. A confirmation goes to your work email when the list accepts the request.') }}</p>
-                <a class="btn-primary" href="/app?lang={{ locale|default('en') }}" data-i18n="landing.pilot.open">{{ strings.get('landing.pilot.open', 'Open live sandbox') }}</a>
+                <p class="role-badge" data-i18n="landing.pilot.ready_badge">{{ strings.get('landing.pilot.ready_badge', 'Workspace ready') }}</p>
+                <h2 data-i18n="landing.pilot.ready_title">{{ strings.get('landing.pilot.ready_title', 'You are all set') }}</h2>
+                <p data-i18n="landing.pilot.ready_body">{{ strings.get('landing.pilot.ready_body', 'Open the workbench to compile and verify a document. A confirmation will arrive at your work email.') }}</p>
+                <a class="btn-primary" href="/app?lang={{ locale|default('en') }}" data-i18n="landing.pilot.open">{{ strings.get('landing.pilot.open', 'Open the workbench') }}</a>
             </div>
         </div>
     </div>

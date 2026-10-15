@@ -11,6 +11,7 @@ import threading
 import time
 import uuid
 import webbrowser
+from datetime import datetime
 from pathlib import Path
 
 from flask import (
@@ -734,6 +735,25 @@ def create_app(*, require_auth: bool = True) -> Flask:
     def connect():
         return _page("connect.html", "connect")
 
+    def _coerce_created_at(value):
+        """parsing.html calls .strftime on created_at, but the vault row may
+        carry the timestamp as a plain string (Postgres returns TEXT here) or a
+        datetime, or be unset. Coerce to datetime-or-None so the template's one
+        contract holds regardless of the backing store."""
+        if isinstance(value, datetime):
+            return value
+        if isinstance(value, str) and value.strip():
+            text = value.strip().replace("T", " ")
+            try:
+                return datetime.strptime(text, "%Y-%m-%d %H:%M:%S")
+            except ValueError:
+                pass
+            try:
+                return datetime.fromisoformat(text)
+            except ValueError:
+                return None
+        return None
+
     @app.get("/parsing")
     def parsing_page():
         """Client-facing dashboard: document parsing results, confidence scores, verification."""
@@ -763,7 +783,7 @@ def create_app(*, require_auth: bool = True) -> Flask:
                 "image_count": row["image_count"],
                 "figure_count": row["figure_count"],
                 "asset_summary": row["asset_summary"],
-                "created_at": row["created_at"],
+                "created_at": _coerce_created_at(row["created_at"]),
             }
             documents.append(doc)
             if doc["parser_name"] == "jdf-cli":

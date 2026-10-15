@@ -431,7 +431,7 @@
           <p>If you sign in later, the cloud stores email and subscription tier. Nothing&nbsp;else.</p>
         </div>
       </div>
-      <p class="text-small"><a href="/privacy">Full privacy page</a> — keys, Send, waitlist, and this website.</p>
+      <p class="text-small"><a href="/privacy">Full privacy page</a> — keys, Send, contact form, and this website.</p>
     </section>
 
     <section id="pricing" class="reveal">
@@ -464,15 +464,11 @@
 
     <section id="install" class="install-section reveal">
       <h2 class="section-title">Quick start</h2>
-      <p class="trust-lead">The desktop app is coming. Join the waitlist. This website is not the&nbsp;app.</p>
-      <p class="download-note text-small" id="download-note" tabindex="-1">There is no public download file yet. Click a button below to join the waitlist.</p>
-      <div class="download-row" id="desktop">
-        <a class="btn-primary is-disabled" href="#download-note" data-download="macos" aria-disabled="true">Download for macOS</a>
-        <a class="btn-outline is-disabled" href="#download-note" data-download="windows" aria-disabled="true">Download for Windows</a>
-        <a class="btn-outline is-disabled" href="#download-note" data-download="linux" aria-disabled="true">Linux package</a>
-      </div>
+      <p class="trust-lead">Assure runs on your machine. Install the workbench from source in one command, or explore the live demo sections on this&nbsp;page.</p>
+      <p class="download-note text-small" id="download-note" tabindex="-1">The workbench installs from source: <code>./scripts/install.sh</code> then <code>assure --web</code>. Packaged desktop builds for macOS, Windows, and Linux are available — see the <a href="/install">Install guide</a>.</p>
       <div class="cta-group" style="margin-top: 1.5rem;">
-        <button type="button" class="btn-primary" data-waitlist-open>Join the&nbsp;waitlist</button>
+        <a class="btn-primary" href="/install">Open the install&nbsp;guide</a>
+        <button type="button" class="btn-outline" data-waitlist-open>Request the desktop&nbsp;build</button>
       </div>
       <details class="developer-options">
         <summary>Developer options</summary>
@@ -485,17 +481,17 @@
       <div class="waitlist-backdrop" data-waitlist-close></div>
       <div class="waitlist-panel">
         <button type="button" class="waitlist-close" data-waitlist-close aria-label="Close">&times;</button>
-        <h2 id="waitlist-title">The desktop app is coming</h2>
-        <p class="text-small">There is no public download file yet. Leave your name and email. We will notify you. Source install is on the <a href="/install">Install</a> page.</p>
+        <h2 id="waitlist-title">Get the desktop build</h2>
+        <p class="text-small">Leave your name and email and we will send you the packaged installer for your platform. Source install is on the <a href="/install">Install</a> page.</p>
         <form id="waitlist-form" method="post" action="#">
           <label for="waitlist-name">Full Name</label>
           <input id="waitlist-name" class="waitlist-input" name="name" type="text" autocomplete="name" required>
           <label for="waitlist-email">Email</label>
           <input id="waitlist-email" class="waitlist-input" name="email" type="email" autocomplete="email" required>
-          <button type="submit" class="waitlist-submit">Notify Me</button>
+          <button type="submit" class="waitlist-submit">Send request</button>
           <p class="waitlist-error text-small" id="waitlist-error" hidden></p>
         </form>
-        <p class="waitlist-success" id="waitlist-done" hidden>You are on the list.</p>
+        <p class="waitlist-success" id="waitlist-done" hidden>Request received.</p>
       </div>
     </div>
     <footer class="footer">
