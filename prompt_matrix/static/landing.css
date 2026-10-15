@@ -942,8 +942,6 @@ body {
 }
 
 .pipeline-card, .persona-card {
-.persona-card p, .pipeline-card p { color: #fff; }
-.persona-card h3, .pipeline-card h3 { color: #fff; }
     background: var(--bg-card);
     border: 1px solid var(--border-color);
     padding: 2rem;
@@ -3088,4 +3086,35 @@ body.waitlist-open {
 
 .diff-row span:last-child {
     text-wrap: pretty;
+}
+
+/* Dark cards: white headings/body (fix black-on-black titles) */
+.enterprise-landing .persona-card h3,
+.enterprise-landing .pipeline-card h3 {
+    color: #fff;
+}
+
+.enterprise-landing .persona-card p,
+.enterprise-landing .pipeline-card p {
+    color: #cbd5e1;
+}
+
+/* No orphan words inside boxed content */
+.why-col li,
+.persona-card p,
+.diff-row span:last-child,
+.plan ul li {
+    text-wrap: pretty;
+    orphans: 2;
+    widows: 2;
+}
+
+.diff-callout,
+.diff-close {
+    text-wrap: balance;
+}
+
+/* Hero CTAs: identical shape */
+.enterprise-landing .hero-cta-group .btn-secondary {
+    border-radius: 6px;
 }
