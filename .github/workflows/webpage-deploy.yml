@@ -29,7 +29,6 @@ on:
       - 'prompt_matrix/static/**'
       - 'prompt_matrix/i18n.py'
       - 'prompt_matrix/ui_cache.py'
-      - 'prompt_matrix/web.py'
       - 'scripts/build-marketing-static.sh'
       - 'scripts/render_static.py'
       - 'scripts/deploy-marketing-r2.sh'
