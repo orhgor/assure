@@ -89,10 +89,13 @@ jobs:
         run: bash scripts/deploy-marketing-r2.sh --skip-build
 
       - name: Verify deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: '381b292d419f2efdc1c85a3636268e91'
         run: |
           sleep 10
           echo "-- R2 canary (uploaded index.html parses):"
-          npx wrangler@4 r2 object get assure-marketing-prod/index.html --pipe | grep -c '<html'
+          npx wrangler@4 r2 object get assure-marketing-prod/index.html --pipe --remote | grep -c '<html'
           echo "-- Live page:"
           code=$(curl -s -o /dev/null -w '%{http_code}' https://www.getassureai.com/)
           echo "status=$code"
