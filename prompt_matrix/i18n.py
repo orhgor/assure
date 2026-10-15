@@ -190,14 +190,64 @@ EN = {
         "formal logic, tracks source provenance down to the exact page, and flags every logical gap before a human ever has to look twice."
     ),
     "landing.trust.title": "Enterprise trust architecture",
+    "landing.trust.card1.title": "Orchestration Engine",
+    "landing.trust.card1.body": (
+        "One intent. Multiple specialized models working in concert. No prompt engineering required."
+    ),
+    "landing.trust.card2.title": "Mathematical Logic Engine",
+    "landing.trust.card2.body": (
+        "LLMs guess. Assure proves. Every number is mathematically grounded in your source documents."
+    ),
+    "landing.trust.card3.title": "Adversarial Audit",
+    "landing.trust.card3.body": (
+        "Before you ship, Assure attacks your own work. It finds the contradictions and unsupported claims "
+        "that others would exploit."
+    ),
+    "landing.trust.card4.title": "Audit-Ready Export",
+    "landing.trust.card4.body": (
+        "Export a complete audit dossier — cryptographic locks, Red-Hat findings, reviewer sign-offs. "
+        "One click, full provenance."
+    ),
     "landing.trust.privacy.title": "Data privacy",
     "landing.trust.privacy.body": "Local-first architecture. Your policy data never trains public models.",
     "landing.trust.audit.title": "Auditability",
     "landing.trust.audit.body": "Deterministic trails. Every compile outputs an unalterable audit package.",
     "landing.trust.model.title": "Model flexibility",
     "landing.trust.model.body": "Bring your own keys, or use managed enterprise routers. You choose the model. We prove the output.",
-    "landing.plans.lead": "You bring your own keys. Model usage is billed directly to you — Assure is licensed per team.",
     "landing.trust.lead": "Grounded in your documents, not the model's memory. Assure's parsing engine extracts every page, table, and clause of your source documents — with per-page confidence — so every check points at a real source, not a statistical guess.",
+    "landing.diff.title": "Why Assure is different",
+    "landing.diff.intro": (
+        "Most enterprise AI tools help you extract, draft, or search. "
+        "Assure is built for the harder problem: proving that every output is grounded in the source."
+    ),
+    "landing.diff.label.examples": "Examples",
+    "landing.diff.label.strength": "What they do well",
+    "landing.diff.label.gap": "What's missing",
+    "landing.diff.cat1.title": "Legal copilots",
+    "landing.diff.cat1.examples": "Harvey, CoCounsel, Spellbook, Paxton",
+    "landing.diff.cat1.strength": "Speed up drafting, research, and review.",
+    "landing.diff.cat1.gap": (
+        "The proof layer — deterministic grounding, page-level provenance, and reusable verification."
+    ),
+    "landing.diff.cat2.title": "Document AI / IDP",
+    "landing.diff.cat2.examples": (
+        "ABBYY, UiPath Document Understanding, AWS Textract, Google Document AI, Azure Document Intelligence"
+    ),
+    "landing.diff.cat2.strength": "OCR, extraction, tables, forms, and layout understanding.",
+    "landing.diff.cat2.gap": "Claim-level verification and a durable audit trail.",
+    "landing.diff.cat3.title": "DIY LLM stacks",
+    "landing.diff.cat3.examples": "Claude / GPT + prompts + RAG + internal scripts",
+    "landing.diff.cat3.strength": "Fast to prototype and flexible to customize.",
+    "landing.diff.cat3.gap": "Trust, consistency, auditability, and reusable evidence.",
+    "landing.diff.cat4.title": "Assure",
+    "landing.diff.cat4.body": (
+        "Structured evidence. Deterministic logic. Adversarial review. Page-level provenance."
+    ),
+    "landing.diff.callout": "The output is a document. The product is verification.",
+    "landing.diff.close": (
+        "The market is full of tools that process documents. Assure is built to prove them."
+    ),
+    "landing.plans.lead": "You bring your own keys. Model usage is billed directly to you — Assure is licensed per team.",
     "landing.footer.docs": "Developer documentation",
     "landing.disclaimer.title": "A note on verification",
     "landing.disclaimer.body": "Assure compiles and verifies documents so you can ship with a trail. Outputs are not legal, financial, or professional advice. Human review is required before you rely on any document.",
