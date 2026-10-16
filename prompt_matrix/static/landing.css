@@ -3205,9 +3205,30 @@ body.waitlist-open {
     .enterprise-landing .hero-cta-group .btn-secondary {
         width: 100%;
         max-width: 20rem;
+        min-height: 3.25rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0.85rem 1rem;
+        font-size: 1rem;
+        line-height: 1.2;
+        white-space: nowrap;
     }
 
     .logos-band {
         padding: 40px 16px 8px;
+    }
+}
+
+/* Mobile CTA pair: one line each, equal size — no wrap mismatch */
+@media (max-width: 640px) {
+    .btn-primary .cta-line1,
+    .btn-primary .cta-line2 {
+        display: inline;
+    }
+
+    .btn-primary .cta-line2::before {
+        content: "\00a0";
+        white-space: pre;
     }
 }
