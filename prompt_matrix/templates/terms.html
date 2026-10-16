@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "marketing_base.html" %}
 {% block title %}{{ gettext('Terms of use') }} · {{ gettext('Assure') }}{% endblock %}
 {% block body %}
   <div class="page">
@@ -9,7 +9,7 @@
     </div>
     <section class="card">
       <h2 data-i18n="terms.who.h">{{ gettext('Who this covers') }}</h2>
-      <p data-i18n="terms.who">{{ gettext('These terms apply when you use the Assure workbench on this computer or read getassureai.com. They are not legal advice.') }}</p>
+      <p data-i18n="terms.who">{{ gettext('These terms apply when you use Assure on this computer or read getassureai.com. They are not legal advice.') }}</p>
       <h2 data-i18n="terms.advice.h">{{ gettext('Not professional advice') }}</h2>
       <p data-i18n="terms.advice">{{ gettext('Assure performs document analysis, verification, and compilation. It does not give legal, financial, or professional advice. Consult qualified professionals before you act on any output.') }}</p>
       <h2 data-i18n="terms.verify.h">{{ gettext('Human review') }}</h2>
@@ -32,7 +32,7 @@
       <h2 data-i18n="terms.answers.h">{{ gettext('Answers can be wrong') }}</h2>
       <p data-i18n="terms.answers">{{ gettext('Assure rewrites your question, can send it to models you connect, and can drop claims that were not in your files. That is a filter, not a guarantee. You check the result before you use it with a client, a paper, or a decision.') }}</p>
       <h2 data-i18n="terms.send.h">{{ gettext('Copy and Send') }}</h2>
-      <p data-i18n="terms.send">{{ gettext('Copy keeps the compiled prompt on this computer. Send goes only to the provider you connected. Closed to the internet keeps the question here. Open to the internet, it goes to that provider. Assure does not store the text of your questions.') }}</p>
+      <p data-i18n="terms.send">{{ gettext('Copy keeps the compiled prompt on this computer. Send goes only to the provider you connected. The closed-to-the-internet mode keeps the question here. Open to the internet, it goes to that provider. Assure does not store the text of your questions.') }}</p>
       <h2 data-i18n="terms.files.h">{{ gettext('Your files') }}</h2>
       <p data-i18n="terms.files">{{ gettext('Only upload files you have the right to use. Do not upload privileged, confidential, or sensitive information unless you are authorised to do so. Do not Send health or other sensitive text to a provider that is open to the internet unless you mean to. We are not responsible for uploads that violate your own obligations.') }}</p>
       <h2 data-i18n="terms.providers.h">{{ gettext('Provider policies') }}</h2>

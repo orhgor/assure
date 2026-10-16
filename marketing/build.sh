@@ -64,6 +64,7 @@ fi
 if [ -f "$ROOT/landing/sitemap.xml" ]; then
   cp "$ROOT/landing/sitemap.xml" "$DIST_DIR/sitemap.xml"
 fi
+cp "$ROOT/prompt_matrix/static/founder_workbench.css" "$DIST_DIR/static/marketing_pages.css" 2>/dev/null || true
 if [ -f "$ROOT/landing/llms.txt" ]; then
   cp "$ROOT/landing/llms.txt" "$DIST_DIR/llms.txt"
 fi

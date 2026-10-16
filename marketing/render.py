@@ -83,6 +83,11 @@ PAGES: list[dict] = [
 ]
 
 
+_I18N_ATTR_RE = re.compile(r'data-i18n(?:-html|-placeholder|-aria|-label)?="([^"]+)"')
+_GET_KEY_RE = re.compile(r"strings\.get\(\s*['\"]([a-zA-Z0-9_.]+)['\"]")
+_INCLUDE_RE = re.compile(r"{%-?\s*include\s+'([^']+?)'\s*%-?\}")
+
+
 def _locale_paths() -> dict[str, str]:
     return {loc: "/" if loc == "en" else f"/{loc}/" for loc in LOCALES}
 
@@ -128,6 +133,35 @@ def _postprocess(
     return html
 
 
+def _used_string_keys(app, template_name: str, seen: set | None = None) -> set[str]:
+    """Collect i18n keys a template (and its includes) actually reference."""
+    seen = seen if seen is not None else set()
+    if template_name in seen:
+        return set()
+    seen.add(template_name)
+    keys: set[str] = set()
+    try:
+        source, _, _ = app.jinja_env.get_source(template_name)
+    except Exception:
+        return keys
+    for match in _I18N_ATTR_RE.finditer(source):
+        keys.add(match.group(1))
+    for match in _GET_KEY_RE.finditer(source):
+        keys.add(match.group(1))
+    for match in _INCLUDE_RE.finditer(source):
+        keys |= _used_string_keys(app, match.group(1), seen)
+    return keys
+
+
+def _public_strings(app, page: dict, locale: str) -> dict:
+    """Marketing pages ship only the strings they use — never the app catalog."""
+    catalog = string_catalog(locale)
+    used = _used_string_keys(app, page["template"])
+    # landing-demo.js resolves keys dynamically ("landing.demo." + name).
+    filtered = {k: v for k, v in catalog.items() if k in used or k.startswith("landing.demo.")}
+    return filtered
+
+
 def _render_page(app, page: dict, locale: str) -> str:
     extra = dict(page.get("extra") or {})
     with app.app_context():
@@ -136,7 +170,7 @@ def _render_page(app, page: dict, locale: str) -> str:
             ctx: dict = {
                 "locale": locale,
                 "languages": LOCALE_LABELS,
-                "strings": string_catalog(locale),
+                "strings": _public_strings(app, page, locale),
                 "locale_paths": _locale_paths(),
                 "page_suffix": page["suffix"],
             }
