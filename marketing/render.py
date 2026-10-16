@@ -86,6 +86,7 @@ PAGES: list[dict] = [
 _I18N_ATTR_RE = re.compile(r'data-i18n(?:-html|-placeholder|-aria|-label)?="([^"]+)"')
 _GET_KEY_RE = re.compile(r"strings\.get\(\s*['\"]([a-zA-Z0-9_.]+)['\"]")
 _INCLUDE_RE = re.compile(r"{%-?\s*include\s+'([^']+?)'\s*%-?\}")
+TEMPLATES_DIR = ROOT / "prompt_matrix" / "templates"
 
 
 def _locale_paths() -> dict[str, str]:
@@ -141,7 +142,7 @@ def _used_string_keys(app, template_name: str, seen: set | None = None) -> set[s
     seen.add(template_name)
     keys: set[str] = set()
     try:
-        source, _, _ = app.jinja_env.get_source(template_name)
+        source = (TEMPLATES_DIR / template_name).read_text(encoding="utf-8")
     except Exception:
         return keys
     for match in _I18N_ATTR_RE.finditer(source):
