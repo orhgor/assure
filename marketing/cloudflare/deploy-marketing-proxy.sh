@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 # Deploy marketing Worker (R2 static; /app and /api stay on EC2 Tunnel).
 set -euo pipefail
-ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-CF_DIR="$ROOT/scripts/cloudflare"
+CF_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$CF_DIR"
 if [[ ! -x "$CF_DIR/node_modules/.bin/wrangler" ]]; then
   npm install --prefix "$CF_DIR" --no-fund --no-audit

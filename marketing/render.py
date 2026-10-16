@@ -20,11 +20,16 @@ os.environ.setdefault("CLERK_SECRET_KEY", "")
 
 from flask import render_template, session  # noqa: E402
 
-from prompt_matrix.cloud_auth import template_state  # noqa: E402
-from prompt_matrix.editions import snapshot as edition_snapshot  # noqa: E402
-from prompt_matrix.i18n import LOCALES, LOCALE_LABELS, catalog as string_catalog  # noqa: E402
-from prompt_matrix.ui_cache import LANDING_CSS, LANDING_JS  # noqa: E402
-from prompt_matrix.web import create_app  # noqa: E402
+from marketing.app import (  # noqa: E402
+    LANDING_CSS,
+    LANDING_JS,
+    LOCALES,
+    LOCALE_LABELS,
+    auth_state,
+    create_static_app,
+    edition_snapshot_static,
+    string_catalog,
+)
 
 # template -> output path under locale root
 PAGES: list[dict] = [
@@ -127,8 +132,8 @@ def _render_page(app, page: dict, locale: str) -> str:
             else:
                 ctx.update(
                     active=page["active"],
-                    auth=template_state(include_pk=False),
-                    edition=edition_snapshot(),
+                    auth=auth_state(include_pk=False),
+                    edition=edition_snapshot_static(),
                     **extra,
                 )
             return render_template(page["template"], **ctx)
@@ -141,7 +146,7 @@ def render_locale(
     static_base: str,
     app_host: str,
 ) -> list[Path]:
-    app = create_app(require_auth=False)
+    app = create_static_app()
     written: list[Path] = []
     output_dir.mkdir(parents=True, exist_ok=True)
 

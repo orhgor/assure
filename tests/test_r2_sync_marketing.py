@@ -20,7 +20,7 @@ class R2SyncMarketingTests(unittest.TestCase):
             (dist / "index.html").write_text("<html>ok</html>", encoding="utf-8")
             manifest = Path(tmp) / "manifest.json"
 
-            py = ROOT / "scripts" / "r2_sync_marketing.py"
+            py = ROOT / "marketing" / "sync_r2.py"
             wrangler = ROOT / "scripts" / "cloudflare" / "node_modules" / ".bin" / "wrangler"
             if not wrangler.is_file():
                 wrangler = Path("/bin/echo")
@@ -48,7 +48,7 @@ class R2SyncMarketingTests(unittest.TestCase):
             import importlib.util
 
             spec = importlib.util.spec_from_file_location(
-                "r2_sync_marketing", ROOT / "scripts" / "r2_sync_marketing.py"
+                "r2_sync_marketing", ROOT / "marketing" / "sync_r2.py"
             )
             mod = importlib.util.module_from_spec(spec)
             assert spec.loader is not None
@@ -79,7 +79,7 @@ class R2SyncMarketingTests(unittest.TestCase):
             self.assertIn("1 unchanged", r2.stdout)
 
     def test_worker_changed_detects_config(self):
-        py = ROOT / "scripts" / "marketing_worker_changed.py"
+        py = ROOT / "marketing" / "worker_changed.py"
         with tempfile.TemporaryDirectory() as tmp:
             state = Path(tmp) / "worker.json"
             env = {"PYTHONPATH": str(ROOT)}

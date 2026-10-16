@@ -4,19 +4,20 @@
 #   push to main (webpage files) -> build -> upload to R2 (assure-marketing-prod)
 #   -> deploy marketing Worker if its source changed -> smoke check.
 #
-# ONE-TIME SETUP (repo admin, ~2 min):
-#   1. Cloudflare dashboard -> My Profile -> API Tokens -> Create Token
-#      Permissions: Account | Workers Scripts | Edit
-#                   Account | Cloudflare Pages | Edit
-#                   Account | R2 Storage | Edit  (wrangler needs it for bucket sync)
-#                   Zone   | Workers Routes | Edit
-#      Account Resources: include this account.
-#   2. GitHub repo -> Settings -> Secrets and variables -> Actions -> New secret:
-#      CLOUDFLARE_API_TOKEN = <the token>
-#   Until the secret exists, this workflow fails at the deploy step. Builds still
-#   run, so template errors are caught either way.
+# ISOLATION
+#   The build runs ONLY marketing code (marketing/ tree + shared templates,
+#   static, i18n). It never imports or starts the workbench app and needs no
+#   database. See marketing/README.md.
 #
-# Editors: just edit the webpage files and push to main. That is the whole job.
+# ONE-TIME SETUP (repo admin, ~2 min):
+#   Cloudflare API token with:
+#     Account | R2 Storage | Edit
+#     Account | Workers Scripts | Edit
+#     Account | Cloudflare Pages | Edit
+#     Zone (getassureai.com) | Workers Routes | Edit
+#   -> GitHub repo secret: CLOUDFLARE_API_TOKEN
+#
+# Editors: edit the webpage files and push to main. That is the whole job.
 
 name: Webpage deploy (R2)
 
@@ -25,16 +26,11 @@ on:
   push:
     branches: [main]
     paths:
+      - 'marketing/**'
       - 'prompt_matrix/templates/**'
       - 'prompt_matrix/static/**'
       - 'prompt_matrix/i18n.py'
       - 'prompt_matrix/ui_cache.py'
-      - 'scripts/build-marketing-static.sh'
-      - 'scripts/render_static.py'
-      - 'scripts/deploy-marketing-r2.sh'
-      - 'scripts/r2_sync_marketing.py'
-      - 'scripts/marketing_worker_changed.py'
-      - 'scripts/cloudflare/**'
 
 concurrency:
   group: webpage-deploy
@@ -47,46 +43,29 @@ env:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-    services:
-      postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_DB: assure
-          POSTGRES_USER: assure
-          POSTGRES_PASSWORD: assure
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U assure -d assure"
-          --health-interval 5s
-          --health-timeout 3s
-          --health-retries 20
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
-          cache: pip
 
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
 
-      - name: Install Python deps
-        run: pip install -q -r requirements.txt
+      - name: Install build deps (flask only)
+        run: pip install -q -r marketing/requirements.txt
 
       - name: Build static marketing site
-        env:
-          DATABASE_URL: postgresql://assure:assure@localhost:5432/assure
-        run: bash scripts/build-marketing-static.sh
+        run: bash marketing/build.sh
 
       - name: Sync to R2 + deploy Worker
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           MARKETING_DEPLOY_FORCE: '1'   # CI has no cooldown; force replaces the local-time guard
-        run: bash scripts/deploy-marketing-r2.sh --skip-build
+        run: bash marketing/deploy.sh --skip-build
 
       - name: Verify deploy
         env:

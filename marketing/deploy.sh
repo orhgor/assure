@@ -6,7 +6,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DIST_DIR="${DIST_DIR:-$ROOT/dist}"
 BUCKET="${MARKETING_R2_BUCKET:-assure-marketing-prod}"
-CF_DIR="$ROOT/scripts/cloudflare"
+CF_DIR="$ROOT/marketing/cloudflare"
 CACHE_DIR="$ROOT/.cache"
 LAST_DEPLOY="$CACHE_DIR/marketing-r2-last-upload"
 MIN_INTERVAL="${MARKETING_DEPLOY_MIN_INTERVAL:-120}" # seconds between full uploads
@@ -18,7 +18,7 @@ APPLY=1
 
 usage() {
   cat <<'EOF'
-Usage: scripts/deploy-marketing-r2.sh [options]
+Usage: marketing/deploy.sh [options]
 
   --dry-run       Show uploads / worker actions only (no wrangler remote calls)
   --skip-build    Use existing dist/ (do not run build-marketing-static.sh)
@@ -49,7 +49,7 @@ fi
 cd "$ROOT"
 
 if [[ "$SKIP_BUILD" -eq 0 ]]; then
-  bash "$ROOT/scripts/build-marketing-static.sh"
+  bash "$ROOT/marketing/build.sh"
 fi
 
 if [[ ! -d "$DIST_DIR" ]]; then
@@ -78,7 +78,7 @@ WRANGLER="$CF_DIR/node_modules/.bin/wrangler"
 
 if [[ "$APPLY" -eq 0 ]]; then
   echo "→ --no-apply: skipping R2 upload and Worker deploy"
-  "$PYTHON" "$ROOT/scripts/r2_sync_marketing.py" \
+  "$PYTHON" "$ROOT/marketing/sync_r2.py" \
     --dist "$DIST_DIR" --bucket "$BUCKET" --wrangler "$WRANGLER" --dry-run
   exit 0
 fi
@@ -94,12 +94,12 @@ if [[ "$DRY_RUN" -eq 1 ]]; then
 fi
 
 echo "→ Sync dist/ → R2 ($BUCKET) — changed files only…"
-"$PYTHON" "$ROOT/scripts/r2_sync_marketing.py" "${SYNC_ARGS[@]}"
+"$PYTHON" "$ROOT/marketing/sync_r2.py" "${SYNC_ARGS[@]}"
 
 DEPLOY_WORKER=0
 if [[ "$FORCE_WORKER" -eq 1 ]]; then
   DEPLOY_WORKER=1
-elif "$PYTHON" "$ROOT/scripts/marketing_worker_changed.py"; then
+elif "$PYTHON" "$ROOT/marketing/worker_changed.py"; then
   DEPLOY_WORKER=1
 fi
 
@@ -108,8 +108,8 @@ if [[ "$DEPLOY_WORKER" -eq 1 ]]; then
     echo "→ would deploy marketing Worker (assure-marketing-proxy)"
   else
     echo "→ Deploy marketing Worker (sources changed)…"
-    bash "$ROOT/scripts/cloudflare/deploy-marketing-proxy.sh"
-    "$PYTHON" "$ROOT/scripts/marketing_worker_changed.py" --record
+    bash "$ROOT/marketing/cloudflare/deploy-marketing-proxy.sh"
+    "$PYTHON" "$ROOT/marketing/worker_changed.py" --record
   fi
 else
   echo "→ Skip Worker deploy (unchanged — saves deploy API calls)"

@@ -39,7 +39,7 @@ for LOCALE in en es zh fr de ja tr; do
     OUT="$DIST_DIR/$LOCALE"
   fi
   echo "→ Rendering locale: $LOCALE → $OUT"
-  "$PYTHON" "$ROOT/scripts/render_static.py" \
+  "$PYTHON" "$ROOT/marketing/render.py" \
     --locale "$LOCALE" \
     --output "$OUT" \
     --static-base "$CDN_BASE_URL" \

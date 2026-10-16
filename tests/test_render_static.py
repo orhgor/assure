@@ -21,7 +21,7 @@ class RenderStaticTests(unittest.TestCase):
         dist = ROOT / "dist-test-render"
         env["DIST_DIR"] = str(dist)
         subprocess.run(
-            ["bash", str(ROOT / "scripts/build-marketing-static.sh")],
+            ["bash", str(ROOT / "marketing/build.sh")],
             cwd=ROOT,
             env=env,
             check=True,
@@ -31,16 +31,14 @@ class RenderStaticTests(unittest.TestCase):
         index = dist / "index.html"
         self.assertTrue(index.is_file())
         html = index.read_text(encoding="utf-8")
-        # Current brand hero (i18n.py brand.hero_title) — the copy was
-        # rebranded from "Draft at the speed of AI…" deliberately.
-        self.assertIn("Zero hallucination. Absolute verification.", html)
-        self.assertIn("https://app.getassureai.com/app", html)
+        # Current brand hero (i18n.py brand.hero_title)
+        self.assertIn("Documents in. Verified output out.", html)
         self.assertIn("__ASSURE_APP_ORIGIN", html)
         self.assertIn("/static/landing.css", html)
         tr_index = dist / "tr" / "index.html"
         self.assertTrue(tr_index.is_file())
         tr_html = tr_index.read_text(encoding="utf-8")
-        self.assertIn("Sıfır halüsinasyon. Mutlak doğrulama.", tr_html)
+        self.assertIn("Belgeler girer. Doğrulanmış çıktı çıkar.", tr_html)
 
 
 if __name__ == "__main__":

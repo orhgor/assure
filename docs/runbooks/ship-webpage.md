@@ -8,6 +8,8 @@
 ## Where the webpage lives
 - Serving: Cloudflare Worker `assure-marketing-proxy` reads bucket
   `assure-marketing-prod` (R2) on getassureai.com.
+- Build: `marketing/` — the isolated webpage tree (see `marketing/README.md`).
+  No database, no workbench imports.
 - Source of truth: `origin/main` in `orhgor/assure` — the files that matter:
   - `prompt_matrix/templates/landing.html`     structure & markup
   - `prompt_matrix/i18n.py`                    all visible text (EN dict = source)
@@ -25,22 +27,17 @@
 
 ## Local preview (optional, before pushing)
 ```bash
-colima start   # if Docker isn't running (build imports the app, needs Postgres)
-docker compose -f docker-compose.dev.yml up -d
 git worktree add /tmp/web origin/main --detach && cd /tmp/web
 # edit here, then:
-DATABASE_URL='postgresql://assure:assure@localhost:5432/assure' \
-PYTHON=/path/to/repo/.venv/bin/python \
-bash scripts/build-marketing-static.sh
+bash marketing/build.sh
 # dist/ is the built site — open dist/index.html
 ```
+No Postgres, no Docker — the marketing build is standalone
+(`marketing/app.py` never imports the workbench app).
 
 ## Manual deploy (only when CI is down)
 ```bash
-MARKETING_DEPLOY_FORCE=1 \
-DATABASE_URL='postgresql://assure:assure@localhost:5432/assure' \
-PYTHON=/path/to/repo/.venv/bin/python \
-bash scripts/deploy-marketing-r2.sh
+MARKETING_DEPLOY_FORCE=1 bash marketing/deploy.sh --skip-build
 ```
 Requires wrangler auth on your machine (`npx wrangler login`).
 
@@ -50,10 +47,14 @@ Requires wrangler auth on your machine (`npx wrangler login`).
 - Commit in the same session as the deploy, from the same tree you built.
 - `wrangler r2 object put` without `--remote` writes to a LOCAL simulation —
   always pass `--remote` for manual object puts.
+- Never import `prompt_matrix.web` (or the app/DB) in `marketing/` code —
+  that is the isolation contract; see `marketing/README.md`.
 - After any deploy, verify: `curl -s https://www.getassureai.com/ | grep -c '<your change>'`.
 
 ## Known gotchas
 - The Worker's `contentType()` maps extensions; new asset types need a line there
-  (`scripts/cloudflare/marketing-r2-worker.js`).
+  (`marketing/cloudflare/marketing-r2-worker.js`).
+- `landing-i18n.js` flattens `data-i18n` elements at runtime; structured markup
+  in such elements is protected by the `childElementCount` guard — keep it.
 - Cloudflare edge may serve stale HTML despite `max-age=300` if a zone cache rule
   ignores query strings — re-asserting the Worker route or a cache purge fixes it.

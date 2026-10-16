@@ -10,7 +10,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-CF = ROOT / "scripts" / "cloudflare"
+CF = ROOT / "marketing" / "cloudflare"
 WORKER_FILES = (
     CF / "marketing-r2-worker.js",
     CF / "wrangler-marketing-proxy.jsonc",
