@@ -61,12 +61,6 @@
 
             <div class="contact-grid">
                 <div class="contact-card">
-                    <h2 data-i18n="contact.direct_title">{{ strings.get('contact.direct_title', 'Direct') }}</h2>
-                    <p data-i18n="contact.direct_body">{{ strings.get('contact.direct_body', 'Prefer email? Write to us directly and include your use case, document volume, and timeline.') }}</p>
-                    <a class="contact-email" href="mailto:sales@getassureai.com">sales@getassureai.com</a>
-                </div>
-
-                <div class="contact-card">
                     <h2 data-i18n="contact.form_title">{{ strings.get('contact.form_title', 'Request form') }}</h2>
                     <form class="contact-form" id="contact-form" novalidate>
                         <label for="cf-name" data-i18n="contact.f_name">{{ strings.get('contact.f_name', 'Name') }}</label>
@@ -78,8 +72,16 @@
                         <label for="cf-message" data-i18n="contact.f_message">{{ strings.get('contact.f_message', 'What should the demo cover?') }}</label>
                         <textarea id="cf-message" name="message"></textarea>
                         <button type="submit" class="btn-primary" data-i18n="contact.submit">{{ strings.get('contact.submit', 'Send request') }}</button>
+                        <p class="contact-error" id="contact-error" hidden></p>
                     </form>
-                    <p id="contact-done" data-i18n="contact.done" hidden>{{ strings.get('contact.done', 'Your email client should open with the request pre-filled. If not, write to sales@getassureai.com directly.') }}</p>
+                    <p id="contact-done" data-i18n="contact.done" hidden>{{ strings.get('contact.done', 'Request received. We will follow up with a scoped demo and enterprise pricing — usually within one business day.') }}</p>
+                    <p class="contact-alt" data-i18n="contact.alt">{{ strings.get('contact.alt', 'Prefer email?') }} <a class="contact-email" href="mailto:sales@getassureai.com">sales@getassureai.com</a></p>
+                </div>
+
+                <div class="contact-card">
+                    <h2 data-i18n="contact.direct_title">{{ strings.get('contact.direct_title', 'Direct') }}</h2>
+                    <p data-i18n="contact.direct_body">{{ strings.get('contact.direct_body', 'Write to us directly and include your use case, document volume, and timeline. Attachments are fine.') }}</p>
+                    <a class="contact-email" href="mailto:sales@getassureai.com?subject=Enterprise%20demo%20request">sales@getassureai.com</a>
                 </div>
             </div>
         </div>
@@ -91,14 +93,46 @@
             "use strict";
             var form = document.getElementById("contact-form");
             if (!form) return;
+            var appOrigin = (window.__ASSURE_APP_ORIGIN || "https://app.getassureai.com").replace(/\/$/, "");
             form.addEventListener("submit", function (event) {
                 event.preventDefault();
-                var get = function (id) { var el = document.getElementById(id); return el ? el.value.trim() : ""; };
-                var subject = "Enterprise demo request — " + (get("cf-company") || get("cf-name") || "Assure");
-                var body = "Name: " + get("cf-name") + "\nWork email: " + get("cf-email") + "\nCompany: " + get("cf-company") + "\n\nDemo scope:\n" + get("cf-message");
-                window.location.href = "mailto:sales@getassureai.com?subject=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(body);
-                var done = document.getElementById("contact-done");
-                if (done) done.hidden = false;
+                var get = function (id) { var el = document.getElementById(id); return el ? String(el.value || "").trim() : ""; };
+                var name = get("cf-name");
+                var email = get("cf-email");
+                var company = get("cf-company");
+                var message = get("cf-message");
+                var err = document.getElementById("contact-error");
+                if (err) { err.hidden = true; err.textContent = ""; }
+                if (!name || !email) {
+                    if (err) { err.hidden = false; err.textContent = "Name and work email are required."; }
+                    return;
+                }
+                var fullName = company ? name + " — " + company : name;
+                var payload = { name: fullName, email: email, workflow: message, company: company };
+                fetch(appOrigin + "/api/waitlist", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload),
+                })
+                    .then(function (res) {
+                        return res.json().catch(function () { return {}; }).then(function (data) {
+                            return { ok: res.ok, data: data };
+                        });
+                    })
+                    .then(function (result) {
+                        if (!result.ok) {
+                            throw new Error((result.data && result.data.error) || "Could not send the request. Try again.");
+                        }
+                        form.hidden = true;
+                        var done = document.getElementById("contact-done");
+                        if (done) done.hidden = false;
+                    })
+                    .catch(function (error) {
+                        if (err) {
+                            err.hidden = false;
+                            err.textContent = (error && error.message) || "Could not send the request. Try again.";
+                        }
+                    });
             });
         })();
     </script>
@@ -115,6 +149,9 @@
         }
         .contact-form textarea { min-height: 96px; resize: vertical; }
         .contact-form .btn-primary { margin-top: 18px; width: 100%; }
+        .contact-error { margin: 12px 0 0; color: #b91c1c; font-size: 0.875rem; }
+        .contact-alt { margin: 16px 0 0; color: #475569; font-size: 0.875rem; }
+        .contact-alt .contact-email { font-weight: 600; }
         @media (max-width: 760px) {
             .contact-grid { grid-template-columns: 1fr; }
         }
