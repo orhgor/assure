@@ -2095,7 +2095,7 @@ body {
 .enterprise-landing .hero-section {
     background: #fff;
     color: #0a0a0a;
-    padding: var(--space-12) 0 var(--space-20);
+    padding: var(--space-12) 0 0;
     text-align: center;
 }
 
@@ -3132,12 +3132,18 @@ body.waitlist-open {
 }
 
 /* Trust logos — AWS / S3, quiet row under the trust heading */
+/* Logos band — AWS / S3 centered between hero CTAs and the proof section */
+.logos-band {
+    display: flex;
+    justify-content: center;
+    padding: 128px 16px 32px;
+}
+
 .trust-logos {
     display: flex;
     justify-content: center;
     align-items: center;
     gap: 24px;
-    margin: -8px auto 20px;
 }
 
 .trust-logos img {

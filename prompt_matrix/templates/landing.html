@@ -73,12 +73,15 @@
                     </a>
                     <button type="button" class="btn-secondary" data-waitlist-open data-i18n="landing.hero.cta_primary">{{ strings.get('landing.hero.cta_primary', 'Book a Demo') }}</button>
                 </div>
-                <div class="trust-logos" role="img" aria-label="{{ strings.get('landing.trust.logos_aria', 'AWS and Amazon S3') }}">
-                    <img src="{{ url_for('static', filename='aws-startups.svg') }}" alt="AWS" loading="lazy">
-                    <img src="{{ url_for('static', filename='s3-icon.svg') }}" alt="Amazon S3" loading="lazy">
-                </div>
             </div>
         </section>
+
+        <div class="logos-band">
+            <div class="trust-logos" role="img" aria-label="{{ strings.get('landing.trust.logos_aria', 'AWS and Amazon S3') }}">
+                <img src="{{ url_for('static', filename='aws-startups.svg') }}" alt="AWS" loading="lazy">
+                <img src="{{ url_for('static', filename='s3-icon.svg') }}" alt="Amazon S3" loading="lazy">
+            </div>
+        </div>
 
         <section id="proof" class="role-demo">
             <div class="container">

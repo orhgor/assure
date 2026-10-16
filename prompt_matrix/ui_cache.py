@@ -2,5 +2,5 @@
 
 APP_CSS = "assure-149"
 APP_JS = "assure-149"
-LANDING_CSS = "68"
+LANDING_CSS = "69"
 LANDING_JS = "45"
