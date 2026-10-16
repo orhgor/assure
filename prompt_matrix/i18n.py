@@ -59,14 +59,14 @@ EN = {
 
         "Secure by design. Processed on our servers, never used to train our models."
     ),
-    "landing.hero.subtitle": "Parsure parses incoming files into structured data. Assure verifies every claim against the source. So teams trust what they use, send, and decide on.",
+    "landing.hero.subtitle": "Parsure parses incoming files into structured data. Assure verifies each claim against the source. So teams can trust what they use, send, and decide on.",
     "brand.tagline": "Compile. Verify. Trust what you ship.",
     "tagline_html": 'The right question produces a <span class="trust">trusted</span> answer.',
     "brand.tagline_html": "The Intellectual Compiler",
     "brand.page_title": "Assure AI — Documents in. Verified output out.",
     "brand.meta_description": (
-        "Parsure parses your documents into structured data. Assure verifies every claim, "
-        "number, and citation against the source — page-level provenance you can defend."
+        "Parsure parses your documents into structured data. Assure verifies claims, "
+        "numbers, and citations against the source — page-level provenance you can defend."
     ),
     "brand.architecture_title": "How It Works · Assure — The Intellectual Compiler",
     "brand.architecture_meta_description": (
@@ -221,7 +221,7 @@ EN = {
     ),
     "landing.trust.card2.title": "Mathematical Logic Engine",
     "landing.trust.card2.body": (
-        "LLMs guess. Assure proves. Every number is mathematically grounded in your source documents."
+        "LLMs guess. Assure verifies. Each number is mathematically grounded in your source documents."
     ),
     "landing.trust.card3.title": "Adversarial Audit",
     "landing.trust.card3.body": (
