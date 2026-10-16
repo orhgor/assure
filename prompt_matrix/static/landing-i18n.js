@@ -17,6 +17,7 @@
 
   function applyI18n() {
     document.querySelectorAll("[data-i18n]").forEach(function (el) {
+      if (el.childElementCount) return; // structured parents keep their markup
       el.textContent = t(el.getAttribute("data-i18n"), el.textContent);
     });
     document.querySelectorAll("[data-i18n-html]").forEach(function (el) {
