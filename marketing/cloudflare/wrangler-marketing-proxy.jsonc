@@ -28,6 +28,7 @@
     { "pattern": "getassureai.com/tr*", "zone_name": "getassureai.com" },
     { "pattern": "getassureai.com/favicon*", "zone_name": "getassureai.com" },
     { "pattern": "getassureai.com/robots.txt", "zone_name": "getassureai.com" },
+    { "pattern": "getassureai.com/llms.txt", "zone_name": "getassureai.com" },
     { "pattern": "getassureai.com/sitemap.xml", "zone_name": "getassureai.com" },
     { "pattern": "getassureai.com/app*", "zone_name": "getassureai.com" },
     { "pattern": "getassureai.com/api*", "zone_name": "getassureai.com" },
@@ -48,6 +49,7 @@
     { "pattern": "www.getassureai.com/tr*", "zone_name": "getassureai.com" },
     { "pattern": "www.getassureai.com/favicon*", "zone_name": "getassureai.com" },
     { "pattern": "www.getassureai.com/robots.txt", "zone_name": "getassureai.com" },
+    { "pattern": "www.getassureai.com/llms.txt", "zone_name": "getassureai.com" },
     { "pattern": "www.getassureai.com/sitemap.xml", "zone_name": "getassureai.com" },
     { "pattern": "www.getassureai.com/app*", "zone_name": "getassureai.com" },
     { "pattern": "www.getassureai.com/api*", "zone_name": "getassureai.com" }
