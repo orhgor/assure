@@ -25,6 +25,7 @@ on:
   push:
     branches: [main]
     paths:
+      - 'landing/**'
       - 'prompt_matrix/templates/**'
       - 'prompt_matrix/static/**'
       - 'prompt_matrix/i18n.py'
