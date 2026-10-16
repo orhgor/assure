@@ -50,6 +50,26 @@
         .contact-form input,
         .contact-form textarea {
             width: 100%;
+            box-sizing: border-box;
+            border: 1px solid #cbd5e1;
+            border-radius: 10px;
+            padding: 10px 12px;
+            font: inherit;
+            font-size: 0.9375rem;
+            color: #0a0a0a;
+            background: #f8fafc;
+        }
+        .contact-form textarea { min-height: 96px; resize: vertical; }
+        .contact-form .btn-primary { margin-top: 18px; width: 100%; }
+        .contact-error { margin: 12px 0 0; color: #b91c1c; font-size: 0.875rem; }
+        .contact-alt { margin: 16px 0 0; color: #475569; font-size: 0.875rem; }
+        .contact-alt .contact-email { font-weight: 600; }
+        @media (max-width: 760px) {
+            .contact-grid { grid-template-columns: 1fr; }
+            .contact-card { padding: 24px; }
+        }
+    </style>
+</head>
 <body class="enterprise-landing contact-landing">
     {% set nav_current = 'contact' %}
     {% include 'includes/landing_header.html' %}
@@ -76,7 +96,7 @@
                         <p class="contact-error" id="contact-error" hidden></p>
                     </form>
                     <p id="contact-done" data-i18n="contact.done" hidden>{{ strings.get('contact.done', 'Request received. We will follow up with a scoped demo and enterprise pricing — usually within one business day.') }}</p>
-                    <p class="contact-alt" data-i18n="contact.alt">{{ strings.get('contact.alt', 'Prefer email?') }} <a class="contact-email" href="mailto:sales@getassureai.com">sales@getassureai.com</a></p>
+                    <p class="contact-alt">{{ strings.get('contact.alt', 'Prefer email?') }} <a class="contact-email" href="mailto:sales@getassureai.com">sales@getassureai.com</a></p>
                 </div>
 
                 <div class="contact-card">
@@ -149,7 +169,6 @@
                     .then(function (result) {
                         if (result.ok) return succeed();
                         if (result.status === 503 || result.status === 502) {
-                            // Endpoint not configured or email delivery failed — fall back to the app waitlist.
                             return postWaitlist({ name: company ? name + " — " + company : name, email: email, workflow: message, company: company })
                                 .then(function (fallback) {
                                     if (fallback.ok) return succeed();
@@ -166,22 +185,3 @@
     </script>
 </body>
 </html>
-            box-sizing: border-box;
-            border: 1px solid #cbd5e1;
-            border-radius: 10px;
-            padding: 10px 12px;
-            font: inherit;
-            font-size: 0.9375rem;
-            color: #0a0a0a;
-            background: #f8fafc;
-        }
-        .contact-form textarea { min-height: 96px; resize: vertical; }
-        .contact-form .btn-primary { margin-top: 18px; width: 100%; }
-        .contact-error { margin: 12px 0 0; color: #b91c1c; font-size: 0.875rem; }
-        .contact-alt { margin: 16px 0 0; color: #475569; font-size: 0.875rem; }
-        .contact-alt .contact-email { font-weight: 600; }
-        @media (max-width: 760px) {
-            .contact-grid { grid-template-columns: 1fr; }
-        }
-    </style>
-</head>

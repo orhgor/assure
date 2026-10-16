@@ -288,6 +288,19 @@ body {
         display: none;
     }
 
+    .nav-links.is-collapsed {
+        justify-content: flex-end;
+    }
+
+    .nav-links.is-collapsed .landing-lang-label {
+        display: none;
+    }
+
+    .plan .price {
+        font-size: 32px;
+        line-height: 1.2;
+    }
+
     .nav-menu-toggle {
         display: inline-flex;
         align-items: center;
@@ -3154,4 +3167,10 @@ body.waitlist-open {
     width: auto;
     opacity: 0.85;
     display: block;
+}
+
+@media (max-width: 760px) {
+    .logos-band { padding: 64px 16px 16px; }
+    .trust-logos { gap: 20px; }
+    .trust-logos img { height: 24px; }
 }
