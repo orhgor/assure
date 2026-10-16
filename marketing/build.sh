@@ -24,6 +24,7 @@ rsync -a \
   --include 'landing-i18n.js' \
   --include 'favicon.svg' \
   --include 'assure-logo.png' \
+  --include 'aws-logo.svg' \
   --include 'favicon.ico' \
   --include 'style.css' \
   --include 'script.js' \
