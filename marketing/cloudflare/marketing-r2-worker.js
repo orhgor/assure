@@ -134,7 +134,7 @@ export default {
     }
 
     if (!object) {
-      return new Response("Not found", { status: 404 });
+      return new Response("Not found", { status: 404, headers: { "Cache-Control": "no-store" } });
     }
 
     const headers = new Headers();
