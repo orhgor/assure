@@ -59,7 +59,7 @@ EN = {
 
         "Secure by design. Processed on our servers, never used to train our models."
     ),
-    "landing.hero.subtitle": "Parsure parses incoming files into structured data. Assure verifies each claim against the source. So teams can trust what they use, send, and decide on.",
+    "landing.hero.subtitle": "Parsure parses incoming files into structured data. Assure verifies each claim against the source. So teams can trust the outputs they ship and the decisions they make.",
     "landing.trust.logos_aria": "AWS and Amazon S3",
     "brand.tagline": "Compile. Verify. Trust what you ship.",
     "tagline_html": 'The right question produces a <span class="trust">trusted</span> answer.',
@@ -203,7 +203,7 @@ EN = {
     "landing.hero.cta.architecture": "See the 60-Second Proof",
     "landing.hero.caption": "Compile. Verify. Trust what you ship.",
     "landing.hero.promise": "Upload a source. Draft or paste your work. Assure proves every claim before you ship.",
-    "landing.proof.title": "See it work for your role.",
+    "landing.proof.title": "See how Assure works for your role.",
     "landing.proof.tab.underwriter": "Insurance Underwriters",
     "landing.proof.tab.compliance": "Compliance Officers",
     "landing.proof.tab.ops": "Technical Operators",
@@ -223,7 +223,7 @@ EN = {
     ),
     "landing.trust.card2.title": "Mathematical Logic Engine",
     "landing.trust.card2.body": (
-        "LLMs guess. Assure verifies. Each number is mathematically grounded in your source documents."
+        "LLMs guess. Assure verifies. Each number is grounded in your source documents."
     ),
     "landing.trust.card3.title": "Adversarial Audit",
     "landing.trust.card3.body": (
@@ -242,7 +242,7 @@ EN = {
     "landing.trust.model.title": "Model flexibility",
     "landing.trust.model.body": "Bring your own keys, or use managed enterprise routers. You choose the model. We prove the output.",
     "landing.trust.proof": "Validated in regulated enterprise workflows — every claim checked against source page.",
-    "landing.trust.lead": "Grounded in your documents, not the model's memory. Assure's parsing engine extracts every page, table, and clause of your source documents — with per-page confidence — so every check points at a real source, not a statistical guess.",
+    "landing.trust.lead": "Grounded in your documents, not the model's memory. Parsure parses incoming files into structured data — with per-page confidence — and Assure verifies every page, table, and clause of your source documents, so every check points at a real source, not a statistical guess.",
     "landing.diff.title": "Why Assure is different",
     "landing.diff.intro": (
         "Most enterprise AI tools help you extract, draft, or search. "
