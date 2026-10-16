@@ -2146,6 +2146,11 @@ body {
     text-align: center;
 }
 
+/* Subhero: each sentence on its own line (AI-detection-safe: no em dashes) */
+.enterprise-landing .hero-sub .sub-line {
+    display: block;
+}
+
 .enterprise-landing .hero-cta-group {
     display: flex;
     flex-wrap: wrap;
@@ -3117,4 +3122,11 @@ body.waitlist-open {
 /* Hero CTAs: identical shape */
 .enterprise-landing .hero-cta-group .btn-secondary {
     border-radius: 6px;
+}
+
+/* CTA: force the two-line break (See the proof / for your role) */
+.btn-primary .cta-line1,
+.btn-primary .cta-line2 {
+    display: block;
+    line-height: 1.3;
 }

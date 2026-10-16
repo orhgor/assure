@@ -27,9 +27,18 @@
         <section class="hero-section">
             <div class="container">
                 <h1 class="hero-title" data-i18n-html="brand.hero_title_html">{{ strings.get('brand.hero_title_html', strings.get('brand.hero_title', ''))|safe }}</h1>
-                <p class="hero-sub" data-i18n="landing.hero.subtitle">{{ strings.get('landing.hero.subtitle', '') }}</p>
+                <p class="hero-sub" data-i18n="landing.hero.subtitle">
+                    {%- set sub = strings.get('landing.hero.subtitle', '') -%}
+                    {%- if sub -%}
+                      {%- set parts = sub.split('. ') -%}
+                      {%- for part in parts -%}{% if not loop.last %}<span class="sub-line">{{ part.strip() }}{% if not part.endswith('.') %}.{% endif %}</span>{% else %}<span class="sub-line">{{ part.strip() }}</span>{% endif %}{% endfor -%}
+                    {%- endif -%}
+                </p>
                 <div class="hero-cta-group">
-                    <a href="#proof" class="btn-primary" data-i18n="landing.hero.cta_secondary">{{ strings.get('landing.hero.cta_secondary', 'See the proof for your role') }}</a>
+                    <a href="#proof" class="btn-primary" data-i18n="landing.hero.cta_secondary">
+                        <span class="cta-line1">See the proof</span>
+                        <span class="cta-line2">for your role</span>
+                    </a>
                     <button type="button" class="btn-secondary" data-waitlist-open data-i18n="landing.hero.cta_primary">{{ strings.get('landing.hero.cta_primary', 'Book a Demo') }}</button>
                 </div>
             </div>

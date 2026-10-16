@@ -59,7 +59,7 @@ EN = {
 
         "Secure by design. Processed on our servers, never used to train our models."
     ),
-    "landing.hero.subtitle": "Parsure parses incoming files into structured data. Assure verifies every claim against the source — so teams trust what they use, send, and decide on.",
+    "landing.hero.subtitle": "Parsure parses incoming files into structured data. Assure verifies every claim against the source. So teams trust what they use, send, and decide on.",
     "brand.tagline": "Compile. Verify. Trust what you ship.",
     "tagline_html": 'The right question produces a <span class="trust">trusted</span> answer.',
     "brand.tagline_html": "The Intellectual Compiler",
