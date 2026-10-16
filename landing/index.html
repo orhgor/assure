@@ -26,7 +26,7 @@
   <meta property="og:locale" content="en_US">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="Assure AI — Verify AI Drafts Against Your Source Documents">
-  <meta name="twitter:description" content="Highlight claims not backed by your uploaded files. Multi-model consensus on Pro.">
+  <meta name="twitter:description" content="Highlight claims not backed by your uploaded files. Dual-model consensus built in.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -43,7 +43,7 @@
     "description": "Verify AI drafts against uploaded source documents with sentence-level NLI. Green highlights = backed by your file. Yellow = inferred.",
     "offers": [
       { "@type": "Offer", "name": "Free", "price": "0", "priceCurrency": "USD" },
-      { "@type": "Offer", "name": "Pro", "price": "19", "priceCurrency": "USD" }
+      { "price": "0", "priceCurrency": "USD", "name": "Evaluation" }
     ]
   }
   </script>
@@ -261,7 +261,7 @@
 
     <section id="consensus" class="consensus-section reveal">
       <h2 class="section-title">Consensus Benchmark Matrix</h2>
-      <p class="trust-lead">Single-model drafts carry residual false-confidence risk. Assure Pro cross-checks with dual-model consensus.</p>
+      <p class="trust-lead">Single-model drafts carry residual false-confidence risk. Assure cross-checks with dual-model consensus.</p>
       <div class="table-wrap">
         <table class="consensus-table">
           <thead>
@@ -280,7 +280,7 @@
               <td>~5–8%</td>
             </tr>
             <tr>
-              <td><strong>Assure Dual-Model Consensus (Pro)</strong></td>
+              <td><strong>Assure Dual-Model Consensus</strong></td>
               <td><strong>&lt;1.5%</strong></td>
             </tr>
           </tbody>
@@ -308,7 +308,7 @@
             </svg>
           </span>
           <h4>Multi-model consensus</h4>
-          <p>Cross-verify claims across Claude and Gemini simultaneously on&nbsp;Pro.</p>
+          <p>Cross-verify claims across Claude and Gemini in a single&nbsp;pass.</p>
         </div>
         <div class="feature-item">
           <span class="feature-icon" aria-hidden="true">
@@ -435,31 +435,31 @@
     </section>
 
     <section id="pricing" class="reveal">
-      <h2 class="section-title">Choose your&nbsp;plan</h2>
-      <p class="trust-lead">You bring your own API keys. Assure charges for the workbench, not the models. Your API usage is billed directly by Gemini, DeepSeek, Claude, or&nbsp;Kimi.</p>
+      <h2 class="section-title">Plans</h2>
+      <p class="trust-lead">You bring your own API keys. Model usage is billed directly to you — Assure is licensed per&nbsp;team.</p>
       <div class="pricing">
         <article class="plan">
-          <div class="plan-name">Free</div>
-          <div class="price">$0 <small>/mo</small></div>
+          <div class="plan-name">Evaluation</div>
+          <div class="price">Free <small>while you evaluate</small></div>
           <ul>
-            <li>5 checks / day</li>
-            <li>Gemini Flash grounding</li>
-            <li>7-day history</li>
+            <li>Full verification engine</li>
+            <li>Source grounding on your documents</li>
+            <li>No card required</li>
           </ul>
-          <a href="https://app.getassureai.com/" class="btn-sm">Launch App</a>
+          <a href="https://getassureai.com/app" class="btn-sm">Launch App</a>
         </article>
         <article class="plan featured">
-          <div class="plan-name">Pro</div>
-          <div class="price">$19 <small>/mo</small></div>
+          <div class="plan-name">Enterprise</div>
+          <div class="price">Custom <small>pricing</small></div>
           <ul>
-            <li>100 checks / day</li>
-            <li>Claude 3.5 + Gemini 1.5 Pro consensus</li>
-            <li>Full SQLite history persistence</li>
+            <li>Dedicated sandbox</li>
+            <li>Audit packages for regulated work</li>
+            <li>Your keys or managed routers</li>
           </ul>
-          <a href="pricing.html" class="btn-sm">See all&nbsp;plans</a>
+          <a href="mailto:feedback@getassureai.com?subject=Enterprise%20demo" class="btn-sm">Book a&nbsp;demo</a>
         </article>
       </div>
-      <p class="text-small pricing-note">BYOK: you pay Gemini, DeepSeek, Claude, or Kimi directly for API tokens. Assure plans ($0 Free / $19 Pro) cover workbench features and daily check quotas — not model&nbsp;usage.</p>
+      <p class="text-small pricing-note">BYOK: you pay Gemini, DeepSeek, Claude, or Kimi directly for API tokens. Assure licensing covers the platform — not model&nbsp;usage.</p>
     </section>
 
     <section id="install" class="install-section reveal">
@@ -468,7 +468,7 @@
       <p class="download-note text-small" id="download-note" tabindex="-1">The workbench installs from source: <code>./scripts/install.sh</code> then <code>assure --web</code>. Packaged desktop builds for macOS, Windows, and Linux are available — see the <a href="/install">Install guide</a>.</p>
       <div class="cta-group" style="margin-top: 1.5rem;">
         <a class="btn-primary" href="/install">Open the install&nbsp;guide</a>
-        <button type="button" class="btn-outline" data-waitlist-open>Request the desktop&nbsp;build</button>
+        <a class="btn-outline" href="mailto:feedback@getassureai.com?subject=Desktop%20build%20request">Request the desktop&nbsp;build</a>
       </div>
       <details class="developer-options">
         <summary>Developer options</summary>
