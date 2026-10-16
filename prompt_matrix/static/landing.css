@@ -588,7 +588,7 @@ body {
     font-style: italic;
 }
 
-/* Hero — static before/after comparison (no auto-play) */
+/* Hero â static before/after comparison (no auto-play) */
 .hero-comparison .hero-visual-messy,
 .hero-comparison .hero-visual-tree {
     opacity: 1;
@@ -644,7 +644,7 @@ body {
     }
 }
 
-/* Persona Strip — At-a-Glance */
+/* Persona Strip â At-a-Glance */
 .persona-strip {
     border-bottom: 1px solid var(--border-color);
     padding: 2rem 0;
@@ -1381,7 +1381,7 @@ body {
 }
 
 .ast-fail-list li::before {
-    content: "✕";
+    content: "â";
     position: absolute;
     left: 0;
     color: #ef4444;
@@ -2056,7 +2056,7 @@ body {
     }
 }
 
-/* Enterprise home — scoped so /architecture keeps the existing chrome */
+/* Enterprise home â scoped so /architecture keeps the existing chrome */
 .enterprise-landing {
     --font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     background: #fff;
@@ -3076,7 +3076,7 @@ body.waitlist-open {
     font-weight: 600;
 }
 
-/* No orphan words — keep wrapped lines balanced and pull short
+/* No orphan words â keep wrapped lines balanced and pull short
    last lines back into the sentence (Safari/Chrome/Firefox 121+). */
 .diff-intro,
 .diff-body,
@@ -3131,24 +3131,27 @@ body.waitlist-open {
     line-height: 1.3;
 }
 
-/* Trust logos — AWS / S3, quiet row under the trust heading */
-/* Logos band — AWS / S3 centered between hero CTAs and the proof section */
+/* Trust logos â AWS / S3, quiet row under the trust heading */
+/* Logos band â AWS / S3 centered between hero CTAs and the proof section */
+/* Trust row â deliberate band between hero CTAs and the proof section.
+   Rhythm: 120px above the logos, 120px below (band 24px bottom padding +
+   the proof section’s own 96px top padding). No floating whitespace. */
 .logos-band {
     display: flex;
     justify-content: center;
-    padding: 128px 16px 32px;
+    padding: 120px 16px 24px;
 }
 
 .trust-logos {
     display: flex;
     justify-content: center;
     align-items: center;
-    gap: 24px;
+    gap: 28px;
 }
 
 .trust-logos img {
-    height: 20px;
+    height: 24px;
     width: auto;
-    opacity: 0.75;
+    opacity: 0.8;
     display: block;
 }
