@@ -60,7 +60,7 @@ EN = {
         "Secure by design. Processed on our servers, never used to train our models."
     ),
     "landing.hero.subtitle": "Parsure parses incoming files into structured data. Assure verifies each claim against the source. So teams can trust what they use, send, and decide on.",
-    "landing.hero.aws_strip": "AWS startup support for enterprise-ready deployment · S3-backed infrastructure · Secure by design",
+    "landing.trust.logos_aria": "AWS and Amazon S3",
     "brand.tagline": "Compile. Verify. Trust what you ship.",
     "tagline_html": 'The right question produces a <span class="trust">trusted</span> answer.',
     "brand.tagline_html": "The Intellectual Compiler",
@@ -216,6 +216,7 @@ EN = {
         "formal logic, tracks source provenance down to the exact page, and flags every logical gap before a human ever has to look twice."
     ),
     "landing.trust.title": "Enterprise trust architecture",
+    "landing.trust.logos_aria": "AWS and Amazon S3",
     "landing.trust.card1.title": "Orchestration Engine",
     "landing.trust.card1.body": (
         "One intent. Multiple specialized models working in concert. No prompt engineering required."
