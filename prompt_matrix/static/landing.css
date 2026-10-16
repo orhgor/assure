@@ -3130,3 +3130,12 @@ body.waitlist-open {
     display: block;
     line-height: 1.3;
 }
+
+/* AWS credibility strip — subtle, below hero CTAs */
+.aws-strip {
+    margin: -32px auto 0;
+    text-align: center;
+    font-size: 0.8rem;
+    color: #64748b;
+    letter-spacing: 0.02em;
+}
