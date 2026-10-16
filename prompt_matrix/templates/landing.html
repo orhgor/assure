@@ -4,11 +4,43 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ brand.page_title }}</title>
+    <link rel="canonical" href="https://getassureai.com/{{ page_suffix|default('') }}">
+    {% if locale_paths is defined %}
+    {% for code, path in locale_paths.items() %}
+    <link rel="alternate" hreflang="{{ code }}" href="https://getassureai.com{{ path }}{{ page_suffix|default('') }}">
+    {% endfor %}
+    <link rel="alternate" hreflang="x-default" href="https://getassureai.com/{{ page_suffix|default('') }}">
+    {% endif %}
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="{{ brand.page_title }}">
+    <meta name="twitter:description" content="{{ brand.meta_description }}">
     <link rel="icon" href="{{ url_for('static', filename='assure-logo.png') }}" type="image/png">
     <link rel="apple-touch-icon" href="{{ url_for('static', filename='assure-logo.png') }}">
     <meta name="description" content="{{ brand.meta_description }}">
     <meta property="og:title" content="{{ brand.page_title }}">
     <meta property="og:description" content="{{ brand.meta_description }}">
+    <meta property="og:url" content="https://getassureai.com/{{ page_suffix|default('') }}">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Assure">
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "Assure",
+      "applicationCategory": "BusinessApplication",
+      "operatingSystem": "Web",
+      "description": {{ brand.meta_description|tojson }},
+      "url": "https://getassureai.com/",
+      "featureList": [
+        "Page-level provenance for every claim",
+        "Deterministic math and logic checks (Z3)",
+        "Adversarial Red-Hat review",
+        "Parse incoming documents into structured data (Parsure)",
+        "Audit-ready export with full provenance"
+      ],
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD", "name": "Evaluation" }
+    }
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">

@@ -4,6 +4,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ brand.architecture_title }}</title>
+    <link rel="canonical" href="https://getassureai.com/architecture/">
+    {% if locale_paths is defined %}
+    {% for code, path in locale_paths.items() %}
+    <link rel="alternate" hreflang="{{ code }}" href="https://getassureai.com{{ path }}architecture/">
+    {% endfor %}
+    <link rel="alternate" hreflang="x-default" href="https://getassureai.com/architecture/">
+    {% endif %}
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="{{ brand.architecture_title }}">
+    <meta name="twitter:description" content="{{ brand.architecture_meta_description }}">
+    <meta property="og:url" content="https://getassureai.com/architecture/">
     <link rel="icon" href="{{ url_for('static', filename='assure-logo.png') }}" type="image/png">
     <link rel="apple-touch-icon" href="{{ url_for('static', filename='assure-logo.png') }}">
     <meta name="description" content="{{ brand.architecture_meta_description }}">

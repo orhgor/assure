@@ -4,6 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title data-i18n="privacy.enterprise.page_title">{{ strings.get('privacy.enterprise.page_title', 'Privacy Policy · Assure AI') }}</title>
+    <link rel="canonical" href="https://getassureai.com/privacy/">
+    {% if locale_paths is defined %}
+    {% for code, path in locale_paths.items() %}
+    <link rel="alternate" hreflang="{{ code }}" href="https://getassureai.com{{ path }}privacy/">
+    {% endfor %}
+    <link rel="alternate" hreflang="x-default" href="https://getassureai.com/privacy/">
+    {% endif %}
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="{{ strings.get('privacy.enterprise.page_title', 'Privacy Policy · Assure AI') }}">
+    <meta name="twitter:description" content="{{ strings.get('privacy.enterprise.meta', brand.meta_description) }}">
     <link rel="icon" href="{{ url_for('static', filename='assure-logo.png') }}" type="image/png">
     <meta name="description" content="{{ strings.get('privacy.enterprise.meta', brand.meta_description) }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">

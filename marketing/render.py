@@ -125,6 +125,8 @@ def _render_page(app, page: dict, locale: str) -> str:
                 "locale": locale,
                 "languages": LOCALE_LABELS,
                 "strings": string_catalog(locale),
+                "locale_paths": _locale_paths(),
+                "page_suffix": page["suffix"],
             }
             if page["kind"] == "landing":
                 ctx["landing_css_version"] = LANDING_CSS

@@ -7,6 +7,16 @@
   <meta name="csrf-token" content="{{ csrf_token() }}">
   {% endif %}
   <meta name="description" content="{{ brand.meta_description }}">
+  <link rel="canonical" href="https://getassureai.com/{{ page_suffix|default('') }}">
+  {% if locale_paths is defined %}
+  {% for code, path in locale_paths.items() %}
+  <link rel="alternate" hreflang="{{ code }}" href="https://getassureai.com{{ path }}{{ page_suffix|default('') }}">
+  {% endfor %}
+  <link rel="alternate" hreflang="x-default" href="https://getassureai.com/{{ page_suffix|default('') }}">
+  {% endif %}
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="{% block twitter_title %}{{ brand.page_title }}{% endblock %}">
+  <meta name="twitter:description" content="{{ brand.meta_description }}">
   <meta property="og:title" content="{% block og_title %}{{ brand.page_title }}{% endblock %}">
   <meta property="og:description" content="{{ brand.meta_description }}">
   <title>{% block title %}{{ brand.page_title }}{% endblock %}</title>
