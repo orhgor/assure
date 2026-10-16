@@ -119,6 +119,9 @@ export default {
     if (request.method === "POST" && url.pathname === "/contact-submit") {
       return handleContactSubmit(request, env);
     }
+    if (url.pathname === "/contact" || url.pathname === "/contact/") {
+      return Response.redirect(new URL("/contact-us/", url.origin).toString(), 308);
+    }
     if (url.pathname.startsWith("/app") || url.pathname.startsWith("/api")) {
       const target = new URL(url.pathname + url.search, APP_ORIGIN);
       return Response.redirect(target.toString(), 302);

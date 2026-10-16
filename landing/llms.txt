@@ -1,0 +1,29 @@
+# Assure AI
+
+Assure AI is the deterministic truth engine for high-stakes documents. It verifies every claim, number, and citation in AI-generated business documents against the source files, producing an audit-ready trail of provenance.
+
+## Product
+
+- Deterministic math verification with formal logic (Z3)
+- Page-level provenance: every output points to its exact source page
+- Adversarial audit that flags contradictions and unsupported claims before export
+- Audit-ready export with cryptographic locks and reviewer sign-offs
+- Works with the user's own model keys; documents processed on Assure servers, never used for training
+
+## Who it is for
+
+Investment bankers and analysts (CIMs, financial models), clinical and grant researchers (abstracts vs raw tables), legal counsel and compliance (contract review, regulatory submissions), technical architects (spec documentation), journalists and fact-checkers (source-grounded quotes).
+
+## Key pages
+
+- Home: https://getassureai.com/
+- Architecture: https://getassureai.com/architecture/
+- Pricing: https://getassureai.com/pricing/
+- Privacy: https://getassureai.com/privacy/
+- Terms: https://getassureai.com/terms/
+- About: https://getassureai.com/about/
+- Contact sales: https://getassureai.com/contact-us/
+
+## Positioning
+
+Most enterprise AI tools extract, draft, or search documents. Assure is built to prove that every output is grounded in the source. The output is a document; the product is verification.

@@ -14,6 +14,11 @@
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="{{ strings.get('contact.page_title', 'Enterprise contact · Assure AI') }}">
     <meta name="twitter:description" content="{{ strings.get('contact.meta', brand.meta_description) }}">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Assure AI">
+    <meta property="og:title" content="{{ strings.get('contact.page_title', 'Enterprise contact · Assure AI') }}">
+    <meta property="og:description" content="{{ strings.get('contact.meta', brand.meta_description) }}">
+    <meta property="og:url" content="https://getassureai.com/{{ page_suffix|default('contact/') }}">
     <link rel="icon" href="{{ url_for('static', filename='assure-logo.png') }}" type="image/png">
     <meta name="description" content="{{ strings.get('contact.meta', brand.meta_description) }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -22,6 +27,32 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='landing.css') }}?v={{ landing_css_version|default('71') }}">
     {% include 'includes/plausible.html' %}
     {% include 'includes/sentry.html' %}
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "ContactPage",
+      "name": "Contact sales · Assure AI",
+      "url": "https://getassureai.com/{{ page_suffix|default('contact/') }}",
+      "description": "Book a demo or request enterprise pricing for Assure AI, the deterministic verification engine for high-stakes documents.",
+      "about": {
+        "@type": "SoftwareApplication",
+        "name": "Assure AI",
+        "applicationCategory": "BusinessApplication",
+        "operatingSystem": "Web"
+      },
+      "mainEntity": {
+        "@type": "Organization",
+        "name": "Assure AI",
+        "url": "https://getassureai.com/",
+        "contactPoint": {
+          "@type": "ContactPoint",
+          "contactType": "sales",
+          "email": "sales@getassureai.com",
+          "availableLanguage": ["English"]
+        }
+      }
+    }
+    </script>
     <script>window.__assureLandingStrings = {{ strings|tojson }};</script>
     <style>
         .contact-main { padding: var(--space-12) 0; }

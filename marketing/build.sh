@@ -64,6 +64,9 @@ fi
 if [ -f "$ROOT/landing/sitemap.xml" ]; then
   cp "$ROOT/landing/sitemap.xml" "$DIST_DIR/sitemap.xml"
 fi
+if [ -f "$ROOT/landing/llms.txt" ]; then
+  cp "$ROOT/landing/llms.txt" "$DIST_DIR/llms.txt"
+fi
 
 if [ -f "$ROOT/prompt_matrix/static/favicon.svg" ]; then
   cp "$ROOT/prompt_matrix/static/favicon.svg" "$DIST_DIR/favicon.svg"
