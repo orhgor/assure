@@ -63,6 +63,7 @@
                 <div class="contact-card">
                     <h2 data-i18n="contact.form_title">{{ strings.get('contact.form_title', 'Request form') }}</h2>
                     <form class="contact-form" id="contact-form" novalidate>
+                        <input type="text" name="company_website" id="cf-website" tabindex="-1" autocomplete="off" hidden aria-hidden="true">
                         <label for="cf-name" data-i18n="contact.f_name">{{ strings.get('contact.f_name', 'Name') }}</label>
                         <input id="cf-name" name="name" type="text" autocomplete="name" required>
                         <label for="cf-email" data-i18n="contact.f_email">{{ strings.get('contact.f_email', 'Work email') }}</label>
@@ -94,6 +95,17 @@
             var form = document.getElementById("contact-form");
             if (!form) return;
             var appOrigin = (window.__ASSURE_APP_ORIGIN || "https://app.getassureai.com").replace(/\/$/, "");
+            function postWaitlist(payload) {
+                return fetch(appOrigin + "/api/waitlist", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload),
+                }).then(function (res) {
+                    return res.json().catch(function () { return {}; }).then(function (data) {
+                        return { ok: res.ok, data: data };
+                    });
+                });
+            }
             form.addEventListener("submit", function (event) {
                 event.preventDefault();
                 var get = function (id) { var el = document.getElementById(id); return el ? String(el.value || "").trim() : ""; };
@@ -107,31 +119,47 @@
                     if (err) { err.hidden = false; err.textContent = "Name and work email are required."; }
                     return;
                 }
-                var fullName = company ? name + " — " + company : name;
-                var payload = { name: fullName, email: email, workflow: message, company: company };
-                fetch(appOrigin + "/api/waitlist", {
+                var succeed = function () {
+                    form.hidden = true;
+                    var done = document.getElementById("contact-done");
+                    if (done) done.hidden = false;
+                };
+                var fail = function (message) {
+                    if (err) {
+                        err.hidden = false;
+                        err.textContent = message || "Could not send the request. Try again.";
+                    }
+                };
+                fetch("/contact-submit", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(payload),
+                    body: JSON.stringify({
+                        name: name,
+                        email: email,
+                        company: company,
+                        message: message,
+                        company_website: get("cf-website"),
+                    }),
                 })
                     .then(function (res) {
                         return res.json().catch(function () { return {}; }).then(function (data) {
-                            return { ok: res.ok, data: data };
+                            return { ok: res.ok, data: data, status: res.status };
                         });
                     })
                     .then(function (result) {
-                        if (!result.ok) {
-                            throw new Error((result.data && result.data.error) || "Could not send the request. Try again.");
+                        if (result.ok) return succeed();
+                        if (result.status === 503 || result.status === 502) {
+                            // Endpoint not configured or email delivery failed — fall back to the app waitlist.
+                            return postWaitlist({ name: company ? name + " — " + company : name, email: email, workflow: message, company: company })
+                                .then(function (fallback) {
+                                    if (fallback.ok) return succeed();
+                                    throw new Error((fallback.data && fallback.data.error) || "Could not send the request. Try again.");
+                                });
                         }
-                        form.hidden = true;
-                        var done = document.getElementById("contact-done");
-                        if (done) done.hidden = false;
+                        throw new Error((result.data && result.data.error) || "Could not send the request. Try again.");
                     })
                     .catch(function (error) {
-                        if (err) {
-                            err.hidden = false;
-                            err.textContent = (error && error.message) || "Could not send the request. Try again.";
-                        }
+                        fail((error && error.message) || "Could not send the request. Try again.");
                     });
             });
         })();

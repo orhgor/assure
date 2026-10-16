@@ -58,3 +58,21 @@ Requires wrangler auth on your machine (`npx wrangler login`).
   in such elements is protected by the `childElementCount` guard — keep it.
 - Cloudflare edge may serve stale HTML despite `max-age=300` if a zone cache rule
   ignores query strings — re-asserting the Worker route or a cache purge fixes it.
+## Contact form → Resend
+
+- The contact page posts JSON to `POST /contact-submit`, handled by the marketing
+  Worker (NOT `/api/*` — those paths 302 to the app origin).
+- The Worker emails `sales@getassureai.com` via the Resend API using the
+  `RESEND_API_KEY` Worker secret, with `reply_to` set to the submitter.
+- Set/rotate the secret once per account (persists across deploys):
+
+  ```shell
+  cd marketing/cloudflare && npx wrangler secret put RESEND_API_KEY
+  ```
+
+- `from` is `website@getassureai.com` — that address (or a catch-all) must be
+  verified as a sending domain in the Resend dashboard or Resend rejects the send.
+- If the secret is missing (503) or Resend fails (502), the page automatically
+  falls back to posting the app's `/api/waitlist` endpoint, so submissions are
+  never silently lost.
+- A hidden `company_website` honeypot field is silently accepted and dropped.
