@@ -60,7 +60,7 @@ EN = {
         "Secure by design. Processed on our servers, never used to train our models."
     ),
     "landing.hero.subtitle": "Parsure parses incoming files into structured data. Assure verifies each claim against the source. So teams can trust what they use, send, and decide on.",
-    "landing.hero.aws_strip": "Backed by AWS startup support · S3-ready enterprise deployment · Secure by design",
+    "landing.hero.aws_strip": "AWS startup support for enterprise-ready deployment · S3-backed infrastructure · Secure by design",
     "brand.tagline": "Compile. Verify. Trust what you ship.",
     "tagline_html": 'The right question produces a <span class="trust">trusted</span> answer.',
     "brand.tagline_html": "The Intellectual Compiler",

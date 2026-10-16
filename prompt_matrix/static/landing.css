@@ -3176,11 +3176,12 @@ body.waitlist-open {
         gap: 8px;
         text-align: center;
         border-radius: 16px;
-        padding: 12px 16px;
+        padding: 10px 12px;
     }
 
     .aws-text {
         white-space: normal;
         line-height: 1.35;
+        font-size: 13px;
     }
 }
