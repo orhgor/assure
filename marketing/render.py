@@ -53,6 +53,12 @@ PAGES: list[dict] = [
         "suffix": "contact/",
     },
     {
+        "template": "contact.html",
+        "output": "contact-us/index.html",
+        "kind": "landing",
+        "suffix": "contact-us/",
+    },
+    {
         "template": "terms.html",
         "output": "terms/index.html",
         "kind": "base",
