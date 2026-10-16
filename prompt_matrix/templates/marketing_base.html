@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="{{ locale|default('en') }}"{% if page_class is defined %} class="{{ page_class }}"{% endif %}>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="{{ brand.meta_description }}">
+  <link rel="canonical" href="https://getassureai.com/{{ page_suffix|default('') }}">
+  {% if locale_paths is defined %}
+  {% for code, path in locale_paths.items() %}
+  <link rel="alternate" hreflang="{{ code }}" href="https://getassureai.com{{ path }}{{ page_suffix|default('') }}">
+  {% endfor %}
+  <link rel="alternate" hreflang="x-default" href="https://getassureai.com/{{ page_suffix|default('') }}">
+  {% endif %}
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="{% block twitter_title %}{{ brand.page_title }}{% endblock %}">
+  <meta name="twitter:description" content="{{ brand.meta_description }}">
+  <meta property="og:title" content="{% block og_title %}{{ brand.page_title }}{% endblock %}">
+  <meta property="og:description" content="{{ brand.meta_description }}">
+  <title>{% block title %}{{ brand.page_title }}{% endblock %}</title>
+  <link rel="icon" href="{{ url_for('static', filename='assure-logo.png') }}" type="image/png">
+  <link rel="apple-touch-icon" href="{{ url_for('static', filename='assure-logo.png') }}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ css_version|default('assure-30') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='compare_pane.css') }}?v={{ css_version|default('assure-30') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='founder_workbench.css') }}?v={{ css_version|default('assure-30') }}">
+  {% block extra_head %}{% endblock %}
+  {% include 'includes/plausible.html' %}
+  {% include 'includes/sentry.html' %}
+</head>
+<body{% if page_class is defined %} class="{{ page_class }}"{% endif %}>
+  {% set q = '?lang=' ~ locale %}
+  <div class="shell">
+    <header class="site-header">
+      <a class="brand-home" href="/{{ q }}">
+        <img class="brand-mark" src="{{ url_for('static', filename='assure-logo.png') }}" alt="" width="36" height="36">
+        <span class="brand-copy">
+          <span class="wordmark">Assure</span>
+        </span>
+      </a>
+      <nav class="site-nav" aria-label="Main">
+        <a href="/{{ q }}"{% if active == 'home' %} class="is-on"{% endif %}>Proof</a>
+        <a href="/architecture{{ q }}"{% if active == 'architecture' %} class="is-on"{% endif %}>Architecture</a>
+        <a href="/pricing{{ q }}"{% if active == 'pricing' %} class="is-on"{% endif %}>Pricing</a>
+        <a href="/about{{ q }}"{% if active == 'about' %} class="is-on"{% endif %}>About</a>
+      </nav>
+      <div class="header-meta">
+        <label class="lang-wrap" for="lang">
+          <select id="lang" class="form-control select-control" aria-label="Language">
+            {% for code, label in languages.items() %}
+            <option value="{{ code }}" {% if locale == code %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </label>
+      </div>
+    </header>
+    {% block hero %}{% endblock %}
+    {% block body %}{% endblock %}
+  </div>
+  <footer class="site-footer">
+    <p class="footer-lock privacy-badge"><span aria-hidden="true">🔒</span> Your data stays on your machine. Send only to your chosen provider.</p>
+    <p class="footer-meta">
+      <strong>Assure</strong>.
+      <span>© 2026 Assure. All rights reserved.</span>
+      <a href="/about{{ q }}">About</a>
+      <a href="/privacy{{ q }}">Privacy</a>
+      <a href="/terms{{ q }}">Terms</a>
+      <a href="/pricing{{ q }}">Pricing</a>
+      <a href="/contact-us/{{ q }}">Contact sales</a>
+    </p>
+  </footer>
+  <script>
+    (function () {
+      var lang = document.getElementById("lang");
+      if (lang) {
+        lang.addEventListener("change", function () {
+          try { localStorage.setItem("assure_locale", lang.value); } catch (_) {}
+          var u = new URL(location.href);
+          u.searchParams.set("lang", lang.value);
+          location.href = u.pathname + u.search;
+        });
+      }
+    })();
+  </script>
+  <script src="{{ url_for('static', filename='script.js') }}?v={{ js_version|default('assure-21') }}"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>
