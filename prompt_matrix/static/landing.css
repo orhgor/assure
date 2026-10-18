@@ -3232,3 +3232,99 @@ body.waitlist-open {
         white-space: pre;
     }
 }
+
+/* =============================================================
+   v75 — mobile hero polish (enterprise-grade pass)
+   1. Body copy: left-aligned, constrained wrapper, orphan-safe
+   2. CTA pair: identical padding / radius / weight, centered text
+   3. Header row: unified padding, compact language trigger
+   4. S3 mark: crisp monochrome slate (matches AWS wordmark)
+   5. Overflow: safe-area bottom padding + scroll anchors —
+      no half-visible section headings at the mobile viewport edge
+   ============================================================= */
+
+/* 5. Anchors never hide a section title under the sticky header */
+.enterprise-landing .section-title,
+.enterprise-landing #proof {
+    scroll-margin-top: 5.5rem;
+}
+
+@media (max-width: 640px) {
+    /* 1. Typography — left-aligned copy inside a centered wrapper */
+    .enterprise-landing .hero-sub {
+        max-width: 22rem;
+        margin: 18px auto 26px;
+        text-align: left;
+        line-height: 1.6;
+        text-wrap: pretty;
+    }
+
+    .enterprise-landing .hero-sub .sub-line {
+        display: inline;
+    }
+
+    .enterprise-landing .hero-title {
+        line-height: 1.15;
+        letter-spacing: -0.03em;
+    }
+
+    .enterprise-landing .section-title {
+        text-wrap: balance;
+        line-height: 1.25;
+    }
+
+    /* 2. CTA parity — one axis: same size, padding, radius, weight */
+    .enterprise-landing .hero-cta-group .btn-primary,
+    .enterprise-landing .hero-cta-group .btn-secondary {
+        width: 100%;
+        max-width: 20rem;
+        margin: 0 auto;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        min-height: 3.25rem;
+        padding: 0.85rem 1.25rem;
+        font-size: 1rem;
+        font-weight: 600;
+        line-height: 1.2;
+        border-radius: 8px;
+        white-space: nowrap;
+    }
+
+    /* 3. Header — unified horizontal rhythm, compact lang trigger */
+    .enterprise-landing .nav-container {
+        padding: 0 1rem;
+    }
+
+    .enterprise-landing .landing-lang-wrap {
+        padding: 0.15rem 0.45rem;
+        border-radius: 999px;
+        gap: 0.3rem;
+    }
+
+    .enterprise-landing .landing-lang-select {
+        padding: 0.3rem 0.45rem;
+        min-width: 0;
+        font-size: 0.85rem;
+    }
+
+    /* 5. Orphan fix — no half-clipped headings at the bottom edge */
+    .enterprise-landing main {
+        padding-bottom: env(safe-area-inset-bottom, 0px);
+    }
+
+    .enterprise-landing .role-demo {
+        padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+    }
+
+    .enterprise-landing .logos-band {
+        padding: 40px 16px 24px;
+    }
+}
+
+@media (min-width: 641px) and (max-width: 800px) {
+    .enterprise-landing .hero-sub {
+        max-width: 24rem;
+    }
+}
