@@ -10492,6 +10492,14 @@ def catalog(lang: str | None = None) -> dict[str, str]:
             base["privacy.enterprise.body_html"] = privacy_body_html(locale)
         except OSError:
             pass
+    # The summary-box on the privacy page was only ever translated for zh
+    # (commit 9e0375b); without this it rendered empty on every other locale.
+    if not base.get("privacy.enterprise.summary"):
+        try:
+            from .privacy_enterprise import privacy_summary
+        except ImportError:
+            from privacy_enterprise import privacy_summary
+        base["privacy.enterprise.summary"] = privacy_summary(locale)
     return base
 
 
