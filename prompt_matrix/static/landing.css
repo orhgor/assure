@@ -2420,9 +2420,10 @@ body {
 }
 
 .why-copy {
-    max-width: 680px;
+    max-width: 42rem;
     margin: 40px auto 0;
-    text-align: left;
+    text-align: center;
+    text-wrap: balance;
     color: #475569;
     line-height: 1.7;
     font-size: 1.1rem;
@@ -2475,6 +2476,9 @@ body {
 .trust-lead {
     text-align: center;
     color: #475569;
+    max-width: 44rem;
+    margin-inline: auto;
+    text-wrap: balance;
     margin: -1rem auto 2rem;
 }
 
@@ -3142,11 +3146,16 @@ body.waitlist-open {
     border-radius: 6px;
 }
 
-/* CTA: force the two-line break (See the proof / for your role) */
+/* CTA: single-line label (nbsp-joined spans, no forced break) */
 .btn-primary .cta-line1,
 .btn-primary .cta-line2 {
-    display: block;
+    display: inline;
     line-height: 1.3;
+}
+
+.btn-primary .cta-line2::before {
+    content: "\00a0";
+    white-space: pre;
 }
 
 /* Trust logos â AWS / S3, quiet row under the trust heading */
@@ -3233,16 +3242,18 @@ body.waitlist-open {
     }
 }
 
-/* Mobile CTA pair: one line each, equal size — no wrap mismatch */
-@media (max-width: 640px) {
-    .btn-primary .cta-line1,
-    .btn-primary .cta-line2 {
-        display: inline;
-    }
-
-    .btn-primary .cta-line2::before {
-        content: "\00a0";
-        white-space: pre;
+/* v76 — desktop hero CTA parity: single line, identical height & centering */
+@media (min-width: 640px) {
+    .enterprise-landing .hero-cta-group .btn-primary,
+    .enterprise-landing .hero-cta-group .btn-secondary {
+        width: auto;
+        max-width: none;
+        white-space: nowrap;
+        min-height: 3.25rem;
+        padding: 0 1.75rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
     }
 }
 
@@ -3381,3 +3392,111 @@ body.waitlist-open {
         max-width: 24rem;
     }
 }
+
+/* ===== v78 — desktop layout, typography & alignment refactor ===== */
+
+/* 1. Desktop hero CTA parity: drop the 280px cap so both buttons render
+   on a single line with identical height and vertical centering. */
+@media (min-width: 640px) {
+    .enterprise-landing .hero-cta-group .btn-primary,
+    .enterprise-landing .hero-cta-group .btn-secondary {
+        width: auto;
+        max-width: none;
+        min-width: 0;
+        white-space: nowrap;
+        min-height: 3.25rem;
+        padding: 0 1.75rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+}
+
+/* 2. Unify "Engineered for High-Stakes Work" heading with the other
+   centered section titles (same subtle bottom accent rule). */
+.persona-section h2 {
+    text-align: center;
+}
+
+.persona-section h2::after {
+    content: "";
+    display: block;
+    width: 80px;
+    height: 2px;
+    margin: 24px auto 32px;
+    background: #e2e8f0;
+}
+
+/* 3. Center-to-left axis fix: center the "Why now" closing paragraph
+   and the "A note on verification" block with their centered headings. */
+.why-copy {
+    text-align: center;
+    max-width: 42rem;
+    margin-inline: auto;
+    text-wrap: balance;
+}
+
+.enterprise-landing .landing-disclaimer p {
+    text-align: center;
+    max-width: 42rem;
+    margin-inline: auto;
+    text-wrap: balance;
+}
+
+.enterprise-landing .landing-disclaimer a {
+    text-align: center;
+}
+
+/* 4a. Constrain the "Enterprise trust architecture" intro so "guess."
+   never hangs alone; balance the ragged line ends. */
+.trust-lead {
+    max-width: 44rem;
+    margin-inline: auto;
+    text-wrap: balance;
+}
+
+/* 4b. Remove the stray full-bleed top border above #trust
+   (double line under the sticky header). */
+.enterprise-landing .persona-section {
+    border-bottom: 0;
+}
+
+/* 5. Plans cards: equal-height flex columns with identical buttons on
+   the same horizontal baseline. */
+.enterprise-landing .plans-section .plan {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.enterprise-landing .plans-section .plan ul {
+    flex: 1 1 auto;
+}
+
+.enterprise-landing .plans-section .plan .btn-primary-small {
+    min-height: 3rem;
+    width: 100%;
+    font-size: 0.95rem;
+    font-weight: 600;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: auto;
+}
+
+/* 6. 4-column comparison grid: pin each card's bottom block
+   (WHAT'S MISSING rows / summary callout) to the card bottom so the
+   bottom row aligns horizontally across all 4 cards. */
+.diff-card .diff-row:last-child,
+.diff-card .diff-callout {
+    margin-top: auto;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.diff-card {
+    display: flex;
+    flex-direction: column;
+}
+

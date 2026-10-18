@@ -44,7 +44,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='landing.css') }}?v={{ landing_css_version|default('77') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='landing.css') }}?v={{ landing_css_version|default('78') }}">
     {% include 'includes/plausible.html' %}
     {% include 'includes/sentry.html' %}
     <script>
@@ -229,7 +229,7 @@
                         <div class="price" data-i18n="landing.plans.free.price">{{ strings.get('landing.plans.free.price', 'Free while you evaluate') }}</div>
                         <ul>
                             <li data-i18n="landing.plans.free.1">{{ strings.get('landing.plans.free.1', 'Full engine: math check, stress test, provenance') }}</li>
-                            <li data-i18n="landing.plans.free.2">{{ strings.get('landing.plans.free.2', 'Free while you evaluate') }}</li>
+                            <li data-i18n="landing.plans.free.2">{{ strings.get('landing.plans.free.2', 'Full provenance & Z3 logic checks') }}</li>
                             <li data-i18n="landing.plans.free.3">{{ strings.get('landing.plans.free.3', 'No card required') }}</li>
                         </ul>
                         <button type="button" class="btn-primary-small" data-waitlist-open data-i18n="landing.hero.cta_primary">{{ strings.get('landing.hero.cta_primary', 'Book a Demo') }}</button>
