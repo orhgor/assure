@@ -2156,8 +2156,8 @@ body {
 
 .enterprise-landing .hero-sub {
     color: #475569;
-    font-size: 1.2rem;
-    max-width: 21rem;
+    font-size: 1.1rem;
+    max-width: 40rem;
     margin: 24px auto 48px;
     line-height: 1.6;
     text-align: center;
@@ -3384,7 +3384,7 @@ body.waitlist-open {
 
 @media (min-width: 641px) and (max-width: 800px) {
     .enterprise-landing .hero-sub {
-        max-width: 24rem;
+        max-width: 40rem;
     }
 }
 
