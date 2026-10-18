@@ -44,7 +44,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='landing.css') }}?v={{ landing_css_version|default('75') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='landing.css') }}?v={{ landing_css_version|default('77') }}">
     {% include 'includes/plausible.html' %}
     {% include 'includes/sentry.html' %}
     <script>
@@ -63,7 +63,7 @@
                     {%- set sub = strings.get('landing.hero.subtitle', '') -%}
                     {%- if sub -%}
                       {%- set parts = sub.split('. ') -%}
-                      {%- for part in parts -%}{% if not loop.last %}<span class="sub-line">{{ part.strip() }}{% if not part.endswith('.') %}.{% endif %}</span>{% else %}<span class="sub-line">{{ part.strip() }}</span>{% endif %}{% endfor -%}
+                      {%- for part in parts -%}<span class="sub-line">{{ part.strip() }}{% if not part.endswith('.') %}.{% endif %}{% if not loop.last %}{{ ' ' }}{% endif %}</span>{%- endfor -%}
                     {%- endif -%}
                 </p>
                 <div class="hero-cta-group">

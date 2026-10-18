@@ -109,11 +109,13 @@ body {
 .landing-lang-wrap {
     display: inline-flex;
     align-items: center;
+    line-height: 1;
 }
 
 .landing-lang-select {
     font: inherit;
     font-size: 0.85rem;
+    line-height: 1.2;
     padding: 0.35rem 0.5rem;
     border-radius: 6px;
     border: 1px solid var(--border-color);
@@ -414,8 +416,10 @@ body {
 .hero-sub {
     font-size: 1.25rem;
     color: var(--text-muted);
-    max-width: 750px;
+    max-width: 21rem;
     margin: 0 auto 2.5rem auto;
+    text-align: center;
+    text-wrap: balance;
 }
 
 .hero-tagline {
@@ -2153,10 +2157,11 @@ body {
 .enterprise-landing .hero-sub {
     color: #475569;
     font-size: 1.2rem;
-    max-width: 640px;
+    max-width: 21rem;
     margin: 24px auto 48px;
     line-height: 1.6;
     text-align: center;
+    text-wrap: balance;
 }
 
 /* Subhero: each sentence on its own line (AI-detection-safe: no em dashes) */
@@ -3155,11 +3160,12 @@ body.waitlist-open {
     padding: 112px 16px 16px;
 }
 
+/* Trust badges — one centered optical axis, S3 icon matched to AWS cap-height */
 .trust-logos {
     display: flex;
-    justify-content: center;
     align-items: center;
-    gap: 32px;
+    justify-content: center;
+    gap: 1rem;
 }
 
 .trust-logos img {
@@ -3167,6 +3173,13 @@ body.waitlist-open {
     width: auto;
     opacity: 0.85;
     display: block;
+    vertical-align: middle;
+}
+
+/* S3 bucket mark is visually taller than the AWS wordmark — nudge to cap-height */
+.trust-logos img[alt="Amazon S3"] {
+    height: 26px;
+    transform: translateY(1px);
 }
 
 @media (max-width: 760px) {
@@ -3250,13 +3263,14 @@ body.waitlist-open {
 }
 
 @media (max-width: 640px) {
-    /* 1. Typography — left-aligned copy inside a centered wrapper */
+    /* 1. Typography — centered copy, tight wrapper, balanced lines.
+          Aligns with the centered headline above and the centered CTA pair below. */
     .enterprise-landing .hero-sub {
-        max-width: 22rem;
+        max-width: 21rem;
         margin: 18px auto 26px;
-        text-align: left;
+        text-align: center;
         line-height: 1.6;
-        text-wrap: pretty;
+        text-wrap: balance;
     }
 
     .enterprise-landing .hero-sub .sub-line {
@@ -3321,6 +3335,45 @@ body.waitlist-open {
     .enterprise-landing .logos-band {
         padding: 40px 16px 24px;
     }
+}
+
+/* =============================================================
+   v77 — hero rhythm pass
+   1. Header row: logo + language trigger on one optical centerline
+   2. Trust badges: centered flex axis, S3 matched to AWS cap-height
+   ============================================================= */
+
+/* 1. Header row — enforced flex axis on every viewport */
+.nav-container {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.enterprise-landing .landing-lang-wrap {
+    display: inline-flex;
+    align-items: center;
+    align-self: center;
+    height: 2.25rem;
+}
+
+.enterprise-landing .landing-lang-select {
+    line-height: 1.2;
+    margin: 0;
+    vertical-align: middle;
+}
+
+/* 2. Trust badge optical alignment — one shared centerline */
+.trust-logos {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+}
+
+.trust-logos img {
+    vertical-align: middle;
+    display: block;
 }
 
 @media (min-width: 641px) and (max-width: 800px) {
