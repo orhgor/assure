@@ -1,0 +1,57 @@
+{% extends "site_base.html" %}
+{% block title %}Security and audit trail · Assure{% endblock %}
+{% block meta_description %}How Assure keeps source evidence, runs readable checks, logs reviewer decisions and handles data on AWS.{% endblock %}
+{% block canonical %}/security-and-audit{% endblock %}
+
+{% block content %}
+<section class="hero-section">
+    <div class="container">
+        <h1 class="hero-title">How Assure keeps the evidence.</h1>
+        <p class="hero-sub">What is recorded, how review works, and how data is handled.</p>
+    </div>
+</section>
+
+<section class="site-section">
+    <div class="container narrow">
+        <article class="usecase">
+            <h2 class="section-title">Evidence</h2>
+            <ul class="check-list">
+                <li>Every value links to its source page.</li>
+                <li>Originals are fingerprinted and kept as received.</li>
+                <li>Corrections are logged as new entries. They never overwrite the source.</li>
+            </ul>
+        </article>
+        <article class="usecase">
+            <h2 class="section-title">Checks</h2>
+            <ul class="check-list">
+                <li>Rules are explicit expressions, evaluated by the Z3 solver.</li>
+                <li>Severities are info, warning and blocking. A blocking finding sends the record to review.</li>
+                <li>Unchecked values are shown as unchecked. Verification is a filter, not a guarantee.</li>
+            </ul>
+        </article>
+        <article class="usecase">
+            <h2 class="section-title">Review and audit trail</h2>
+            <ul class="check-list">
+                <li>Reviewers accept, correct or dispute each item. A dispute needs a reason.</li>
+                <li>Each entry logs the time, the old value, the new value and the reason. Signed-in reviewers are also recorded by name.</li>
+            </ul>
+        </article>
+        <article class="usecase">
+            <h2 class="section-title">Data</h2>
+            <ul class="check-list">
+                <li>Processed by Assure on AWS infrastructure, and by vetted subprocessors under contract.</li>
+                <li>Used only to provide the service. Not used to train models.</li>
+                <li>A subprocessor list is available to customers on request.</li>
+            </ul>
+        </article>
+        <p>Assure does not give legal, financial or regulatory advice. Your team decides.</p>
+    </div>
+</section>
+
+<section class="site-section closing-section">
+    <div class="container center">
+        <h2 class="section-title">Preparing a security review?</h2>
+        <a class="btn-primary" href="/contact?topic=security">Talk to us</a>
+    </div>
+</section>
+{% endblock %}

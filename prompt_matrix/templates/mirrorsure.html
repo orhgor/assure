@@ -1,0 +1,44 @@
+{% extends "site_base.html" %}
+{% block title %}MirrorSure: compare and catch drift · Assure{% endblock %}
+{% block meta_description %}Check documents against their master, field by field: Aligned, Drift, Missing or Conflict, with evidence from both sides.{% endblock %}
+{% block canonical %}/features/mirrorsure{% endblock %}
+
+{% block content %}
+<section class="hero-section">
+    <div class="container">
+        <p class="eyebrow">Feature of Assure</p>
+        <h1 class="hero-title">MirrorSure: compare and catch drift.</h1>
+        <p class="hero-sub">Check any document against the master it must follow, field by field, with evidence from both sides.</p>
+        <div class="hero-cta-group"><a href="/contact" class="btn-primary">Request a demo</a></div>
+    </div>
+</section>
+
+<section class="site-section">
+    <div class="container narrow">
+        <table class="compare-table">
+            <thead><tr><th scope="col">Status</th><th scope="col">Meaning</th></tr></thead>
+            <tbody>
+                <tr><th scope="row"><span class="badge badge-aligned">Aligned</span></th><td>Matches the master</td></tr>
+                <tr><th scope="row"><span class="badge badge-drift">Drift</span></th><td>Differs from the master</td></tr>
+                <tr><th scope="row"><span class="badge badge-missing">Missing</span></th><td>Required by the master, absent in the target</td></tr>
+                <tr><th scope="row"><span class="badge badge-conflict">Conflict</span></th><td>Sources disagree</td></tr>
+            </tbody>
+        </table>
+        <ul class="check-list">
+            <li><strong>Your master:</strong> your team defines or confirms it. Assure does not invent one.</li>
+            <li><strong>Data, not redlines:</strong> values and terms are compared field by field.</li>
+            <li><strong>Evidence on both sides:</strong> every status cites the master and the target.</li>
+            <li><strong>Blocking findings:</strong> the record stays in review until they are resolved.</li>
+        </ul>
+        <div class="example-box">
+            <p><strong>Examples:</strong> contract vs invoice · policy vs claim · maintenance spec vs card · specification vs test record · approved plan vs change order</p>
+        </div>
+    </div>
+</section>
+
+<section class="site-section closing-section">
+    <div class="container center">
+        <a class="btn-primary" href="/contact">Request a demo</a>
+    </div>
+</section>
+{% endblock %}

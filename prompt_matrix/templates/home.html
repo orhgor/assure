@@ -1,0 +1,119 @@
+{% extends "site_base.html" %}
+{% block title %}Assure: Documents in. Verified output out.{% endblock %}
+{% block meta_description %}Assure checks contracts, invoices, claims and specs field by field, links every value to its source page, and gives reviewers one verified record.{% endblock %}
+{% block canonical %}/{% endblock %}
+
+{% block extra_head %}
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"Organization","name":"Assure","url":"https://getassureai.com/","logo":"https://getassureai.com/static/assure-logo.png","slogan":"Documents in. Verified output out.","description":"Assure checks contracts, invoices, claims and specifications field by field, links every value to its source page, and gives your reviewers one verified record with a full audit trail.","parentOrganization":{"@type":"Organization","name":"SeroState"},"contactPoint":{"@type":"ContactPoint","contactType":"sales","email":"hello@getassureai.com"}}
+</script>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Is Assure a CLM or drafting tool?","acceptedAnswer":{"@type":"Answer","text":"No. It checks documents against their source and master."}},{"@type":"Question","name":"What does \"verified\" mean?","acceptedAnswer":{"@type":"Answer","text":"Every field has passed its checks or has been reviewed by a person."}},{"@type":"Question","name":"Does it replace reviewers?","acceptedAnswer":{"@type":"Answer","text":"No. People make the final call."}},{"@type":"Question","name":"Which files?","acceptedAnswer":{"@type":"Answer","text":"PDFs and scanned images. Ask us about other formats."}},{"@type":"Question","name":"Do you train models on our documents?","acceptedAnswer":{"@type":"Answer","text":"No."}}]}
+</script>
+{% endblock %}
+
+{% block content %}
+<section class="hero-section">
+    <div class="container">
+        <h1 class="hero-title">Documents in. Verified output out.</h1>
+        <p class="hero-sub">Assure checks contracts, invoices, claims and specifications field by field, links every value to its source page, and gives your reviewers one verified record with a full audit trail.</p>
+        <div class="hero-cta-group">
+            <a href="/contact" class="btn-primary">Request a demo</a>
+        </div>
+        <p class="hero-secondary-link"><a href="#how-it-works">See how it works &darr;</a></p>
+        <p class="hero-microline">Verification-first document intelligence.</p>
+        <p class="hero-badges">
+            <img src="/static/badge-built-on-aws.svg" alt="Built on AWS" height="24">
+            <img src="/static/badge-aws-activate.svg" alt="AWS Activate" height="24">
+        </p>
+    </div>
+</section>
+
+<section class="site-section">
+    <div class="container">
+        <h2 class="section-title">One tool. Two features.</h2>
+        <div class="feature-pair">
+            <article class="feature-card">
+                <h3>ParSure: Extract and prove.</h3>
+                <p>Fields from messy PDFs, each linked to its source page, with math and rules checked.</p>
+                <a href="/features/parsure">ParSure &rarr;</a>
+            </article>
+            <article class="feature-card">
+                <h3>MirrorSure: Compare and catch drift.</h3>
+                <p>Each field is checked against your master and marked Aligned, Drift, Missing or Conflict.</p>
+                <a href="/features/mirrorsure">MirrorSure &rarr;</a>
+            </article>
+        </div>
+    </div>
+</section>
+
+<section class="site-section site-section-tinted">
+    <div class="container">
+        <h2 class="section-title">Catch overbilling before you pay.</h2>
+        <p class="section-lead">Master: the contract and price list. Target: the invoice or purchase record. Assure flags:</p>
+        <div class="status-grid">
+            <article class="status-card"><h3><span class="badge badge-drift">Drift</span></h3><p>Wrong price or rebate</p></article>
+            <article class="status-card"><h3><span class="badge badge-missing">Missing</span></h3><p>A contracted discount is absent</p></article>
+            <article class="status-card"><h3><span class="badge badge-conflict">Conflict</span></h3><p>Records disagree</p></article>
+        </div>
+        <p class="section-lead">Each finding cites the clause and the invoice line. <a href="/use-cases">Use cases &rarr;</a></p>
+    </div>
+</section>
+
+<section id="how-it-works" class="site-section">
+    <div class="container">
+        <h2 class="section-title">How it works</h2>
+        <ol class="steps-list">
+            <li><strong>Ingest.</strong> Originals are fingerprinted and kept as received.</li>
+            <li><strong>Extract.</strong> Each value is linked to its source page.</li>
+            <li><strong>Check.</strong> The Z3 solver runs math and rules. Unchecked values are shown as unchecked.</li>
+            <li><strong>Compare.</strong> MirrorSure checks against your master.</li>
+            <li><strong>Review.</strong> Reviewers accept, correct or dispute. Every action is logged.</li>
+        </ol>
+    </div>
+</section>
+
+<section class="site-section site-section-tinted">
+    <div class="container">
+        <h2 class="section-title">Why Assure</h2>
+        <p class="section-lead">The output is a document. The product is verification.</p>
+        <table class="compare-table">
+            <thead>
+                <tr><th scope="col">Typical capability</th><th scope="col">CLM and review tools</th><th scope="col">Extraction tools</th><th scope="col">AI assistants</th><th scope="col">Assure</th></tr>
+            </thead>
+            <tbody>
+                <tr><th scope="row">Value linked to its source page</th><td>Sometimes</td><td>Often</td><td>Rarely</td><td><strong>Every field</strong></td></tr>
+                <tr><th scope="row">Math and rule checks</th><td>Limited</td><td>Some</td><td>Rarely</td><td><strong>Z3 solver</strong></td></tr>
+                <tr><th scope="row">Field-by-field check against a master</th><td>Rarely</td><td>Rarely</td><td>No</td><td><strong>Yes</strong></td></tr>
+                <tr><th scope="row">Reviewer accept / correct / dispute</th><td>Approvals</td><td>Often</td><td>No</td><td><strong>Yes, per field</strong></td></tr>
+            </tbody>
+        </table>
+        <p class="section-note">Note: Capabilities vary by vendor. Assure works alongside CLM and ERP tools, not in place of them.</p>
+    </div>
+</section>
+
+<section class="site-section closing-section">
+    <div class="container center">
+        <h2 class="section-title">See Assure on documents like yours.</h2>
+        <a class="btn-primary" href="/contact">Request a demo</a>
+    </div>
+</section>
+
+<section class="site-section">
+    <div class="container narrow">
+        <h2 class="section-title">FAQ</h2>
+        <dl class="faq-list">
+            <dt>Is Assure a CLM or drafting tool?</dt>
+            <dd>No. It checks documents against their source and master.</dd>
+            <dt>What does "verified" mean?</dt>
+            <dd>Every field has passed its checks or has been reviewed by a person.</dd>
+            <dt>Does it replace reviewers?</dt>
+            <dd>No. People make the final call.</dd>
+            <dt>Which files?</dt>
+            <dd>PDFs and scanned images. Ask us about other formats.</dd>
+            <dt>Do you train models on our documents?</dt>
+            <dd>No.</dd>
+        </dl>
+    </div>
+</section>
+{% endblock %}

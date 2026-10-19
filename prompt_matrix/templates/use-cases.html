@@ -1,0 +1,40 @@
+{% extends "site_base.html" %}
+{% block title %}Use cases · Assure{% endblock %}
+{% block meta_description %}Contract vs invoice, insurance claims, aviation maintenance, and regulatory and plan audits.{% endblock %}
+{% block canonical %}/use-cases{% endblock %}
+
+{% block content %}
+<section class="hero-section">
+    <div class="container">
+        <h1 class="hero-title">Where verification pays for itself.</h1>
+        <p class="hero-sub">Any process where a document must match its source or its master.</p>
+    </div>
+</section>
+
+<section class="site-section">
+    <div class="container narrow">
+        <article class="usecase" id="contract-invoice">
+            <h2 class="section-title">Contract and price list vs invoice</h2>
+            <p>For finance, procurement and audit. MirrorSure checks each line against the contract terms, and ParSure checks the invoice math. Each finding cites the clause and the line.</p>
+        </article>
+        <article class="usecase" id="claims">
+            <h2 class="section-title">Insurance and medical claims</h2>
+            <p>For claims operations and audit at insurers and carriers. Each figure is linked to its page. Totals and dates are checked, and claim items are compared with the policy terms your team defines.</p>
+        </article>
+        <article class="usecase" id="aviation-maintenance">
+            <h2 class="section-title">Aviation maintenance vs specification</h2>
+            <p>For maintenance quality and records teams. Values out of tolerance, missing steps and contradicting entries are flagged against the manufacturer's spec. This supports records review. It does not replace required sign-offs. The same approach applies to manufacturing quality.</p>
+        </article>
+        <article class="usecase" id="regulatory">
+            <h2 class="section-title">Regulatory and plan audits</h2>
+            <p>For compliance, audit and project control. Reports, filings or change orders are compared with the requirements or the approved plan your team sets as the master.</p>
+        </article>
+    </div>
+</section>
+
+<section class="site-section closing-section">
+    <div class="container center">
+        <a class="btn-primary" href="/contact">Request a demo</a>
+    </div>
+</section>
+{% endblock %}

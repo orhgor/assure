@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Assure{% endblock %}</title>
+    <meta name="description" content="{% block meta_description %}Assure — verification-first document intelligence.{% endblock %}">
+    <link rel="canonical" href="https://getassureai.com{% block canonical %}{% endblock %}">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="{% block og_title %}{{ self.title() }}{% endblock %}">
+    <meta name="twitter:description" content="{{ self.meta_description() }}">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Assure">
+    <meta property="og:title" content="{{ self.og_title() }}">
+    <meta property="og:description" content="{{ self.meta_description() }}">
+    <meta property="og:url" content="https://getassureai.com{{ self.canonical() }}">
+    <meta property="og:image" content="https://getassureai.com/static/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+    <link rel="icon" href="/static/assure-logo.png" type="image/png">
+    <link rel="apple-touch-icon" href="/static/assure-logo.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/landing.css?v={{ landing_css_version|default('81') }}">
+    {% include 'includes/plausible.html' %}
+    {% include 'includes/sentry.html' %}
+    {% block extra_head %}{% endblock %}
+</head>
+<body class="enterprise-landing">
+    <a class="skip-link" href="#main-content">Skip to content</a>
+    <header class="site-header">
+        <div class="container nav-container">
+            <a href="/" class="logo logo-brand" aria-label="Assure home">
+                <img class="brand-mark" src="/static/assure-logo.png" alt="" width="28" height="28">
+                <span class="logo-copy"><span class="logo-name">Assure</span></span>
+            </a>
+            <nav class="nav-links" aria-label="Primary">
+                <details class="nav-details">
+                    <summary aria-haspopup="true">Product</summary>
+                    <div class="nav-dropdown">
+                        <a href="/features/parsure">ParSure</a>
+                        <a href="/features/mirrorsure">MirrorSure</a>
+                    </div>
+                </details>
+                <a href="/use-cases">Use cases</a>
+                <a href="/security-and-audit">Security &amp; audit</a>
+                <a href="/company">Company</a>
+                <a class="btn-primary-small" href="/contact">Request a demo</a>
+            </nav>
+        </div>
+    </header>
+
+    <main id="main-content">
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="site-footer">
+        <div class="container footer-grid">
+            <div class="footer-col footer-brand">
+                <p class="footer-tagline">Assure. Documents in. Verified output out.</p>
+            </div>
+            <div class="footer-col">
+                <p class="footer-heading">Product</p>
+                <a href="/">Overview</a>
+                <a href="/features/parsure">ParSure</a>
+                <a href="/features/mirrorsure">MirrorSure</a>
+            </div>
+            <div class="footer-col">
+                <p class="footer-heading">Use cases</p>
+                <a href="/use-cases#contract-invoice">Contract and invoice</a>
+                <a href="/use-cases#claims">Claims</a>
+                <a href="/use-cases#aviation-maintenance">Aviation maintenance</a>
+                <a href="/use-cases#regulatory">Regulatory</a>
+            </div>
+            <div class="footer-col">
+                <p class="footer-heading">Company</p>
+                <a href="/company">Company</a>
+                <a href="/security-and-audit">Security &amp; audit</a>
+                <a href="/contact">Contact</a>
+            </div>
+            <div class="footer-col">
+                <p class="footer-heading">Legal</p>
+                <a href="/privacy">Privacy</a>
+                <a href="/terms">Terms</a>
+            </div>
+        </div>
+        <div class="container footer-bottom">
+            <p>© 2026 SeroState. All rights reserved.</p>
+            <p class="footer-badges">
+                <img src="/static/badge-built-on-aws.svg" alt="Built on AWS" height="24">
+                <img src="/static/badge-aws-activate.svg" alt="AWS Activate" height="24">
+            </p>
+            <p class="footer-links"><a href="/privacy">Privacy</a> · <a href="/terms">Terms</a> · <a href="mailto:hello@getassureai.com">hello@getassureai.com</a></p>
+        </div>
+    </footer>
+</body>
+</html>

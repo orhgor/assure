@@ -1,0 +1,37 @@
+{% extends "site_base.html" %}
+{% block title %}ParSure: extract and prove · Assure{% endblock %}
+{% block meta_description %}Fields from claims, medical forms and invoices, linked to their source page, checked against math and rules, and reviewed.{% endblock %}
+{% block canonical %}/features/parsure{% endblock %}
+
+{% block content %}
+<section class="hero-section">
+    <div class="container">
+        <p class="eyebrow">Feature of Assure</p>
+        <h1 class="hero-title">ParSure: extract and prove.</h1>
+        <p class="hero-sub">Fields from claims, medical forms and invoices, linked to their source page, checked and reviewed.</p>
+        <div class="hero-cta-group"><a href="/contact" class="btn-primary">Request a demo</a></div>
+    </div>
+</section>
+
+<section class="site-section">
+    <div class="container narrow">
+        <ul class="check-list">
+            <li><strong>Source page</strong> on every field</li>
+            <li><strong>Line items:</strong> charges, quantities and totals</li>
+            <li><strong>Math checks:</strong> totals, tax and line sums, by the Z3 solver</li>
+            <li><strong>Rule checks:</strong> dates, required fields and ranges, each with a severity of info, warning or blocking</li>
+            <li><strong>Review:</strong> accept, correct or dispute. The original value is kept, and a dispute needs a reason.</li>
+            <li><strong>One verified record:</strong> fields, check results and decisions together</li>
+        </ul>
+        <div class="example-box">
+            <p><strong>Example:</strong> A claim's charges don't add up to its total. ParSure raises a blocking finding that shows the calculated and the stated amount. The reviewer resolves it, and the record keeps the history.</p>
+        </div>
+    </div>
+</section>
+
+<section class="site-section closing-section">
+    <div class="container center">
+        <a class="btn-primary" href="/contact">Request a demo</a>
+    </div>
+</section>
+{% endblock %}
