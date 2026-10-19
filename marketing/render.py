@@ -33,55 +33,64 @@ from marketing.app import (  # noqa: E402
 
 # template -> output path under locale root
 PAGES: list[dict] = [
-    {"template": "landing.html", "output": "index.html", "kind": "landing", "suffix": ""},
+    {"template": "home.html", "output": "index.html", "kind": "landing", "suffix": ""},
     {
-        "template": "architecture.html",
-        "output": "architecture/index.html",
+        "template": "parsure.html",
+        "output": "features/parsure/index.html",
         "kind": "landing",
-        "suffix": "architecture/",
+        "suffix": "features/parsure",
     },
     {
-        "template": "landing_privacy.html",
-        "output": "privacy/index.html",
+        "template": "mirrorsure.html",
+        "output": "features/mirrorsure/index.html",
         "kind": "landing",
-        "suffix": "privacy/",
+        "suffix": "features/mirrorsure",
+    },
+    {
+        "template": "use-cases.html",
+        "output": "use-cases/index.html",
+        "kind": "landing",
+        "suffix": "use-cases",
+    },
+    {
+        "template": "security-audit.html",
+        "output": "security-and-audit/index.html",
+        "kind": "landing",
+        "suffix": "security-and-audit",
+    },
+    {
+        "template": "company.html",
+        "output": "company/index.html",
+        "kind": "landing",
+        "suffix": "company",
     },
     {
         "template": "contact.html",
         "output": "contact/index.html",
         "kind": "landing",
-        "suffix": "contact/",
+        "suffix": "contact",
     },
     {
-        "template": "contact.html",
-        "output": "contact-us/index.html",
+        "template": "landing_privacy.html",
+        "output": "privacy/index.html",
         "kind": "landing",
-        "suffix": "contact-us/",
+        "suffix": "privacy",
     },
     {
         "template": "terms.html",
         "output": "terms/index.html",
-        "kind": "base",
-        "active": "terms",
-        "suffix": "terms/",
+        "kind": "landing",
+        "suffix": "terms",
     },
     {
-        "template": "about.html",
-        "output": "about/index.html",
-        "kind": "base",
-        "active": "about",
-        "suffix": "about/",
-    },
-    {
-        "template": "pricing.html",
-        "output": "pricing/index.html",
-        "kind": "base",
-        "active": "pricing",
-        "suffix": "pricing/",
-        "extra": {"stripe_ready": False},
+        "template": "404.html",
+        "output": "404.html",
+        "kind": "landing",
+        "suffix": "",
     },
 ]
-
+# template -> output path under locale root
+PAGES: list[dict]
 
 _I18N_ATTR_RE = re.compile(r'data-i18n(?:-html|-placeholder|-aria|-label)?="([^"]+)"')
 _GET_KEY_RE = re.compile(r"strings\.get\(\s*['\"]([a-zA-Z0-9_.]+)['\"]")
