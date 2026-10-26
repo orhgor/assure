@@ -70,9 +70,7 @@ EN = {
         "numbers, and citations against the source — page-level provenance you can defend."
     ),
     "brand.architecture_title": "How It Works · Assure — The Intellectual Compiler",
-    "brand.architecture_meta_description": (
-        "Why guessing fails—and how Assure turns your intent into verified documents you can ship with confidence."
-    ),
+    "brand.architecture_meta_description": "Why guessing fails—and how Assure turns your intent into verified documents that are ready to ship.",
     "hero.title": "Verify drafts against your source documents.",
     "lede": "Paste generated draft text and upload source files to verify claims.",
     "how.restructure": "You type a question. Assure rewrites it for the AI you chose. The panel below shows the prompt as you type. Get my answer sends it to that provider. Copy stays on this computer.",
@@ -242,7 +240,7 @@ EN = {
     "landing.trust.model.title": "Model flexibility",
     "landing.trust.model.body": "Bring your own keys, or use managed enterprise routers. You choose the model. We prove the output.",
     "landing.trust.proof": "Validated in regulated enterprise workflows — every claim checked against source page.",
-    "landing.trust.lead": "Grounded in your documents, not the model's memory. Parsure parses incoming files into structured data — with per-page confidence — and Assure verifies every page, table, and clause of your source documents, so every check points at a real source, not a statistical guess.",
+    "landing.trust.lead": "Grounded in your documents, not the model's memory. Parsure parses incoming files into structured data, and Assure verifies every page, table, and clause of your source documents, so every check points at a real source, not a statistical guess.",
     "landing.diff.title": "Why Assure is different",
     "landing.diff.intro": (
         "Most enterprise AI tools help you extract, draft, or search. "
@@ -915,7 +913,7 @@ EN = {
     "terms.who.h": "Who this covers",
     "terms.who": "These terms apply when you use Assure on this computer or read getassureai.com. They are not legal advice.",
     "terms.answers.h": "Answers can be wrong",
-    "terms.answers": "Assure rewrites your question, can send it to models you connect, and can drop claims that were not in your files. That is a filter, not a guarantee. You check the result before you use it with a client, a paper, or a decision.",
+    "terms.answers": "Assure rewrites your question, can send it to models you connect, and can drop claims that were not in your files. That is a filter, not a promise of accuracy. You check the result before you use it with a client, a paper, or a decision.",
     "terms.send.h": "Copy and Send",
     "terms.send": "Copy keeps the compiled prompt on this computer. Send goes only to the provider you connected. Closed to the internet keeps the question here. Open to the internet, it goes to that provider. Assure does not store the text of your questions.",
     "terms.duty.h": "Your responsibility",
@@ -940,7 +938,7 @@ EN = {
     "terms.verify.h": "Human review",
     "terms.verify": "You are solely responsible for verifying outputs before you take action. Assure is an aid to human judgment, not a replacement for it. Human review is mandatory before you rely on any document.",
     "terms.accuracy.h": "Accuracy",
-    "terms.accuracy": "AI systems are probabilistic and can hallucinate. Verification is a filter, not a guarantee. We do not promise that output is flawless, complete, or free from errors. Independently verify critical information.",
+    "terms.accuracy": "AI systems are probabilistic and can hallucinate. Verification is a filter, not a promise of accuracy. We do not promise that output is flawless, complete, or free from errors. Independently verify critical information.",
     "terms.use.h": "What this is for",
     "terms.use": "Assure is designed for document compilation, verification, and compliance review. It is not a substitute for binding legal, financial, or regulatory decisions. If you rely on the output as your sole verification, that responsibility stays with you.",
     "terms.third.h": "Third parties",
@@ -1439,6 +1437,9 @@ EN = {
     "jdf.redhat.empty": "Nothing to analyze yet.",
     "jdf.redhat.none": "No issues found.",
     "landing.footer.owner": "© 2026 Archeon Cloud. Assure is a product of Archeon Cloud, Dubai.",
+    "landing.hero.cta_primary": "Book a Demo",
+    "landing.pilot.title": "Book a Demo",
+    "landing.pilot.submit": "Book a Demo",
 }
 
 ES = {
@@ -2214,7 +2215,7 @@ ES = {
     "terms.who.h": "A quién cubre",
     "terms.who": "Estas condiciones aplican cuando usas el escritorio Assure en este equipo o lees getassureai.com. No son asesoramiento legal.",
     "terms.answers.h": "Las respuestas pueden estar mal",
-    "terms.answers": "Assure reescribe tu pregunta, puede enviarla a los modelos que conectas, y puede quitar afirmaciones que no estaban en tus archivos. Es un filtro, no una garantía. Compruebas el resultado antes de usarlo con un cliente, un artículo o una decisión.",
+    "terms.answers": "Assure reescribe tu pregunta, puede enviarla a los modelos que conectas, y puede quitar afirmaciones que no estaban en tus archivos. Es un filtro, no una promesa de exactitud. Compruebas el resultado antes de usarlo con un cliente, un artículo o una decisión.",
     "terms.send.h": "Copiar y enviar",
     "terms.send": "Copiar deja el texto compilado en este equipo. Enviar va solo al proveedor que conectaste. Cerrado a internet deja la pregunta aquí. Abierto a internet, va a ese proveedor. Assure no guarda el texto de tus preguntas.",
     "terms.duty.h": "Tu responsabilidad",
@@ -2239,7 +2240,7 @@ ES = {
     "terms.verify.h": "Revisión humana",
     "terms.verify": "Eres el único responsable de verificar los resultados antes de actuar. Assure es una ayuda al juicio humano, no un reemplazo. La revisión humana es obligatoria antes de confiar en cualquier documento.",
     "terms.accuracy.h": "Exactitud",
-    "terms.accuracy": "Los sistemas de IA son probabilísticos y pueden alucinar. La verificación es un filtro, no una garantía. No prometemos que el resultado sea impecable, completo o libre de errores. Verifica por tu cuenta la información crítica.",
+    "terms.accuracy": "Los sistemas de IA son probabilísticos y pueden alucinar. La verificación es un filtro, no una promesa de exactitud. No prometemos que el resultado sea impecable, completo o libre de errores. Verifica por tu cuenta la información crítica.",
     "terms.use.h": "Para qué sirve",
     "terms.use": "Assure está pensado para compilar, verificar y revisar cumplimiento. No sustituye decisiones legales, financieras o regulatorias vinculantes. Si usas el resultado como única verificación, esa responsabilidad es tuya.",
     "terms.third.h": "Terceros",
@@ -2768,6 +2769,9 @@ ES = {
     "landing.diff.cat1.examples": "Asistentes de IA para redacción, investigación y revisión jurídica",
     "landing.diff.cat2.examples": "Plataformas de OCR, extracción y procesamiento inteligente de documentos",
     "landing.diff.cat3.examples": "Modelos de lenguaje generalistas + prompts + RAG + scripts internos",
+    "landing.hero.cta_primary": "Reservar una demo",
+    "landing.pilot.title": "Reservar una demo",
+    "landing.pilot.submit": "Reservar una demo",
 }
 
 ZH = {
@@ -3533,7 +3537,7 @@ ZH = {
     "terms.who.h": "适用于谁",
     "terms.who": "你在这台电脑上使用 Assure 工作台，或阅读 getassureai.com 时，适用这些条款。这不是法律意见。",
     "terms.answers.h": "回答可能是错的",
-    "terms.answers": "Assure 会改写你的问题，可以发给你连接的模型，并可以去掉你文件里没有的说法。这是过滤，不是保证。交给客户、论文或决策之前，你自己核对结果。",
+    "terms.answers": "Assure 会改写你的问题，可以发给你连接的模型，并可以去掉你文件里没有的说法。这是过滤，不是对准确性的承诺。交给客户、论文或决策之前，你自己核对结果。",
     "terms.send.h": "复制与发送",
     "terms.send": "复制把编好的提示留在这台电脑。发送只到你连接的提供商。对互联网关闭则问题留在这里。对互联网开放则发到该提供商。Assure 不保存你问题的正文。",
     "terms.duty.h": "你的责任",
@@ -4076,7 +4080,7 @@ ZH = {
     "landing.nav.launch": "打开应用",
     "landing.nav.menu": "菜单",
     "landing.hero.sub": "The enterprise document platform that proves every word, number, and clause before you ship.",
-    "landing.hero.cta.paste": "申请企业试点",
+    "landing.hero.cta.paste": "预约演示",
     "landing.hero.cta.architecture": "查看 60 秒实证",
     "landing.hero.caption": "You compile. It verifies. You ship.",
     "landing.demo.aria": "交互式工作台预览",
@@ -4642,7 +4646,7 @@ ZH = {
     "terms.who.h": "适用于谁",
     "terms.who": "你在这台电脑上使用 Assure 工作台，或阅读 getassureai.com 时，适用这些条款。这不是法律意见。",
     "terms.answers.h": "回答可能是错的",
-    "terms.answers": "Assure 会改写你的问题，可以发给你连接的模型，并可以去掉你文件里没有的说法。这是过滤，不是保证。交给客户、论文或决策之前，你自己核对结果。",
+    "terms.answers": "Assure 会改写你的问题，可以发给你连接的模型，并可以去掉你文件里没有的说法。这是过滤，不是对准确性的承诺。交给客户、论文或决策之前，你自己核对结果。",
     "terms.send.h": "复制与发送",
     "terms.send": "复制把编好的提示留在这台电脑。发送只到你连接的提供商。对互联网关闭则问题留在这里。对互联网开放则发到该提供商。Assure 不保存你问题的正文。",
     "terms.duty.h": "你的责任",
@@ -4667,7 +4671,7 @@ ZH = {
     "terms.verify.h": "人工审阅",
     "terms.verify": "在采取行动前核验输出，责任完全在你。Assure 辅助人的判断，不能代替人。在依赖任何文档之前，必须人工审阅。",
     "terms.accuracy.h": "准确性",
-    "terms.accuracy": "人工智能系统是概率性的，可能产生幻觉。核验是过滤，不是保证。我们不承诺输出完美、完整或无误。请自行核验关键信息。",
+    "terms.accuracy": "人工智能系统是概率性的，可能产生幻觉。核验是过滤，不是对准确性的承诺。我们不承诺输出完美、完整或无误。请自行核验关键信息。",
     "terms.use.h": "用途范围",
     "terms.use": "Assure 用于文档汇编、核验与合规审阅。不能替代有约束力的法律、财务或监管决定。若把输出当作唯一核验手段，责任仍在你。",
     "terms.third.h": "第三方",
@@ -5196,6 +5200,9 @@ ZH = {
     "landing.diff.cat1.examples": "用于法律起草、研究和审阅的 AI 助手",
     "landing.diff.cat2.examples": "OCR、数据提取和智能文档处理平台",
     "landing.diff.cat3.examples": "通用语言模型 + 提示词 + RAG + 内部脚本",
+    "landing.hero.cta_primary": "预约演示",
+    "landing.pilot.title": "预约演示",
+    "landing.pilot.submit": "预约演示",
 }
 
 FR = {
@@ -6008,7 +6015,7 @@ FR = {
     "terms.who.h": "Qui est concerné",
     "terms.who": "Ces conditions s'appliquent quand vous utilisez le banc Assure sur cet ordinateur ou lisez getassureai.com. Ce n'est pas un avis juridique.",
     "terms.answers.h": "Les réponses peuvent être fausses",
-    "terms.answers": "Assure réécrit votre question, peut l'envoyer aux modèles que vous connectez, et peut retirer des affirmations absentes de vos fichiers. C'est un filtre, pas une garantie. Vous vérifiez le résultat avant de l'utiliser avec un client, un article ou une décision.",
+    "terms.answers": "Assure réécrit votre question, peut l'envoyer aux modèles que vous connectez, et peut retirer des affirmations absentes de vos fichiers. C'est un filtre, pas une promesse d'exactitude. Vous vérifiez le résultat avant de l'utiliser avec un client, un article ou une décision.",
     "terms.send.h": "Copier et envoyer",
     "terms.send": "Copier garde le texte compilé sur cet ordinateur. Envoyer va seulement au fournisseur que vous avez connecté. Fermé à internet garde la question ici. Ouvert à internet, elle va chez ce fournisseur. Assure ne stocke pas le texte de vos questions.",
     "terms.duty.h": "Votre responsabilité",
@@ -6033,7 +6040,7 @@ FR = {
     "terms.verify.h": "Revue humaine",
     "terms.verify": "Vous êtes seul responsable de vérifier les résultats avant d'agir. Assure aide le jugement humain ; il ne le remplace pas. Une revue humaine est obligatoire avant de vous fier à un document.",
     "terms.accuracy.h": "Exactitude",
-    "terms.accuracy": "Les systèmes d'IA sont probabilistes et peuvent halluciner. La vérification est un filtre, pas une garantie. Nous ne promettons pas un résultat sans défaut, complet ou sans erreur. Vérifiez vous-même les informations critiques.",
+    "terms.accuracy": "Les systèmes d'IA sont probabilistes et peuvent halluciner. La vérification est un filtre, pas une promesse d'exactitude. Nous ne promettons pas un résultat sans défaut, complet ou sans erreur. Vérifiez vous-même les informations critiques.",
     "terms.use.h": "À quoi ça sert",
     "terms.use": "Assure est conçu pour compiler, vérifier et revoir la conformité. Il ne remplace pas des décisions juridiques, financières ou réglementaires contraignantes. Si vous vous fiez au résultat comme seule vérification, cette responsabilité reste la vôtre.",
     "terms.third.h": "Tiers",
@@ -6511,6 +6518,9 @@ FR = {
     "landing.diff.cat1.examples": "Assistants IA pour la rédaction, la recherche et la relecture juridiques",
     "landing.diff.cat2.examples": "Plateformes d’OCR, d’extraction et de traitement intelligent de documents",
     "landing.diff.cat3.examples": "Modèles de langage généralistes + prompts + RAG + scripts internes",
+    "landing.hero.cta_primary": "Réserver une démo",
+    "landing.pilot.title": "Réserver une démo",
+    "landing.pilot.submit": "Réserver une démo",
 }
 
 DE = {
@@ -7284,7 +7294,7 @@ DE = {
     "terms.who.h": "Wen das betrifft",
     "terms.who": "Diese Bedingungen gelten, wenn Sie die Assure-Arbeitsfläche auf diesem Computer nutzen oder getassureai.com lesen. Das ist keine Rechtsberatung.",
     "terms.answers.h": "Antworten können falsch sein",
-    "terms.answers": "Assure schreibt Ihre Frage um, kann sie an Modelle senden, die Sie verbinden, und kann Behauptungen streichen, die nicht in Ihren Dateien standen. Das ist ein Filter, keine Garantie. Sie prüfen das Ergebnis, bevor Sie es bei einem Kunden, einem Papier oder einer Entscheidung verwenden.",
+    "terms.answers": "Assure schreibt Ihre Frage um, kann sie an Modelle senden, die Sie verbinden, und kann Behauptungen streichen, die nicht in Ihren Dateien standen. Das ist ein Filter, kein Genauigkeitsversprechen. Sie prüfen das Ergebnis, bevor Sie es bei einem Kunden, einem Papier oder einer Entscheidung verwenden.",
     "terms.send.h": "Kopieren und Senden",
     "terms.send": "Kopieren lässt den kompilierten Text auf diesem Computer. Senden geht nur an den Anbieter, den Sie verbunden haben. Zum Internet geschlossen bleibt die Frage hier. Zum Internet offen geht sie zu diesem Anbieter. Assure speichert den Text Ihrer Fragen nicht.",
     "terms.duty.h": "Ihre Verantwortung",
@@ -7309,7 +7319,7 @@ DE = {
     "terms.verify.h": "Menschliche Prüfung",
     "terms.verify": "Sie allein prüfen Ausgaben, bevor Sie handeln. Assure hilft dem menschlichen Urteil, es ersetzt es nicht. Vor dem Verlassen auf ein Dokument ist eine menschliche Prüfung Pflicht.",
     "terms.accuracy.h": "Genauigkeit",
-    "terms.accuracy": "KI-Systeme sind probabilistisch und können halluzinieren. Prüfung ist ein Filter, keine Garantie. Wir versprechen keine fehlerfreie, vollständige oder irrtumsfreie Ausgabe. Prüfen Sie kritische Angaben selbst.",
+    "terms.accuracy": "KI-Systeme sind probabilistisch und können halluzinieren. Prüfung ist ein Filter, kein Genauigkeitsversprechen. Wir versprechen keine fehlerfreie, vollständige oder irrtumsfreie Ausgabe. Prüfen Sie kritische Angaben selbst.",
     "terms.use.h": "Wofür das gedacht ist",
     "terms.use": "Assure dient der Dokumentkompilierung, Prüfung und Compliance-Durchsicht. Es ersetzt keine bindenden Rechts-, Finanz- oder Regulierungsentscheidungen. Nutzen Sie die Ausgabe als einzige Prüfung, bleibt diese Verantwortung bei Ihnen.",
     "terms.third.h": "Dritte",
@@ -7838,6 +7848,9 @@ DE = {
     "landing.diff.cat1.examples": "KI-Assistenten für juristisches Entwerfen, Recherche und Prüfung",
     "landing.diff.cat2.examples": "Plattformen für OCR, Extraktion und intelligente Dokumentenverarbeitung",
     "landing.diff.cat3.examples": "Allgemeine Sprachmodelle + Prompts + RAG + interne Skripte",
+    "landing.hero.cta_primary": "Demo buchen",
+    "landing.pilot.title": "Demo buchen",
+    "landing.pilot.submit": "Demo buchen",
 }
 
 JA = {
@@ -8045,7 +8058,7 @@ JA = {
     "landing.nav.launch": "アプリを起動",
     "landing.nav.menu": "メニュー",
     "landing.hero.sub": "The enterprise document platform that proves every word, number, and clause before you ship.",
-    "landing.hero.cta.paste": "エンタープライズパイロットを依頼",
+    "landing.hero.cta.paste": "デモを予約",
     "landing.hero.cta.architecture": "60秒の実証を見る",
     "landing.hero.caption": "You compile. It verifies. You ship.",
     "landing.demo.aria": "インタラクティブなワークベンチプレビュー",
@@ -8611,7 +8624,7 @@ JA = {
     "terms.who.h": "対象",
     "terms.who": "このコンピュータ上の Assure 作業台を使うとき、または getassureai.com を読むときに適用します。法律相談ではありません。",
     "terms.answers.h": "答えは誤りうる",
-    "terms.answers": "Assure は質問を書き直し、接続したモデルへ送れ、ファイルにない主張を落とせる。これはフィルタであり保証ではない。顧客、論文、判断に使う前に自分で確かめる。",
+    "terms.answers": "Assure は質問を書き直し、接続したモデルへ送れ、ファイルにない主張を落とせる。これはフィルタであり正確さの約束ではない。顧客、論文、判断に使う前に自分で確かめる。",
     "terms.send.h": "コピーと送信",
     "terms.send": "コピーは編んだ文をこのコンピュータに残す。送信は接続した提供者だけ。インターネットに閉じれば質問はここ。開けばその提供者へ行く。Assure は質問本文を保存しない。",
     "terms.duty.h": "あなたの責任",
@@ -8636,7 +8649,7 @@ JA = {
     "terms.verify.h": "人による確認",
     "terms.verify": "行動する前に出力を確かめる責任はあなただけにある。Assure は人の判断を助けるものであり、置き換えるものではない。文書に依拠する前に、人による確認は必須である。",
     "terms.accuracy.h": "正確さ",
-    "terms.accuracy": "AI は確率的であり、幻覚を起こしうる。検証はフィルタであり保証ではない。出力が完全で誤りがないことは約束しない。重要な情報は自分で確かめること。",
+    "terms.accuracy": "AI は確率的であり、幻覚を起こしうる。検証はフィルタであり正確さの約束ではない。出力が完全で誤りがないことは約束しない。重要な情報は自分で確かめること。",
     "terms.use.h": "用途",
     "terms.use": "Assure は文書の編纂、検証、コンプライアンス確認向けである。拘束力のある法律、財務、規制上の決定の代わりにはならない。出力だけを検証手段とするなら、その責任はあなたに残る。",
     "terms.third.h": "第三者",
@@ -9165,6 +9178,9 @@ JA = {
     "landing.diff.cat1.examples": "法務の起案・調査・レビューを支援する AI アシスタント",
     "landing.diff.cat2.examples": "OCR・抽出・インテリジェント文書処理のプラットフォーム",
     "landing.diff.cat3.examples": "汎用言語モデル + プロンプト + RAG + 社内スクリプト",
+    "landing.hero.cta_primary": "デモを予約",
+    "landing.pilot.title": "デモを予約",
+    "landing.pilot.submit": "デモを予約",
 }
 
 TR = {
@@ -9944,7 +9960,7 @@ TR = {
     "terms.who.h": "Kimi kapsar",
     "terms.who": "Bu koşullar, Assure çalışma masasını bu bilgisayarda kullandığında veya getassureai.com okuduğunda geçerlidir. Hukuki tavsiye değildir.",
     "terms.answers.h": "Yanıtlar yanlış olabilir",
-    "terms.answers": "Assure soruyu yeniden yazar, bağladığın modellere gönderebilir, dosyalarında olmayan iddiaları düşürebilir. Bu bir süzgeçtir, garanti değil. Müşteriye, makaleye veya karara vermeden önce sonucu sen kontrol edersin.",
+    "terms.answers": "Assure soruyu yeniden yazar, bağladığın modellere gönderebilir, dosyalarında olmayan iddiaları düşürebilir. Bu bir süzgeçtir, doğruluk vaadi değil. Müşteriye, makaleye veya karara vermeden önce sonucu sen kontrol edersin.",
     "terms.send.h": "Kopyala ve gönder",
     "terms.send": "Kopyala, derlenen metni bu bilgisayarda tutar. Gönder yalnızca bağladığın sağlayıcıya gider. İnternete kapalı soruyu burada tutar. İnternete açıksa o sağlayıcıya gider. Assure sorularının metnini saklamaz.",
     "terms.duty.h": "Sorumluluğun",
@@ -9969,7 +9985,7 @@ TR = {
     "terms.verify.h": "İnsan incelemesi",
     "terms.verify": "Harekete geçmeden önce çıktıları doğrulamak yalnızca senin sorumluluğundadır. Assure insan yargısına yardımcıdır, yerine geçmez. Herhangi bir belgeye güvenmeden önce insan incelemesi zorunludur.",
     "terms.accuracy.h": "Doğruluk",
-    "terms.accuracy": "Yapay zeka sistemleri olasılıksaldır ve uydurma üretebilir. Doğrulama bir süzgeçtir, garanti değil. Çıktının kusursuz, eksiksiz veya hatasız olacağını vaat etmiyoruz. Kritik bilgiyi kendin doğrula.",
+    "terms.accuracy": "Yapay zeka sistemleri olasılıksaldır ve uydurma üretebilir. Doğrulama bir süzgeçtir, doğruluk vaadi değil. Çıktının kusursuz, eksiksiz veya hatasız olacağını vaat etmiyoruz. Kritik bilgiyi kendin doğrula.",
     "terms.use.h": "Ne içindir",
     "terms.use": "Assure belge derleme, doğrulama ve uyum incelemesi içindir. Bağlayıcı hukuki, mali veya düzenleyici kararların yerine geçmez. Çıktıyı tek doğrulama olarak kullanırsan bu sorumluluk sende kalır.",
     "terms.third.h": "Üçüncü kişiler",
@@ -10498,6 +10514,9 @@ TR = {
     "landing.diff.cat1.examples": "Hukuki taslak, araştırma ve inceleme için yapay zeka asistanları",
     "landing.diff.cat2.examples": "OCR, veri çıkarma ve akıllı belge işleme platformları",
     "landing.diff.cat3.examples": "Genel amaçlı dil modelleri + istemler + RAG + dahili betikler",
+    "landing.hero.cta_primary": "Demo planla",
+    "landing.pilot.title": "Demo planla",
+    "landing.pilot.submit": "Demo planla",
 }
 
 CATALOGS = {"en": EN, "es": ES, "zh": ZH, "fr": FR, "de": DE, "ja": JA, "tr": TR}
