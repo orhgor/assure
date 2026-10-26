@@ -28,7 +28,6 @@ rsync -a \
   --include 's3-icon.svg' \
   --include 'onprem-icon.svg' \
   --include 'sentry.bundle.js' \
-  --include 'marketing_pages.css' \
   --exclude '*' \
   "$ROOT/marketing/static/" "$DIST_DIR/static/"
 

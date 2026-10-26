@@ -360,7 +360,7 @@ body {
 #model-select:focus-visible,
 #sandbox-run-btn:focus-visible,
 #sandbox-advanced-toggle:focus-visible,
-#sandbox-send-workbench:focus-visible,
+#sandbox-send-workspace:focus-visible,
 .nav-menu-toggle:focus-visible {
     outline: 2px solid var(--accent-green);
     outline-offset: 2px;
@@ -1641,7 +1641,7 @@ body {
     }
 }
 
-/* Landing workbench persona demo */
+/* Landing workspace persona demo */
 .lw-demo {
     max-width: 1200px;
     margin: 0 auto;
@@ -1691,7 +1691,7 @@ body {
     outline-offset: 2px;
 }
 
-.lw-workbench {
+.lw-workspace {
     width: 100%;
     background: var(--bg-deep);
     border: 1px solid var(--border-color);
