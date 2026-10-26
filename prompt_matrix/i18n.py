@@ -7,7 +7,7 @@ so a missing .mo file does not blank the UI.
 
 from __future__ import annotations
 
-LOCALES = ("en", "es", "zh", "fr", "de", "ja", "tr", "ar")
+LOCALES = ("en", "es", "zh", "fr", "de", "ja", "tr")
 RTL_LOCALES = frozenset({"ar"})
 LOCALE_LABELS = {
     "en": "English",

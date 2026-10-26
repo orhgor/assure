@@ -122,6 +122,9 @@ TEMPLATES_DIR = ROOT / "prompt_matrix" / "templates"
 # Locales that exist for preview but are not published yet (turn on via PUBLISH_LOCALES).
 UNPUBLISHED_BY_DEFAULT = frozenset({"ar"})
 
+# Locales that can be built with the marketing site (7 + ar)
+MARKETING_LOCALES = ("en", "es", "zh", "fr", "de", "ja", "tr", "ar")
+
 
 def publish_locales() -> list[str]:
     """Locales shown in the switcher / hreflang / language count.
@@ -269,7 +272,7 @@ def render_locale(
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Render marketing HTML for one locale.")
-    parser.add_argument("--locale", required=True, choices=LOCALES)
+    parser.add_argument("--locale", required=True, choices=MARKETING_LOCALES)
     parser.add_argument(
         "--output", required=True, type=Path, help="Locale root (e.g. dist or dist/es)"
     )
