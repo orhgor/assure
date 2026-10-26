@@ -320,3 +320,12 @@ body.founder-workbench:not(.legacy-workbench) .command-bar-input:disabled {
     flex: 1 1 auto;
   }
 }
+
+.price-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    justify-items: center;
+    gap: 1.5rem;
+    max-width: 28rem;
+    margin: 0 auto;
+}
