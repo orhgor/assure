@@ -1,3 +1,5 @@
+Read AGENTS.md first. Its rules override anything below.
+
 # Assure — working notes for AI coding sessions
 
 Assure ("The Intellectual Compiler") is a Flask app: upload a source document,
