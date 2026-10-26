@@ -38,7 +38,7 @@ if [ ! -f "$ROOT/marketing/static/favicon.ico" ]; then
 fi
 
 # Locales to publish. ar is built for preview only: set PUBLISH_LOCALES="en es zh fr de ja tr ar" to turn it on.
-PUBLISH_LOCALES="${PUBLISH_LOCALES:-en es zh fr de ja tr}"
+PUBLISH_LOCALES="${PUBLISH_LOCALES:-en es zh fr de ja tr ar}"
 export PUBLISH_LOCALES
 
 for LOCALE in $PUBLISH_LOCALES; do

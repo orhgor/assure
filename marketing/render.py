@@ -121,7 +121,7 @@ TEMPLATES_DIR = ROOT / "marketing" / "templates"
 
 
 # Locales that exist for preview but are not published yet (turn on via PUBLISH_LOCALES).
-UNPUBLISHED_BY_DEFAULT = frozenset({"ar"})
+UNPUBLISHED_BY_DEFAULT = frozenset()
 
 # Locales that can be built with the marketing site (7 + ar)
 MARKETING_LOCALES = ("en", "es", "zh", "fr", "de", "ja", "tr", "ar")

@@ -18,6 +18,7 @@ PRIVACY_SUMMARY = {
     "de": "Wir speichern nur die Daten, die für den Betrieb des Dienstes nötig sind. Wir verwenden Ihre Daten niemals zum Training von Modellen.",
     "ja": "サービスの運営に必要なデータのみを保存します。お客様のデータをモデルの学習に使用することはありません。",
     "tr": "Yalnızca hizmetin işletilmesi için gerekli verileri saklıyoruz. Verilerinizi hiçbir zaman model eğitmek için kullanmayız.",
+    "ar": "نخزن فقط البيانات اللازمة لتشغيل الخدمة. لا نستخدم بياناتك أبدًا لتدريب نماذجنا.",
 }
 
 
@@ -26,7 +27,7 @@ def privacy_summary(locale: str) -> str:
     return PRIVACY_SUMMARY.get(code, PRIVACY_SUMMARY["en"])
 
 
-@lru_cache(maxsize=len(("en", "es", "zh", "fr", "de", "ja", "tr")))
+@lru_cache(maxsize=len(("en", "es", "zh", "fr", "de", "ja", "tr", "ar")))
 def privacy_body_html(locale: str) -> str:
     code = (locale or "en").split("-")[0].lower()
     path = _CONTENT_DIR / f"{code}.html"
