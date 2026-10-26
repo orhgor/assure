@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="{{ locale|default('en') }}"{% if locale|default('en') == 'ar' %} dir="rtl"{% endif %}>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title data-i18n="contact.page_title">{{ strings.get('contact.page_title', 'Enterprise contact · Assure AI') }}</title>
+    <link rel="canonical" href="https://getassureai.com/{{ page_suffix|default('contact/') }}">
+    {% if locale_paths is defined %}
+    {% for code, path in locale_paths.items() %}
+    <link rel="alternate" hreflang="{{ code }}" href="https://getassureai.com{{ path }}{{ page_suffix|default('contact/') }}">
+    {% endfor %}
+    <link rel="alternate" hreflang="x-default" href="https://getassureai.com/{{ page_suffix|default('contact/') }}">
+    {% endif %}
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="{{ strings.get('contact.page_title', 'Enterprise contact · Assure AI') }}">
+    <meta name="twitter:description" content="{{ strings.get('contact.meta', brand.meta_description) }}">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Assure AI">
+    <meta property="og:title" content="{{ strings.get('contact.page_title', 'Enterprise contact · Assure AI') }}">
+    <meta property="og:description" content="{{ strings.get('contact.meta', brand.meta_description) }}">
+    <meta property="og:url" content="https://getassureai.com/{{ page_suffix|default('contact/') }}">
+    <link rel="icon" href="{{ url_for('static', filename='assure-logo.png') }}" type="image/png">
+    <meta name="description" content="{{ strings.get('contact.meta', brand.meta_description) }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    {% if locale|default('en') == 'ar' %}
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+    {% endif %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='landing.css') }}?v={{ landing_css_version|default('71') }}">
+    {% include 'includes/plausible.html' %}
+    {% include 'includes/sentry.html' %}
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "ContactPage",
+      "name": "Contact sales · Assure AI",
+      "url": "https://getassureai.com/{{ page_suffix|default('contact/') }}",
+      "description": "Book a demo or request enterprise pricing for Assure AI, the deterministic verification engine for high-stakes documents.",
+      "about": {
+        "@type": "SoftwareApplication",
+        "name": "Assure AI",
+        "applicationCategory": "BusinessApplication",
+        "operatingSystem": "Web"
+      },
+      "mainEntity": {
+        "@type": "Organization",
+        "name": "Assure AI",
+        "url": "https://getassureai.com/",
+        "contactPoint": {
+          "@type": "ContactPoint",
+          "contactType": "sales",
+          "email": "sales@getassureai.com",
+          "availableLanguage": ["English"]
+        }
+      }
+    }
+    </script>
+    <script>window.__assureLandingStrings = {{ strings|tojson }};</script>
+    <style>
+        .contact-main { padding: var(--space-12) 0; }
+        .contact-main .section-title { max-width: 46rem; margin: 0 auto var(--space-4); }
+        .contact-lead { max-width: 42rem; margin: 0 auto var(--space-8); color: #334155; font-size: 1.0625rem; line-height: 1.6; }
+        .contact-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 32px;
+            max-width: 56rem;
+            margin: 0 auto;
+            text-align: left;
+            align-items: start;
+        }
+        .contact-card {
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 16px;
+            padding: 32px;
+        }
+        .contact-card h2 { margin: 0 0 12px; font-size: 1.25rem; color: #0a0a0a; }
+        .contact-card p { margin: 0 0 16px; color: #334155; line-height: 1.6; }
+        .contact-email { font-weight: 600; color: #1a4b8c; }
+        .contact-form label { display: block; font-size: 0.8125rem; font-weight: 600; color: #0a0a0a; margin: 14px 0 6px; }
+        .contact-form label:first-child { margin-top: 0; }
+        .contact-form input,
+        .contact-form textarea {
+            width: 100%;
+            box-sizing: border-box;
+            border: 1px solid #cbd5e1;
+            border-radius: 10px;
+            padding: 10px 12px;
+            font: inherit;
+            font-size: 0.9375rem;
+            color: #0a0a0a;
+            background: #f8fafc;
+        }
+        .contact-form textarea { min-height: 96px; resize: vertical; }
+        .contact-form .btn-primary { margin-top: 18px; width: 100%; }
+        .contact-error { margin: 12px 0 0; color: #b91c1c; font-size: 0.875rem; }
+        .contact-alt { margin: 16px 0 0; color: #475569; font-size: 0.875rem; }
+        .contact-alt .contact-email { font-weight: 600; }
+        @media (max-width: 760px) {
+            .contact-grid { grid-template-columns: 1fr; }
+            .contact-card { padding: 24px; }
+        }
+    </style>
+</head>
+<body class="enterprise-landing contact-landing">
+    {% set nav_current = 'contact' %}
+    {% include 'includes/landing_header.html' %}
+
+    <main class="contact-main">
+        <div class="container" style="text-align: center;">
+            <h1 class="section-title" data-i18n="contact.title">{{ strings.get('contact.title', 'Contact sales') }}</h1>
+            <p class="contact-lead" data-i18n="contact.lead">{{ strings.get('contact.lead', 'Tell us what you’re evaluating and we’ll follow up directly.') }}</p>
+
+            <div class="contact-grid">
+                <div class="contact-card">
+                    <h2 data-i18n="contact.form_title">{{ strings.get('contact.form_title', 'Request form') }}</h2>
+                    <form class="contact-form" id="contact-form" novalidate>
+                        <input type="text" name="company_website" id="cf-website" tabindex="-1" autocomplete="off" hidden aria-hidden="true">
+                        <label for="cf-name" data-i18n="contact.f_name">{{ strings.get('contact.f_name', 'Name') }}</label>
+                        <input id="cf-name" name="name" type="text" autocomplete="name" required>
+                        <label for="cf-email" data-i18n="contact.f_email">{{ strings.get('contact.f_email', 'Work email') }}</label>
+                        <input id="cf-email" name="email" type="email" autocomplete="email" required>
+                        <label for="cf-company" data-i18n="contact.f_company">{{ strings.get('contact.f_company', 'Company') }}</label>
+                        <input id="cf-company" name="company" type="text" autocomplete="organization">
+                        <label for="cf-message" data-i18n="contact.f_message">{{ strings.get('contact.f_message', 'What should the demo cover?') }}</label>
+                        <textarea id="cf-message" name="message"></textarea>
+                        <button type="submit" class="btn-primary" data-i18n="contact.submit">{{ strings.get('contact.submit', 'Send request') }}</button>
+                        <p class="contact-error" id="contact-error" hidden></p>
+                    </form>
+                    <p id="contact-done" data-i18n="contact.done" hidden>{{ strings.get('contact.done', 'Thanks — we’ll be in touch.') }}</p>
+                    <p class="contact-alt">{{ strings.get('contact.alt', 'Prefer email?') }} <a class="contact-email" href="mailto:sales@getassureai.com">sales@getassureai.com</a></p>
+                </div>
+
+                <div class="contact-card">
+                    <h2 data-i18n="contact.direct_title">{{ strings.get('contact.direct_title', 'Direct') }}</h2>
+                    <p data-i18n="contact.direct_body">{{ strings.get('contact.direct_body', 'Write to us directly and include your use case, document volume, and timeline. Attachments are fine.') }}</p>
+                    <a class="contact-email" href="mailto:sales@getassureai.com?subject=Enterprise%20demo%20request">sales@getassureai.com</a>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    {% include 'includes/landing_footer.html' %}
+    <script>
+        (function () {
+            "use strict";
+            var form = document.getElementById("contact-form");
+            if (!form) return;
+            form.addEventListener("submit", function (event) {
+                event.preventDefault();
+                var get = function (id) { var el = document.getElementById(id); return el ? String(el.value || "").trim() : ""; };
+                var name = get("cf-name");
+                var email = get("cf-email");
+                var company = get("cf-company");
+                var message = get("cf-message");
+                var err = document.getElementById("contact-error");
+                if (err) { err.hidden = true; err.textContent = ""; }
+                if (!name || !email) {
+                    if (err) { err.hidden = false; err.textContent = "Name and work email are required."; }
+                    return;
+                }
+                var succeed = function () {
+                    form.hidden = true;
+                    var done = document.getElementById("contact-done");
+                    if (done) done.hidden = false;
+                };
+                var fail = function (message) {
+                    if (err) {
+                        err.hidden = false;
+                        err.textContent = message || "Could not send the request. Try again.";
+                    }
+                };
+                fetch("/contact-submit", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        name: name,
+                        email: email,
+                        company: company,
+                        message: message,
+                        company_website: get("cf-website"),
+                    }),
+                })
+                    .then(function (res) {
+                        return res.json().catch(function () { return {}; }).then(function (data) {
+                            return { ok: res.ok, data: data, status: res.status };
+                        });
+                    })
+                    .then(function (result) {
+                        if (result.ok) return succeed();
+                        throw new Error((result.data && result.data.error) || "Could not send the request. Try again.");
+                    })
+                    .catch(function (error) {
+                        fail((error && error.message) || "Could not send the request. Try again.");
+                    });
+            });
+        })();
+    </script>
+</body>
+</html>

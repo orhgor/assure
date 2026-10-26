@@ -1,0 +1,7 @@
+<div class="logos-band {{ band_class|default('') }}">
+    <div class="trust-logos" role="img" aria-label="{{ strings.get('landing.trust.logos_aria', 'On-prem, AWS and Amazon S3') }}">
+        <img class="trust-logo-onprem" src="{{ url_for('static', filename='onprem-icon.svg') }}?v=2" alt="{{ strings.get('landing.onprem.alt', 'On-prem') }}" title="{{ strings.get('landing.onprem.title', 'On-prem deployment') }}" loading="lazy">
+        <img src="{{ url_for('static', filename='aws-startups.svg') }}?v=2" alt="AWS" loading="lazy">
+        <img src="{{ url_for('static', filename='s3-icon.svg') }}?v=2" alt="Amazon S3" loading="lazy">
+    </div>
+</div>

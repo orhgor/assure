@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="{{ 'en' if locale|default('en') == 'ar' else locale|default('en') }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    {% set gov_title = strings.get('uc.fuel.page_title', 'Fuel retail bonus reconciliation · Assure') %}
+    {% set gov_meta = strings.get('uc.fuel.meta', 'How a large fuel retailer can reconcile bonus statements against agreements and sales records.') %}
+    <title>{{ gov_title }}</title>
+    <link rel="canonical" href="https://getassureai.com/{{ page_suffix|default('use-cases/fuel/') }}">
+    {% if locale_paths is defined %}
+    {% for code, path in locale_paths.items() %}
+    <link rel="alternate" hreflang="{{ code }}" href="https://getassureai.com{{ path }}{{ page_suffix|default('use-cases/fuel/') }}">
+    {% endfor %}
+    <link rel="alternate" hreflang="x-default" href="https://getassureai.com/{{ page_suffix|default('use-cases/fuel/') }}">
+    {% endif %}
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="{{ gov_title }}">
+    <meta name="twitter:description" content="{{ gov_meta }}">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Assure">
+    <meta property="og:title" content="{{ gov_title }}">
+    <meta property="og:description" content="{{ gov_meta }}">
+    <meta property="og:url" content="https://getassureai.com/{{ page_suffix|default('use-cases/fuel/') }}">
+    <meta name="description" content="{{ gov_meta }}">
+    <link rel="icon" href="{{ url_for('static', filename='assure-logo.png') }}" type="image/png">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='assure-logo.png') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+    {% if locale|default('en') == 'ar' %}
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+    {% endif %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='landing.css') }}?v={{ landing_css_version|default('82') }}">
+    {% include 'includes/plausible.html' %}
+    {% include 'includes/sentry.html' %}
+    <script>
+      window.__assureLandingStrings = {{ strings|tojson }};
+    </script>
+</head>
+<body class="enterprise-landing uc-landing">
+    {% set nav_current = 'use-cases' %}
+    {% include 'includes/landing_header.html' %}
+
+    <main id="main-content">
+        <section class="hero-section gov-hero">
+            <div class="container">
+                <a href="/use-cases/" class="back-link" data-i18n="uc.back">{{ strings.get('uc.back', '← All use cases') }}</a>
+                <h1 class="hero-title" data-i18n="uc.fuel.title">{{ strings.get('uc.fuel.title', 'Fuel retail bonus reconciliation') }}</h1>
+                <p class="hero-sub" data-i18n="uc.fuel.sub">{{ strings.get('uc.fuel.sub', 'How a large fuel retailer can reconcile bonus statements against agreements and sales records.') }}</p>
+            </div>
+        </section>
+
+        {% set flow_line1 = strings.get('uc.fuel.flow.1', '') %}
+        {% set flow_line2 = strings.get('uc.fuel.flow.2', '') %}
+        {% set flow_line3 = strings.get('uc.fuel.flow.3', '') %}
+        {% include 'includes/flow.html' %}
+        {% set band_class = 'logos-band-inline' %}{% include 'includes/logos_band.html' %}
+        {% include 'includes/demo_cta.html' %}
+    </main>
+
+    {% include 'includes/landing_footer.html' %}
+</body>
+</html>

@@ -27,10 +27,14 @@ on:
     branches: [main]
     paths:
       - 'marketing/**'
-      - 'prompt_matrix/templates/**'
-      - 'prompt_matrix/static/**'
-      - 'prompt_matrix/i18n.py'
-      - 'prompt_matrix/ui_cache.py'
+      - 'landing/**'
+      - '.github/workflows/webpage-deploy.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'marketing/**'
+      - 'landing/**'
+      - '.github/workflows/webpage-deploy.yml'
 
 concurrency:
   group: webpage-deploy
@@ -41,9 +45,33 @@ env:
   MARKETING_R2_BUCKET: 'assure-marketing-prod'
 
 jobs:
+  isolation:
+    # A PR may touch the website or the workbench, never both in one change.
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Fail if a PR touches both marketing/ and prompt_matrix/
+        run: |
+          base="${{ github.event.pull_request.base.sha }}"
+          head="${{ github.event.pull_request.head.sha }}"
+          files="$(git diff --name-only "$base" "$head")"
+          echo "$files" > /tmp/pr_files.txt
+          mk=$(grep -c '^marketing/' /tmp/pr_files.txt || true)
+          pm=$(grep -c '^prompt_matrix/' /tmp/pr_files.txt || true)
+          echo "marketing files: $mk, prompt_matrix files: $pm"
+          if [ "$mk" -gt 0 ] && [ "$pm" -gt 0 ]; then
+            echo "::error::This PR touches both marketing/ and prompt_matrix/. The website and the workbench must change in separate PRs."
+            exit 1
+          fi
+
   deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     steps:
       - uses: actions/checkout@v4
 

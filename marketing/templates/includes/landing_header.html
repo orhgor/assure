@@ -1,0 +1,29 @@
+{# nav_current: "landing" | "architecture" #}
+<a class="skip-link" href="#main-content" data-i18n="landing.skip">Skip to content</a>
+<header class="site-header">
+    <div class="container nav-container">
+        <a href="/" class="logo logo-brand">
+            <img class="brand-mark" src="{{ url_for('static', filename='assure-logo.png') }}" alt="" width="28" height="28">
+            <span class="logo-copy">
+                <span class="logo-name">{{ brand.name }}</span>
+            </span>
+        </a>
+        <nav class="nav-links is-collapsed" id="landing-nav-links" data-i18n-aria="landing.nav.aria" aria-label="Primary">
+            <button type="button" class="nav-menu-toggle" id="nav-menu-toggle" aria-expanded="false" aria-controls="landing-nav-links" data-i18n="landing.nav.menu">{{ strings.get('landing.nav.menu', 'Menu') }}</button>
+            <a href="{% if nav_current|default('landing') == 'landing' %}#proof{% else %}/#proof{% endif %}" data-i18n="landing.nav.docs">{{ strings.get('landing.nav.docs', 'Proof') }}</a>
+            <a href="{% if nav_current|default('landing') == 'landing' %}#why-now{% else %}/#why-now{% endif %}" data-i18n="landing.nav.architecture">{{ strings.get('landing.nav.architecture', 'Why now') }}</a>
+            <a href="{% if nav_current|default('landing') == 'landing' %}#trust{% else %}/#trust{% endif %}" data-i18n="landing.nav.sandbox">{{ strings.get('landing.nav.sandbox', 'Trust') }}</a>
+            <a href="/use-cases/" data-i18n="landing.nav.usecases">{{ strings.get('landing.nav.usecases', 'Use cases') }}</a>
+            <a href="/government/" data-i18n="landing.nav.government">{{ strings.get('landing.nav.government', 'Government') }}</a>
+            <a href="/privacy" data-i18n="landing.nav.privacy">{{ strings.get('landing.nav.privacy', 'Privacy') }}</a>
+            <label class="landing-lang-wrap" for="landing-lang">
+                <span class="landing-lang-label" data-i18n="landing.lang">Language</span>
+                <select id="landing-lang" class="landing-lang-select" data-i18n-aria="landing.lang" aria-label="Language">
+                    {% for code, label in languages.items() %}
+                    <option value="{{ code }}" {% if locale == code %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+        </nav>
+    </div>
+</header>

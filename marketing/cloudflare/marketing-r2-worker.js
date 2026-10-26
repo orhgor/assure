@@ -1,7 +1,19 @@
 /**
- * Marketing from R2; /app and /api hit EC2 via Tunnel (no Worker routes on those paths).
+ * Marketing site from R2. Wildcard routes on the zone mean every path hits
+ * this Worker: pages come from R2, /app and /api (the old workbench paths)
+ * redirect to /contact-us/, /contact* redirects to the matching
+ * /contact-us/ page, unknown paths get the site's own 404 page with 404.
  */
 const HTML = "text/html; charset=utf-8";
+
+// Security headers, mirrors landing/_headers (sync_r2 does not upload _headers).
+const SECURITY_HEADERS = {
+  "X-Content-Type-Options": "nosniff",
+  "X-Frame-Options": "DENY",
+  "Referrer-Policy": "strict-origin-when-cross-origin",
+  "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+  "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+};
 
 function contentType(key) {
   if (key.endsWith(".html")) return HTML;
@@ -35,7 +47,6 @@ function objectKey(pathname) {
   return `${p}/index.html`;
 }
 
-const APP_ORIGIN = "https://app.getassureai.com";
 const SALES_INBOX = "sales@getassureai.com";
 const EMAIL_FROM = "Assure Website <website@getassureai.com>";
 
@@ -120,11 +131,16 @@ export default {
       return handleContactSubmit(request, env);
     }
     if (url.pathname === "/contact" || url.pathname === "/contact/") {
-      return Response.redirect(new URL("/contact-us/", url.origin).toString(), 308);
+      return Response.redirect(new URL("/contact-us/", url.origin).toString(), 301);
+    }
+    // /{locale}/contact and /{locale}/contact/ -> matching /{locale}/contact-us/
+    const m = url.pathname.match(/^\/([a-z]{2})(\/contact)(\/?)$/i);
+    if (m) {
+      return Response.redirect(new URL(`/${m[1]}/contact-us/`, url.origin).toString(), 301);
     }
     if (url.pathname.startsWith("/app") || url.pathname.startsWith("/api")) {
-      const target = new URL(url.pathname + url.search, APP_ORIGIN);
-      return Response.redirect(target.toString(), 302);
+      // The workbench is gone; these legacy paths go to the contact page.
+      return Response.redirect(new URL("/contact-us/", url.origin).toString(), 301);
     }
     if (request.method !== "GET" && request.method !== "HEAD") {
       return new Response("Method not allowed", { status: 405 });
@@ -136,19 +152,33 @@ export default {
       object = await env.MARKETING.get(`${key}/index.html`);
     }
 
+    let status = 200;
     if (!object) {
-      return new Response("Not found", { status: 404, headers: { "Cache-Control": "no-store" } });
+      // Serve the site's own 404 page from R2, with status 404. If the page
+      // itself is missing, fall back to a plain text 404 rather than throwing.
+      object = await env.MARKETING.get("404.html");
+      status = 404;
+    }
+
+    if (!object) {
+      return new Response("Not found", {
+        status: 404,
+        headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" },
+      });
     }
 
     const headers = new Headers();
     object.writeHttpMetadata(headers);
-    headers.set("content-type", contentType(key));
-    headers.set("Cache-Control", "public, max-age=300");
+    headers.set("content-type", status === 404 ? HTML : contentType(key));
+    headers.set("Cache-Control", status === 404 ? "no-store" : "public, max-age=300");
     headers.set("Access-Control-Allow-Origin", "*");
+    for (const [name, value] of Object.entries(SECURITY_HEADERS)) {
+      headers.set(name, value);
+    }
 
     if (request.method === "HEAD") {
-      return new Response(null, { status: 200, headers });
+      return new Response(null, { status, headers });
     }
-    return new Response(object.body, { headers });
+    return new Response(object.body, { status, headers });
   },
 };

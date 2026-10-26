@@ -1,0 +1,30 @@
+{% extends "marketing_base.html" %}
+{% block title %}{{ gettext('Pricing') }} · {{ gettext('Assure') }}{% endblock %}
+{% block body %}
+  <div class="page">
+    <div class="page-hero">
+      <h1 data-i18n="pricing.title">{{ gettext('Pricing') }}</h1>
+      <p class="lede" data-i18n="pricing.lead">{{ gettext('Pricing is tailored to your team. Every plan runs with your keys, and your provider usage is billed directly to you.') }}</p>
+    </div>
+    <div class="price-grid">
+      <section class="card">
+        <h2 data-i18n="pricing.free">{{ gettext('Evaluation') }}</h2>
+        <p class="lede" data-i18n="pricing.free.price">{{ gettext('Free') }}</p>
+        <ul class="privacy-list">
+          <li data-i18n="pricing.free.1">{{ gettext('Full verification engine: math check, stress test, provenance') }}</li>
+          <li data-i18n="pricing.free.2">{{ gettext('Free while you evaluate. No card required.') }}</li>
+        </ul>
+      </section>
+      <section class="card">
+        <h2 data-i18n="pricing.pro">{{ gettext('Enterprise') }}</h2>
+        <p class="lede" data-i18n="pricing.price">{{ gettext('Custom pricing') }}</p>
+        <ul class="privacy-list">
+          <li data-i18n="pricing.pro.1">{{ gettext('Dedicated deployment and team workspace') }}</li>
+          <li data-i18n="pricing.pro.2">{{ gettext('Audit packages for regulated work') }}</li>
+          <li data-i18n="pricing.pro.3">{{ gettext('Your keys or managed routers') }}</li>
+        </ul>
+        <p><a class="btn btn-primary" href="/contact-us/" data-i18n="pricing.contact">{{ gettext('Contact sales') }}</a></p>
+      </section>
+    </div>
+  </div>
+{% endblock %}

@@ -1,18 +1,18 @@
-"""Standalone Flask app that renders the marketing site.
+"""Standalone Flask app that builds the marketing site.
 
-ISOLATION CONTRACT — this module must never import the workbench app:
-  - no `prompt_matrix.web` import (that is the app: DB, sessions, workbench routes)
-  - no database connection of any kind (no DATABASE_URL needed to build)
-Shared with the app only through FILES (single source of truth):
-  - prompt_matrix/templates  (markup — one source, served live and rendered here)
-  - prompt_matrix/static     (assets — css/js/favicon/logo)
-  - prompt_matrix/i18n.py    (string catalog — loaded standalone, no package import)
-  - prompt_matrix/ui_cache.py (cache-bust versions)
+ISOLATION CONTRACT — this module must never read the workbench:
+  - no workbench import or file read of any kind
+  - no database connection (no DATABASE_URL needed to build)
+Everything the site needs lives under marketing/:
+  - marketing/templates (markup)
+  - marketing/static    (assets)
+  - marketing/i18n.py   (string catalog, own copy)
+  - marketing/cache_versions.py (cache-bust values)
 
 Workbench-runtime pieces are replicated as tiny env-only shims below:
-  - gettext   (msgid -> key -> catalog(locale), matching web.py behavior)
-  - brand     (base name + overrides from the string catalog, matching web.py)
-  - auth      (template_state equivalent: Clerk env-only logic, no session user)
+  - gettext   (msgid -> key -> catalog(locale))
+  - brand     (base name + overrides from the string catalog)
+  - auth      (env-only logic, no session user; marketing pages have no auth)
   - edition   (static snapshot: env edition plan, zero usage — no DB)
 """
 
@@ -27,25 +27,19 @@ from typing import Any
 from flask import Flask, request, session
 
 ROOT = Path(__file__).resolve().parents[1]
-ACCOUNT_ID = "381b292d419f2efdc1c85a3636268e91"
 
 
-def _load_standalone(module_name: str, rel_path: str):
-    """Import a prompt_matrix data module WITHOUT importing the package
-    (prompt_matrix/__init__ pulls the engine: pydantic/jinja2 chain)."""
-    spec = importlib.util.spec_from_file_location(module_name, ROOT / rel_path)
+def _load_local(module_name: str, rel_path: str):
+    """Import a data module from the marketing tree without package machinery."""
+    spec = importlib.util.spec_from_file_location(module_name, Path(__file__).parent / rel_path)
     module = importlib.util.module_from_spec(spec)
-    # claim the real package path so intra-catalog relative imports
-    # (e.g. `from .privacy_enterprise import ...` in catalog()) resolve
-    module.__package__ = "prompt_matrix"
-    module.__path__ = [str(ROOT / "prompt_matrix")]
-    sys.modules.setdefault("prompt_matrix", module)
+    sys.modules.setdefault(module_name, module)
     spec.loader.exec_module(module)
     return module
 
 
-_strings = _load_standalone("assure_marketing_strings", "prompt_matrix/i18n.py")
-_uiv = _load_standalone("assure_marketing_uiv", "prompt_matrix/ui_cache.py")
+_strings = _load_local("assure_marketing_strings", "i18n.py")
+_uiv = _load_local("assure_marketing_uiv", "cache_versions.py")
 
 LOCALES = _strings.LOCALES
 LOCALE_LABELS = _strings.LOCALE_LABELS
@@ -145,8 +139,8 @@ def edition_snapshot_static() -> dict[str, Any]:
 def create_static_app(*, default_locale: str = "en") -> Flask:
     app = Flask(
         "assure-marketing",
-        template_folder=str(ROOT / "prompt_matrix" / "templates"),
-        static_folder=str(ROOT / "prompt_matrix" / "static"),
+        template_folder=str(Path(__file__).parent / "templates"),
+        static_folder=str(Path(__file__).parent / "static"),
     )
     app.secret_key = "static-render-only"  # session cookie only; no auth here
 

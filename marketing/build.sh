@@ -5,7 +5,6 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DIST_DIR="${DIST_DIR:-$ROOT/dist}"
 PYTHON="${PYTHON:-$ROOT/.venv/bin/python}"
-APP_HOST="${APP_HOST:-https://app.getassureai.com}"
 CDN_BASE_URL="${CDN_BASE_URL:-/static}"
 
 cd "$ROOT"
@@ -23,17 +22,20 @@ rsync -a \
   --include 'landing-pilot.js' \
   --include 'landing-i18n.js' \
   --include 'favicon.svg' \
+  --include 'favicon.ico' \
   --include 'assure-logo.png' \
   --include 'aws-startups.svg' \
   --include 's3-icon.svg' \
   --include 'onprem-icon.svg' \
-  --include 'favicon.ico' \
-  --include 'style.css' \
-  --include 'script.js' \
   --include 'sentry.bundle.js' \
-  --include 'assure_csrf.js' \
+  --include 'marketing_pages.css' \
   --exclude '*' \
-  "$ROOT/prompt_matrix/static/" "$DIST_DIR/static/"
+  "$ROOT/marketing/static/" "$DIST_DIR/static/"
+
+# Real favicon.ico rasterized from favicon.svg (own copy, no workbench read).
+if [ ! -f "$ROOT/marketing/static/favicon.ico" ]; then
+  "$PYTHON" "$ROOT/marketing/make_favicon.py" || echo "warn: favicon.ico generation failed"
+fi
 
 # Locales to publish. ar is built for preview only: set PUBLISH_LOCALES="en es zh fr de ja tr ar" to turn it on.
 PUBLISH_LOCALES="${PUBLISH_LOCALES:-en es zh fr de ja tr}"
@@ -49,15 +51,8 @@ for LOCALE in $PUBLISH_LOCALES; do
   "$PYTHON" "$ROOT/marketing/render.py" \
     --locale "$LOCALE" \
     --output "$OUT" \
-    --static-base "$CDN_BASE_URL" \
-    --app-host "$APP_HOST"
+    --static-base "$CDN_BASE_URL"
 done
-
-# Cloudflare Pages / static hosting metadata
-cat > "$DIST_DIR/_redirects" <<'EOF'
-/app/*  https://app.getassureai.com/app/:splat  302
-/api/*  https://app.getassureai.com/api/:splat  302
-EOF
 
 if [ -f "$ROOT/landing/_headers" ]; then
   cp "$ROOT/landing/_headers" "$DIST_DIR/_headers"
@@ -69,13 +64,15 @@ fi
 if [ -f "$ROOT/landing/sitemap.xml" ]; then
   cp "$ROOT/landing/sitemap.xml" "$DIST_DIR/sitemap.xml"
 fi
-cp "$ROOT/prompt_matrix/static/founder_workbench.css" "$DIST_DIR/static/marketing_pages.css" 2>/dev/null || true
 if [ -f "$ROOT/landing/llms.txt" ]; then
   cp "$ROOT/landing/llms.txt" "$DIST_DIR/llms.txt"
 fi
 
-if [ -f "$ROOT/prompt_matrix/static/favicon.svg" ]; then
-  cp "$ROOT/prompt_matrix/static/favicon.svg" "$DIST_DIR/favicon.svg"
+if [ -f "$ROOT/marketing/static/favicon.svg" ]; then
+  cp "$ROOT/marketing/static/favicon.svg" "$DIST_DIR/favicon.svg"
+fi
+if [ -f "$ROOT/marketing/static/favicon.ico" ]; then
+  cp "$ROOT/marketing/static/favicon.ico" "$DIST_DIR/favicon.ico"
 fi
 
 echo "✅ Static marketing site built in $DIST_DIR"
