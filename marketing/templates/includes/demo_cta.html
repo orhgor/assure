@@ -1,7 +1,7 @@
 <section class="demo-cta">
     <div class="container center">
         {% if cta_modal|default(false) %}
-        <button type="button" class="btn-primary" data-waitlist-open data-i18n="landing.hero.cta_primary">{{ strings.get('landing.hero.cta_primary', 'Book a Demo') }}</button>
+        <button type="button" class="btn-primary" data-demo-open data-i18n="landing.hero.cta_primary">{{ strings.get('landing.hero.cta_primary', 'Book a Demo') }}</button>
         {% else %}
         <a href="/contact-us/" class="btn-primary" data-i18n="landing.hero.cta_primary">{{ strings.get('landing.hero.cta_primary', 'Book a Demo') }}</a>
         {% endif %}

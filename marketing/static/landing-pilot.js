@@ -5,8 +5,8 @@
     var modal = document.getElementById("download-modal");
     if (!modal) return;
     modal.hidden = false;
-    document.body.classList.add("waitlist-open");
-    var email = document.getElementById("waitlist-email");
+    document.body.classList.add("demo-open");
+    var email = document.getElementById("demo-email");
     if (email) email.focus();
   }
 
@@ -14,10 +14,10 @@
     var modal = document.getElementById("download-modal");
     if (!modal) return;
     modal.hidden = true;
-    document.body.classList.remove("waitlist-open");
+    document.body.classList.remove("demo-open");
     var wrap = document.getElementById("pilot-form-wrap");
-    var form = document.getElementById("waitlist-form");
-    var done = document.getElementById("waitlist-done");
+    var form = document.getElementById("demo-form");
+    var done = document.getElementById("demo-done");
     if (wrap) wrap.hidden = false;
     if (form) form.hidden = false;
     if (done) {
@@ -28,18 +28,18 @@
 
   function bindWaitlist() {
     var modal = document.getElementById("download-modal");
-    var form = document.getElementById("waitlist-form");
-    var done = document.getElementById("waitlist-done");
+    var form = document.getElementById("demo-form");
+    var done = document.getElementById("demo-done");
     var wrap = document.getElementById("pilot-form-wrap");
-    var err = document.getElementById("waitlist-error");
-    document.querySelectorAll("[data-waitlist-open]").forEach(function (el) {
+    var err = document.getElementById("demo-error");
+    document.querySelectorAll("[data-demo-open]").forEach(function (el) {
       el.addEventListener("click", function (e) {
         e.preventDefault();
         openWaitlist();
       });
     });
     if (!modal) return;
-    modal.querySelectorAll("[data-waitlist-close]").forEach(function (el) {
+    modal.querySelectorAll("[data-demo-close]").forEach(function (el) {
       el.addEventListener("click", closeWaitlist);
     });
     document.addEventListener("keydown", function (e) {
@@ -52,18 +52,17 @@
         err.hidden = true;
         err.textContent = "";
       }
-      var nameEl = document.getElementById("waitlist-name");
-      var emailEl = document.getElementById("waitlist-email");
-      var workflowEl = document.getElementById("waitlist-workflow");
+      var nameEl = document.getElementById("demo-name");
+      var emailEl = document.getElementById("demo-email");
+      var workflowEl = document.getElementById("demo-workflow");
       var company = nameEl ? String(nameEl.value || "").trim() : "";
       var email = emailEl ? String(emailEl.value || "").trim() : "";
       var workflow = workflowEl ? String(workflowEl.value || "").trim() : "";
       var name = workflow ? company + " — " + workflow : company;
-      var appOrigin = (window.__ASSURE_APP_ORIGIN || "https://app.getassureai.com").replace(/\/$/, "");
-      fetch(appOrigin + "/api/waitlist", {
+      fetch("/contact-submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name, email: email, workflow: workflow, company: company }),
+        body: JSON.stringify({ name: name, email: email, company: company, message: workflow ? "Primary document workflow: " + workflow : "" }),
       })
         .then(function (res) {
           return res.json().catch(function () {

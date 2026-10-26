@@ -148,18 +148,6 @@
             "use strict";
             var form = document.getElementById("contact-form");
             if (!form) return;
-            var appOrigin = (window.__ASSURE_APP_ORIGIN || "https://app.getassureai.com").replace(/\/$/, "");
-            function postWaitlist(payload) {
-                return fetch(appOrigin + "/api/waitlist", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(payload),
-                }).then(function (res) {
-                    return res.json().catch(function () { return {}; }).then(function (data) {
-                        return { ok: res.ok, data: data };
-                    });
-                });
-            }
             form.addEventListener("submit", function (event) {
                 event.preventDefault();
                 var get = function (id) { var el = document.getElementById(id); return el ? String(el.value || "").trim() : ""; };
@@ -202,13 +190,6 @@
                     })
                     .then(function (result) {
                         if (result.ok) return succeed();
-                        if (result.status === 503 || result.status === 502) {
-                            return postWaitlist({ name: company ? name + " — " + company : name, email: email, workflow: message, company: company })
-                                .then(function (fallback) {
-                                    if (fallback.ok) return succeed();
-                                    throw new Error((fallback.data && fallback.data.error) || "Could not send the request. Try again.");
-                                });
-                        }
                         throw new Error((result.data && result.data.error) || "Could not send the request. Try again.");
                     })
                     .catch(function (error) {

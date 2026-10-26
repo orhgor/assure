@@ -152,29 +152,14 @@ def _postprocess(
     locale: str,
     page_suffix: str,
     static_base: str,
-    app_host: str,
 ) -> str:
     static_base = static_base.rstrip("/")
-    app_host = app_host.rstrip("/")
 
     html = html.replace('="/static/', f'="{static_base}/')
     html = html.replace("='/static/", f"='{static_base}/")
 
-    for prefix in ("/app", "/api/"):
-        html = re.sub(
-            rf'href="{re.escape(prefix)}',
-            f'href="{app_host}{prefix}',
-            html,
-        )
-        html = re.sub(
-            rf"href='{re.escape(prefix)}",
-            f"href='{app_host}{prefix}",
-            html,
-        )
-
     inject = (
         "<script>"
-        f'window.__ASSURE_APP_ORIGIN="{app_host}";'
         f"window.__ASSURE_LOCALE_PATHS={json.dumps(_locale_paths())};"
         f'window.__ASSURE_PAGE_SUFFIX="{page_suffix}";'
         f'window.__ASSURE_STATIC_LOCALE="{locale}";'
@@ -249,7 +234,6 @@ def render_locale(
     output_dir: Path,
     *,
     static_base: str,
-    app_host: str,
 ) -> list[Path]:
     app = create_static_app()
     written: list[Path] = []
@@ -264,7 +248,6 @@ def render_locale(
             locale=locale,
             page_suffix=page["suffix"],
             static_base=static_base,
-            app_host=app_host,
         )
         out_path = output_dir / page["output"]
         out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -284,18 +267,12 @@ def main() -> int:
         default=os.environ.get("CDN_BASE_URL", "/static"),
         help="Prefix for /static assets (default: /static or CDN_BASE_URL)",
     )
-    parser.add_argument(
-        "--app-host",
-        default=os.environ.get("APP_HOST", "https://app.getassureai.com"),
-        help="Workbench origin for /app and /api/waitlist",
-    )
     args = parser.parse_args()
 
     paths = render_locale(
         args.locale,
         args.output,
         static_base=args.static_base,
-        app_host=args.app_host,
     )
     for path in paths:
         print(path)

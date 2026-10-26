@@ -1634,7 +1634,7 @@ body {
     .enterprise-landing .hero-cta-group .btn-primary,
     .enterprise-landing .hero-cta-group .btn-secondary,
     .pilot-sandbox.is-success,
-    .pilot-sandbox .waitlist-success-icon {
+    .pilot-sandbox .demo-success-icon {
         animation: none !important;
         transition: none !important;
         transform: none !important;
@@ -2547,11 +2547,11 @@ body {
     color: #0a0a0a;
 }
 
-.waitlist-modal[hidden] {
+.demo-modal[hidden] {
     display: none;
 }
 
-.waitlist-modal {
+.demo-modal {
     position: fixed;
     inset: 0;
     z-index: 80;
@@ -2560,13 +2560,13 @@ body {
     padding: 1rem;
 }
 
-.waitlist-backdrop {
+.demo-backdrop {
     position: absolute;
     inset: 0;
     background: rgba(10, 10, 10, 0.45);
 }
 
-.waitlist-panel {
+.demo-panel {
     position: relative;
     width: min(28rem, 100%);
     background: #fff;
@@ -2577,7 +2577,7 @@ body {
     box-shadow: 0 16px 48px rgba(15, 23, 42, 0.16);
 }
 
-.waitlist-close {
+.demo-close {
     position: absolute;
     top: var(--space-1);
     right: var(--space-1);
@@ -2595,24 +2595,24 @@ body {
     transition: background-color 0.2s ease, color 0.2s ease;
 }
 
-.waitlist-close:hover,
-.waitlist-close:focus-visible {
+.demo-close:hover,
+.demo-close:focus-visible {
     background: #f1f5f9;
     color: #0a0a0a;
 }
 
-.waitlist-panel h2 {
+.demo-panel h2 {
     margin: 0 2rem 0.75rem 0;
     font-size: 1.25rem;
 }
 
-.waitlist-panel label {
+.demo-panel label {
     display: block;
     font-size: 0.875rem;
     margin: 0.75rem 0 0.25rem;
 }
 
-.waitlist-input {
+.demo-input {
     width: 100%;
     box-sizing: border-box;
     min-height: 44px;
@@ -2622,7 +2622,7 @@ body {
     font: inherit;
 }
 
-.waitlist-submit {
+.demo-submit {
     display: block;
     width: 100%;
     margin-top: 1rem;
@@ -2636,12 +2636,12 @@ body {
     cursor: pointer;
 }
 
-.waitlist-error {
+.demo-error {
     color: #9a3b12;
     margin-top: 0.5rem;
 }
 
-body.waitlist-open {
+body.demo-open {
     overflow: hidden;
 }
 
@@ -2650,10 +2650,10 @@ body.waitlist-open {
 }
 
 .pilot-sandbox.is-success {
-    animation: waitlist-success-in 0.45s ease;
+    animation: demo-success-in 0.45s ease;
 }
 
-.pilot-sandbox .waitlist-success-icon {
+.pilot-sandbox .demo-success-icon {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -2665,10 +2665,10 @@ body.waitlist-open {
     color: #166534;
     font-size: 1.5rem;
     font-weight: 700;
-    animation: waitlist-check-pop 0.5s ease 0.1s both;
+    animation: demo-check-pop 0.5s ease 0.1s both;
 }
 
-@keyframes waitlist-success-in {
+@keyframes demo-success-in {
     from {
         opacity: 0;
         transform: translateY(8px);
@@ -2679,7 +2679,7 @@ body.waitlist-open {
     }
 }
 
-@keyframes waitlist-check-pop {
+@keyframes demo-check-pop {
     from {
         opacity: 0;
         transform: scale(0.85);
@@ -3587,9 +3587,9 @@ html[dir="rtl"] .value-table th,
 html[dir="rtl"] .value-table td,
 html[dir="rtl"] .privacy-landing .privacy-page th { text-align: right; }
 
-html[dir="rtl"] .waitlist-close { right: auto; left: var(--space-1); }
-html[dir="rtl"] .waitlist-panel,
-html[dir="rtl"] .waitlist-panel form { text-align: right; }
+html[dir="rtl"] .demo-close { right: auto; left: var(--space-1); }
+html[dir="rtl"] .demo-panel,
+html[dir="rtl"] .demo-panel form { text-align: right; }
 
 html[dir="rtl"] .contact-grid,
 html[dir="rtl"] .contact-card { text-align: right; }

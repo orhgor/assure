@@ -33,7 +33,7 @@ class RenderStaticTests(unittest.TestCase):
         html = index.read_text(encoding="utf-8")
         # Current brand hero (i18n.py brand.hero_title)
         self.assertIn("Documents in. Verified output out.", html)
-        self.assertIn("__ASSURE_APP_ORIGIN", html)
+        self.assertIn("__ASSURE_LOCALE_PATHS", html)  # locale map injected; no app origin since the workbench was cut
         self.assertIn("/static/landing.css", html)
         tr_index = dist / "tr" / "index.html"
         self.assertTrue(tr_index.is_file())

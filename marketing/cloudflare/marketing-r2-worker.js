@@ -1,7 +1,7 @@
 /**
  * Marketing site from R2. Wildcard routes on the zone mean every path hits
- * this Worker: pages come from R2, /app and /api redirect to the workbench
- * origin on app.getassureai.com, /contact* redirects to the matching
+ * this Worker: pages come from R2, /app and /api (the old workbench paths)
+ * redirect to /contact-us/, /contact* redirects to the matching
  * /contact-us/ page, unknown paths get the site's own 404 page with 404.
  */
 const HTML = "text/html; charset=utf-8";
@@ -12,7 +12,7 @@ const SECURITY_HEADERS = {
   "X-Frame-Options": "DENY",
   "Referrer-Policy": "strict-origin-when-cross-origin",
   "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
-  "Strict-Transport-Security": "max-age=31536000; includeSubDomains; preload",
+  "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
 };
 
 function contentType(key) {
@@ -47,7 +47,6 @@ function objectKey(pathname) {
   return `${p}/index.html`;
 }
 
-const APP_ORIGIN = "https://app.getassureai.com";
 const SALES_INBOX = "sales@getassureai.com";
 const EMAIL_FROM = "Assure Website <website@getassureai.com>";
 
@@ -140,8 +139,8 @@ export default {
       return Response.redirect(new URL(`/${m[1]}/contact-us/`, url.origin).toString(), 301);
     }
     if (url.pathname.startsWith("/app") || url.pathname.startsWith("/api")) {
-      const target = new URL(url.pathname + url.search, APP_ORIGIN);
-      return Response.redirect(target.toString(), 302);
+      // The workbench is gone; these legacy paths go to the contact page.
+      return Response.redirect(new URL("/contact-us/", url.origin).toString(), 301);
     }
     if (request.method !== "GET" && request.method !== "HEAD") {
       return new Response("Method not allowed", { status: 405 });
@@ -155,9 +154,17 @@ export default {
 
     let status = 200;
     if (!object) {
-      // Serve the site's own 404 page from R2, with status 404.
+      // Serve the site's own 404 page from R2, with status 404. If the page
+      // itself is missing, fall back to a plain text 404 rather than throwing.
       object = await env.MARKETING.get("404.html");
       status = 404;
+    }
+
+    if (!object) {
+      return new Response("Not found", {
+        status: 404,
+        headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" },
+      });
     }
 
     const headers = new Headers();

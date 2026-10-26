@@ -171,7 +171,7 @@
                 <p data-i18n="arch.cta.sub">Paste a paragraph on the landing page, or open Assure.</p>
                 <div class="hero-cta-group">
                     <a href="/#sandbox" class="btn-primary" data-i18n="arch.cta.sandbox">Try it with your own document</a>
-                    <a href="/app?lang={{ locale|default('en') }}" class="btn-primary-small arch-cta-secondary" data-i18n="arch.cta.workspace">Open Assure</a>
+                    <a href="{% if locale|default('en') == 'en' %}/contact-us/{% else %}/{{ locale|default('en') }}/contact-us/{% endif %}" class="btn-primary-small arch-cta-secondary" data-i18n="arch.cta.workspace">Open Assure</a>
                 </div>
             </div>
         </section>

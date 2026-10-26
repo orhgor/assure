@@ -5,7 +5,6 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DIST_DIR="${DIST_DIR:-$ROOT/dist}"
 PYTHON="${PYTHON:-$ROOT/.venv/bin/python}"
-APP_HOST="${APP_HOST:-https://app.getassureai.com}"
 CDN_BASE_URL="${CDN_BASE_URL:-/static}"
 
 cd "$ROOT"
@@ -52,15 +51,8 @@ for LOCALE in $PUBLISH_LOCALES; do
   "$PYTHON" "$ROOT/marketing/render.py" \
     --locale "$LOCALE" \
     --output "$OUT" \
-    --static-base "$CDN_BASE_URL" \
-    --app-host "$APP_HOST"
+    --static-base "$CDN_BASE_URL"
 done
-
-# Cloudflare Pages / static hosting metadata
-cat > "$DIST_DIR/_redirects" <<'EOF'
-/app/*  https://app.getassureai.com/app/:splat  302
-/api/*  https://app.getassureai.com/api/:splat  302
-EOF
 
 if [ -f "$ROOT/landing/_headers" ]; then
   cp "$ROOT/landing/_headers" "$DIST_DIR/_headers"
