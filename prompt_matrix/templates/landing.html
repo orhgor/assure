@@ -35,7 +35,8 @@
         "Page-level provenance for every claim",
         "Deterministic math and logic checks (Z3)",
         "Adversarial Red-Hat review",
-        "Parse incoming documents into structured data (Parsure)",
+        "Read and check incoming documents (ParSure)",
+        "Cross-check figures and facts against rules, registers and other documents (CrossSure)",
         "Audit-ready export with full provenance"
       ],
       "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD", "name": "Evaluation" }
@@ -128,6 +129,30 @@
             </div>
         </section>
 
+        <section id="steps" class="diff-section steps-section">
+            <div class="container">
+                <h2 class="section-title" data-i18n="landing.steps.title">{{ strings.get('landing.steps.title', 'Three steps from file to verified answer') }}</h2>
+                <p class="diff-intro" data-i18n="landing.steps.intro">{{ strings.get('landing.steps.intro', 'Every file passes through the same three stages, and every finding points back to its source page.') }}</p>
+                <div class="diff-grid steps-grid">
+                    <article class="diff-card">
+                        <p class="diff-label"><span>1</span> · <span data-i18n="landing.steps.1.role">{{ strings.get('landing.steps.1.role', '') }}</span></p>
+                        <h3 data-i18n="landing.steps.1.name">{{ strings.get('landing.steps.1.name', '') }}</h3>
+                        <p class="diff-body" data-i18n="landing.steps.1.body">{{ strings.get('landing.steps.1.body', '') }}</p>
+                    </article>
+                    <article class="diff-card">
+                        <p class="diff-label"><span>2</span> · <span data-i18n="landing.steps.2.role">{{ strings.get('landing.steps.2.role', '') }}</span></p>
+                        <h3 data-i18n="landing.steps.2.name">{{ strings.get('landing.steps.2.name', '') }}</h3>
+                        <p class="diff-body" data-i18n="landing.steps.2.body">{{ strings.get('landing.steps.2.body', '') }}</p>
+                    </article>
+                    <article class="diff-card diff-card-featured">
+                        <p class="diff-label"><span>3</span> · <span data-i18n="landing.steps.3.role">{{ strings.get('landing.steps.3.role', '') }}</span></p>
+                        <h3 data-i18n="landing.steps.3.name">{{ strings.get('landing.steps.3.name', '') }}</h3>
+                        <p class="diff-body" data-i18n="landing.steps.3.body">{{ strings.get('landing.steps.3.body', '') }}</p>
+                    </article>
+                </div>
+            </div>
+        </section>
+
         <section id="different" class="diff-section">
             <div class="container">
                 <h2 class="section-title" data-i18n="landing.diff.title">{{ strings.get('landing.diff.title', 'Why Assure is different') }}</h2>
@@ -197,7 +222,7 @@
             <div class="container">
                 <h2 class="section-title" data-i18n="landing.trust.title">{{ strings.get('landing.trust.title', 'Enterprise trust architecture') }}</h2>
                 <p class="trust-badge" data-i18n="landing.hero.badge">{{ strings.get('landing.hero.badge', '') }}</p>
-                <p class="trust-lead" data-i18n="landing.trust.lead">{{ strings.get('landing.trust.lead', 'Grounded in your documents, not the model\'s memory. Assure\'s parsing engine extracts every page, table, and clause of your source documents so every check points at a real source, not a statistical guess.') }}</p>
+                <p class="trust-lead" data-i18n="landing.trust.lead">{{ strings.get('landing.trust.lead', 'Grounded in your documents, not the model\'s memory. ParSure reads incoming files, CrossSure cross-checks them against rules, registers and each other, and Assure verifies every page, table, and clause of your source documents, so every check points at a real source, not a statistical guess.') }}</p>
                 <div class="trust-arch-grid trust-arch-grid-four">
                     <article class="trust-card">
                         <h3 data-i18n="landing.trust.card1.title">{{ strings.get('landing.trust.card1.title', '') }}</h3>

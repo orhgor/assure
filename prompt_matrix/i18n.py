@@ -59,16 +59,13 @@ EN = {
 
         "Secure by design. Processed on our servers, never used to train our models."
     ),
-    "landing.hero.subtitle": "Parsure parses incoming files into structured data. Assure verifies each claim against the source. So teams can trust the outputs they ship and the decisions they make.",
+    "landing.hero.subtitle": "ParSure reads and checks the incoming documents. CrossSure cross-checks figures and facts against rules, registers and the other documents. Assure returns one clear, sourced response.",
     "landing.trust.logos_aria": "AWS and Amazon S3",
     "brand.tagline": "Compile. Verify. Trust what you ship.",
     "tagline_html": 'The right question produces a <span class="trust">trusted</span> answer.',
     "brand.tagline_html": "The Intellectual Compiler",
     "brand.page_title": "Assure AI — Documents in. Verified output out.",
-    "brand.meta_description": (
-        "Parsure parses your documents into structured data. Assure verifies claims, "
-        "numbers, and citations against the source — page-level provenance you can defend."
-    ),
+    "brand.meta_description": "ParSure reads and checks your documents. CrossSure cross-checks figures and facts against rules, registers and the other documents. Assure returns one clear, sourced response.",
     "brand.architecture_title": "How It Works · Assure — The Intellectual Compiler",
     "brand.architecture_meta_description": "Why guessing fails—and how Assure turns your intent into verified documents that are ready to ship.",
     "hero.title": "Verify drafts against your source documents.",
@@ -240,7 +237,7 @@ EN = {
     "landing.trust.model.title": "Model flexibility",
     "landing.trust.model.body": "Bring your own keys, or use managed enterprise routers. You choose the model. We prove the output.",
     "landing.trust.proof": "Validated in regulated enterprise workflows — every claim checked against source page.",
-    "landing.trust.lead": "Grounded in your documents, not the model's memory. Parsure parses incoming files into structured data, and Assure verifies every page, table, and clause of your source documents, so every check points at a real source, not a statistical guess.",
+    "landing.trust.lead": "Grounded in your documents, not the model's memory. ParSure reads incoming files, CrossSure cross-checks them against rules, registers and each other, and Assure verifies every page, table, and clause of your source documents, so every check points at a real source, not a statistical guess.",
     "landing.diff.title": "Why Assure is different",
     "landing.diff.intro": (
         "Most enterprise AI tools help you extract, draft, or search. "
@@ -1440,6 +1437,17 @@ EN = {
     "landing.hero.cta_primary": "Book a Demo",
     "landing.pilot.title": "Book a Demo",
     "landing.pilot.submit": "Book a Demo",
+    "landing.steps.title": "Three steps from file to verified answer",
+    "landing.steps.intro": "Every file passes through the same three stages, and every finding points back to its source page.",
+    "landing.steps.1.name": "ParSure",
+    "landing.steps.1.role": "Read and check",
+    "landing.steps.1.body": "Reads and checks the incoming documents: what is there, what is missing, and whether names and details line up.",
+    "landing.steps.2.name": "CrossSure",
+    "landing.steps.2.role": "Cross-check",
+    "landing.steps.2.body": "Cross-checks figures and facts against rules, registers and the other documents.",
+    "landing.steps.3.name": "Assure",
+    "landing.steps.3.role": "Respond",
+    "landing.steps.3.body": "Returns one clear, sourced response, with every finding tied to its source page.",
 }
 
 ES = {
@@ -1523,11 +1531,8 @@ ES = {
     "brand.tagline_html": "El Compilador Intelectual",
     "brand.page_title": "Assure AI — Documentos dentro. Resultados verificados.",
     "brand.hero_title": "Documentos dentro. Resultados verificados.",
-    "landing.hero.subtitle": "Parsure convierte los archivos entrantes en datos estructurados. Assure verifica las afirmaciones, cifras y evidencias para que los equipos confíen en lo que usan, envían y deciden.",
-    "brand.meta_description": (
-        "Parsure analiza tus documentos en datos estructurados. Assure verifica cada afirmación, "
-        "cifra y cita contra la fuente — trazabilidad a nivel de página que puedes defender."
-    ),
+    "landing.hero.subtitle": "ParSure lee y comprueba los documentos entrantes. CrossSure contrasta cifras y datos con reglas, registros y los demás documentos. Assure devuelve una respuesta clara y con fuentes.",
+    "brand.meta_description": "ParSure lee y comprueba tus documentos. CrossSure contrasta cifras y datos con reglas, registros y los demás documentos. Assure devuelve una respuesta clara y con fuentes.",
     "brand.architecture_title": "Cómo funciona · Assure — El Compilador Intelectual",
     "brand.architecture_meta_description": (
         "Por qué adivinar falla—y cómo Assure convierte tu intención en documentos verificados listos para entregar."
@@ -2772,6 +2777,18 @@ ES = {
     "landing.hero.cta_primary": "Reservar una demo",
     "landing.pilot.title": "Reservar una demo",
     "landing.pilot.submit": "Reservar una demo",
+    "landing.trust.lead": "Basado en tus documentos, no en la memoria del modelo. ParSure lee los archivos entrantes, CrossSure los contrasta con reglas, registros y entre sí, y Assure verifica cada página, tabla y cláusula de tus documentos fuente, de modo que cada comprobación apunta a una fuente real, no a una conjetura estadística.",
+    "landing.steps.title": "Tres pasos del archivo a la respuesta verificada",
+    "landing.steps.intro": "Cada archivo pasa por las mismas tres etapas, y cada hallazgo apunta a su página de origen.",
+    "landing.steps.1.name": "ParSure",
+    "landing.steps.1.role": "Leer y comprobar",
+    "landing.steps.1.body": "Lee y comprueba los documentos entrantes: qué hay, qué falta y si los nombres y los datos coinciden.",
+    "landing.steps.2.name": "CrossSure",
+    "landing.steps.2.role": "Contrastar",
+    "landing.steps.2.body": "Contrasta cifras y datos con reglas, registros y los demás documentos.",
+    "landing.steps.3.name": "Assure",
+    "landing.steps.3.role": "Responder",
+    "landing.steps.3.body": "Devuelve una respuesta clara y con fuentes, con cada hallazgo vinculado a su página de origen.",
 }
 
 ZH = {
@@ -3950,15 +3967,12 @@ ZH = {
     "privacy.chip.tip.closed": (
         "对互联网关闭：在 Assure 的安全服务器上处理，绝不发送给第三方提供商。"
     ),
-    "landing.hero.subtitle": "Parsure 将传入文件解析为结构化数据。Assure 验证其中的声明、数字和证据，让团队可以放心使用、发送和决策。",
+    "landing.hero.subtitle": "ParSure 读取并检查传入文件。CrossSure 将数字和事实与规则、登记册及其他文件交叉核对。Assure 返回一份清晰、注明来源的答复。",
     "brand.tagline": "编译。验证。信任所交付的内容。",
     "tagline_html": '正确的问题产生<span class="trust">可信</span>的答案。',
     "brand.tagline_html": "智能编译器",
     "brand.page_title": "Assure AI — 文档输入。输出可信。",
-    "brand.meta_description": (
-        "Assure 是首个智能编译器——将原始意图、杂乱的文档和非结构化数据"
-        "转化为经数学验证、可审计的交付成果。"
-    ),
+    "brand.meta_description": "ParSure 读取并检查你的文件。CrossSure 将数字和事实与规则、登记册及其他文件交叉核对。Assure 返回一份清晰、注明来源的答复。",
     "brand.architecture_title": "工作原理 · Assure — 智识编译器",
     "brand.architecture_meta_description": (
         "为什么靠猜测会失败——以及 Assure 如何将您的意图转化为可放心交付的验证文档。"
@@ -5203,6 +5217,18 @@ ZH = {
     "landing.hero.cta_primary": "预约演示",
     "landing.pilot.title": "预约演示",
     "landing.pilot.submit": "预约演示",
+    "landing.trust.lead": "以你的文件为依据，而不是模型的记忆。ParSure 读取传入文件，CrossSure 将其与规则、登记册及彼此交叉核对，Assure 验证源文件的每一页、每张表和每项条款，让每次核对都指向真实来源，而不是统计猜测。",
+    "landing.steps.title": "从文件到已验证答复的三个步骤",
+    "landing.steps.intro": "每份文件都经过同样的三个阶段，每项发现都指向其来源页。",
+    "landing.steps.1.name": "ParSure",
+    "landing.steps.1.role": "读取并检查",
+    "landing.steps.1.body": "读取并检查传入文件：有什么、缺什么，以及姓名和细节是否一致。",
+    "landing.steps.2.name": "CrossSure",
+    "landing.steps.2.role": "交叉核对",
+    "landing.steps.2.body": "将数字和事实与规则、登记册及其他文件交叉核对。",
+    "landing.steps.3.name": "Assure",
+    "landing.steps.3.role": "答复",
+    "landing.steps.3.body": "返回一份清晰、注明来源的答复，每项发现都关联到其来源页。",
 }
 
 FR = {
@@ -5282,14 +5308,12 @@ FR = {
 
         "Sécurisé par conception. Traité sur nos serveurs, jamais utilisé pour entraîner nos modèles."
     ),
-    "landing.hero.subtitle": "Parsure analyse les fichiers entrants en données structurées. Assure vérifie affirmations, chiffres et preuves — les équipes font confiance à ce qu'elles utilisent, envoient et décident.",
+    "landing.hero.subtitle": "ParSure lit et vérifie les documents reçus. CrossSure recoupe chiffres et faits avec les règles, les registres et les autres documents. Assure renvoie une réponse claire et sourcée.",
     "brand.tagline": "Compilez. Vérifiez. Faites confiance à ce que vous livrez.",
     "tagline_html": 'La bonne question produit une réponse de <span class="trust">confiance</span>.',
     "brand.tagline_html": "Le Compilateur Intellectuel",
     "brand.page_title": "Assure AI — Documents à l'entrée. Résultats vérifiés.",
-    "brand.meta_description": (
-        "Parsure analyse vos documents en données structurées. Assure vérifie chaque affirmation, chiffre et citation contre la source — traçabilité au niveau de la page."
-    ),
+    "brand.meta_description": "ParSure lit et vérifie vos documents. CrossSure recoupe chiffres et faits avec les règles, les registres et les autres documents. Assure renvoie une réponse claire et sourcée.",
     "brand.architecture_title": "Comment ça marche · Assure — Le Compilateur Intellectuel",
     "brand.architecture_meta_description": (
         "Pourquoi deviner échoue—et comment Assure transforme votre intention en documents vérifiés prêts à livrer."
@@ -6521,6 +6545,18 @@ FR = {
     "landing.hero.cta_primary": "Réserver une démo",
     "landing.pilot.title": "Réserver une démo",
     "landing.pilot.submit": "Réserver une démo",
+    "landing.trust.lead": "Fondé sur vos documents, pas sur la mémoire du modèle. ParSure lit les fichiers reçus, CrossSure les recoupe avec les règles, les registres et entre eux, et Assure vérifie chaque page, tableau et clause de vos documents sources : chaque contrôle renvoie à une source réelle, pas à une supposition statistique.",
+    "landing.steps.title": "Trois étapes, du dossier à la réponse vérifiée",
+    "landing.steps.intro": "Chaque dossier suit les mêmes trois étapes, et chaque constat renvoie à sa page source.",
+    "landing.steps.1.name": "ParSure",
+    "landing.steps.1.role": "Lire et vérifier",
+    "landing.steps.1.body": "Lit et vérifie les documents reçus : ce qui est présent, ce qui manque, et si les noms et les détails concordent.",
+    "landing.steps.2.name": "CrossSure",
+    "landing.steps.2.role": "Recouper",
+    "landing.steps.2.body": "Recoupe chiffres et faits avec les règles, les registres et les autres documents.",
+    "landing.steps.3.name": "Assure",
+    "landing.steps.3.role": "Répondre",
+    "landing.steps.3.body": "Renvoie une réponse claire et sourcée, chaque constat étant rattaché à sa page source.",
 }
 
 DE = {
@@ -6604,9 +6640,7 @@ DE = {
     "tagline_html": 'Die richtige Frage erzeugt eine <span class="trust">vertrauenswürdige</span> Antwort.',
     "brand.tagline_html": "Der Intellektuelle Compiler",
     "brand.page_title": "Assure AI — Dokumente hinein. Verifiziertes Ergebnis heraus.",
-    "brand.meta_description": (
-        "Parsure parst Ihre Dokumente in strukturierte Daten. Assure prüft jede Aussage, Zahl und jeden Verweis gegen die Quelle — Nachvollziehbarkeit bis auf Seitenebene."
-    ),
+    "brand.meta_description": "ParSure liest und prüft Ihre Dokumente. CrossSure gleicht Zahlen und Fakten mit Regeln, Registern und den übrigen Dokumenten ab. Assure liefert eine klare Antwort mit Quellenangaben.",
     "brand.architecture_title": "So funktioniert's · Assure — Der Intellektuelle Compiler",
     "brand.architecture_meta_description": (
         "Warum Raten scheitert—und wie Assure Ihre Absicht in verifizierte Dokumente verwandelt, die Sie verantworten können."
@@ -7851,6 +7885,19 @@ DE = {
     "landing.hero.cta_primary": "Demo buchen",
     "landing.pilot.title": "Demo buchen",
     "landing.pilot.submit": "Demo buchen",
+    "landing.hero.subtitle": "ParSure liest und prüft die eingehenden Dokumente. CrossSure gleicht Zahlen und Fakten mit Regeln, Registern und den übrigen Dokumenten ab. Assure liefert eine klare Antwort mit Quellenangaben.",
+    "landing.trust.lead": "Gegründet auf Ihre Dokumente, nicht auf das Gedächtnis des Modells. ParSure liest eingehende Dateien, CrossSure gleicht sie mit Regeln, Registern und untereinander ab, und Assure prüft jede Seite, Tabelle und Klausel Ihrer Quelldokumente, sodass jede Prüfung auf eine echte Quelle verweist, nicht auf eine statistische Vermutung.",
+    "landing.steps.title": "Drei Schritte von der Akte zur geprüften Antwort",
+    "landing.steps.intro": "Jede Akte durchläuft dieselben drei Stufen, und jeder Befund verweist auf seine Quellseite.",
+    "landing.steps.1.name": "ParSure",
+    "landing.steps.1.role": "Lesen und prüfen",
+    "landing.steps.1.body": "Liest und prüft die eingehenden Dokumente: was vorhanden ist, was fehlt und ob Namen und Angaben übereinstimmen.",
+    "landing.steps.2.name": "CrossSure",
+    "landing.steps.2.role": "Abgleichen",
+    "landing.steps.2.body": "Gleicht Zahlen und Fakten mit Regeln, Registern und den übrigen Dokumenten ab.",
+    "landing.steps.3.name": "Assure",
+    "landing.steps.3.role": "Antworten",
+    "landing.steps.3.body": "Liefert eine klare Antwort mit Quellenangaben; jeder Befund ist mit seiner Quellseite verknüpft.",
 }
 
 JA = {
@@ -7929,14 +7976,12 @@ JA = {
 
         "セキュア by デザイン。当社サーバーで処理、モデル学習には一切使用しません。"
     ),
-    "landing.hero.subtitle": "Parsure が入力ファイルを構造化データへ解析し、Assure が主張・数値・エビデンスを検証。チームは、利用・送信・意思決定する内容を信頼できます。",
+    "landing.hero.subtitle": "ParSure は受け取った書類を読み取って確認します。CrossSure は数値や事実を、ルール・台帳・他の書類と突き合わせます。Assure は出典付きの明確な回答を返します。",
     "brand.tagline": "コンパイル。検証。出荷するものを信頼する。",
     "tagline_html": '正しい問いが<span class="trust">信頼</span>できる答えを生む。',
     "brand.tagline_html": "インテレクチュアル・コンパイラー",
     "brand.page_title": "Assure AI — ドキュメント入力。検証された成果物。",
-    "brand.meta_description": (
-        "Parsure が文書を構造化データへ解析し、Assure がすべての主張と数値をソースに対して検証します。ページ単位のトレーサビリティを提供します。"
-    ),
+    "brand.meta_description": "ParSure が書類を読み取って確認し、CrossSure が数値や事実をルール・台帳・他の書類と突き合わせ、Assure が出典付きの明確な回答を返します。",
     "brand.architecture_title": "仕組み · Assure — 知能コンパイラ",
     "brand.architecture_meta_description": (
         "推測がなぜ失敗するのか—Assure が意図を自信を持って届けられる検証済みドキュメントに変える方法。"
@@ -9181,6 +9226,18 @@ JA = {
     "landing.hero.cta_primary": "デモを予約",
     "landing.pilot.title": "デモを予約",
     "landing.pilot.submit": "デモを予約",
+    "landing.trust.lead": "モデルの記憶ではなく、あなたの文書に基づきます。ParSure が受け取ったファイルを読み取り、CrossSure がルール・台帳・相互の書類と突き合わせ、Assure が元文書のすべてのページ・表・条項を検証します。すべての確認は統計的な推測ではなく、実在する出典を指します。",
+    "landing.steps.title": "ファイルから検証済みの回答まで、3つのステップ",
+    "landing.steps.intro": "すべてのファイルが同じ3つの段階を通り、すべての指摘が出典ページを示します。",
+    "landing.steps.1.name": "ParSure",
+    "landing.steps.1.role": "読み取りと確認",
+    "landing.steps.1.body": "受け取った書類を読み取り、何があり何が足りないか、氏名や詳細が一致しているかを確認します。",
+    "landing.steps.2.name": "CrossSure",
+    "landing.steps.2.role": "突き合わせ",
+    "landing.steps.2.body": "数値や事実を、ルール・台帳・他の書類と突き合わせます。",
+    "landing.steps.3.name": "Assure",
+    "landing.steps.3.role": "回答",
+    "landing.steps.3.body": "出典付きの明確な回答を返し、すべての指摘を出典ページに結び付けます。",
 }
 
 TR = {
@@ -9260,15 +9317,13 @@ TR = {
 
         "Tasarım gereği güvenli. Sunucularımızda işlenir, modellerimizi eğitmek için asla kullanılmaz."
     ),
-    "landing.hero.subtitle": "Parsure gelen dosyaları yapılandırılmış veriye ayrıştırır. Assure iddiaları, rakamları ve kanıtları doğrular; ekipler kullandıklarına, gönderdiklerine ve kararlarına güvenir.",
+    "landing.hero.subtitle": "ParSure gelen belgeleri okur ve denetler. CrossSure rakamları ve olguları kurallar, sicil kayıtları ve diğer belgelerle çapraz kontrol eder. Assure kaynaklı, tek ve net bir yanıt verir.",
     "brand.tagline": "Derleyin. Doğrulayın. Gönderdiğinize güvenin.",
     "how.restructure": "Bir soru yazarsın. Assure, seçtiğin yapay zeka için promptu yeniden yazar. Aşağıdaki panel, yazdıkça promptu gösterir. Yanıtla onu o sağlayıcıya gönderir. Kopya bu bilgisayarda kalır.",
     "tagline_html": 'Doğru soru <span class="trust">güvenilir</span> yanıt üretir.',
     "brand.tagline_html": "Zihinsel Derleyici",
     "brand.page_title": "Assure AI — Belgeler girer. Doğrulanmış çıktı çıkar.",
-    "brand.meta_description": (
-        "Parsure belgelerinizi yapılandırılmış veriye ayrıştırır. Assure her iddia, rakam ve atfı kaynağa karşı doğrular — sayfa seviyesinde izlenebilirlik sağlar."
-    ),
+    "brand.meta_description": "ParSure belgelerinizi okur ve denetler. CrossSure rakamları ve olguları kurallar, sicil kayıtları ve diğer belgelerle çapraz kontrol eder. Assure kaynaklı, tek ve net bir yanıt verir.",
     "brand.architecture_title": "Nasıl çalışır · Assure — Zihinsel Derleyici",
     "brand.architecture_meta_description": (
         "Tahmin etmenin neden başarısız olduğu—Assure'un niyetinizi güvenle teslim edebileceğiniz doğrulanmış belgelere dönüştürmesi."
@@ -10517,6 +10572,18 @@ TR = {
     "landing.hero.cta_primary": "Demo planla",
     "landing.pilot.title": "Demo planla",
     "landing.pilot.submit": "Demo planla",
+    "landing.trust.lead": "Modelin belleğine değil, belgelerinize dayanır. ParSure gelen dosyaları okur, CrossSure bunları kurallar, sicil kayıtları ve birbirleriyle çapraz kontrol eder, Assure ise kaynak belgelerinizin her sayfasını, tablosunu ve maddesini doğrular; böylece her kontrol istatistiksel bir tahmini değil, gerçek bir kaynağı gösterir.",
+    "landing.steps.title": "Dosyadan doğrulanmış yanıta üç adım",
+    "landing.steps.intro": "Her dosya aynı üç aşamadan geçer ve her bulgu kaynak sayfasını gösterir.",
+    "landing.steps.1.name": "ParSure",
+    "landing.steps.1.role": "Oku ve denetle",
+    "landing.steps.1.body": "Gelen belgeleri okur ve denetler: neyin olduğunu, neyin eksik olduğunu ve adların ile ayrıntıların tutarlı olup olmadığını.",
+    "landing.steps.2.name": "CrossSure",
+    "landing.steps.2.role": "Çapraz kontrol et",
+    "landing.steps.2.body": "Rakamları ve olguları kurallar, sicil kayıtları ve diğer belgelerle çapraz kontrol eder.",
+    "landing.steps.3.name": "Assure",
+    "landing.steps.3.role": "Yanıtla",
+    "landing.steps.3.body": "Kaynaklı, tek ve net bir yanıt verir; her bulgu kaynak sayfasına bağlanır.",
 }
 
 CATALOGS = {"en": EN, "es": ES, "zh": ZH, "fr": FR, "de": DE, "ja": JA, "tr": TR}
