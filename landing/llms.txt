@@ -7,7 +7,7 @@ Assure AI is the deterministic truth engine for high-stakes documents. It verifi
 - Deterministic math verification with formal logic (Z3)
 - Page-level provenance: every output points to its exact source page
 - Adversarial audit that flags contradictions and unsupported claims before export
-- Audit-ready export with cryptographic locks and reviewer sign-offs
+
 - Works with the user's own model keys; documents processed on Assure servers, never used for training
 
 ## Who it is for

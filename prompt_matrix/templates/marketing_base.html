@@ -17,13 +17,12 @@
   <meta property="og:title" content="{% block og_title %}{{ brand.page_title }}{% endblock %}">
   <meta property="og:description" content="{{ brand.meta_description }}">
   <title>{% block title %}{{ brand.page_title }}{% endblock %}</title>
-  <link rel="icon" href="{{ url_for('static', filename='assure-logo.png') }}" type="image/png">
-  <link rel="apple-touch-icon" href="{{ url_for('static', filename='assure-logo.png') }}">
+  <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="{{ url_for('static', filename='favicon.svg') }}">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ css_version|default('assure-30') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='compare_pane.css') }}?v={{ css_version|default('assure-30') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='marketing_pages.css') }}?v={{ css_version|default('assure-30') }}">
   {% block extra_head %}{% endblock %}
   {% include 'includes/plausible.html' %}
@@ -34,7 +33,7 @@
   <div class="shell">
     <header class="site-header">
       <a class="brand-home" href="/{{ q }}">
-        <img class="brand-mark" src="{{ url_for('static', filename='assure-logo.png') }}" alt="" width="36" height="36">
+        <img class="brand-mark" src="{{ url_for('static', filename='assure-logo.png') }}" alt="Assure" width="36" height="36">
         <span class="brand-copy">
           <span class="wordmark">Assure</span>
         </span>

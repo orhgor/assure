@@ -7,3 +7,4 @@
 
 /assets/*
   Cache-Control: public, max-age=3600
+/favicon.ico /favicon.svg 302

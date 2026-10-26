@@ -1,2 +1,9 @@
 # Redirects are enforced by worker/index.js (workers.dev → getassureai.com).
 # Cloudflare _redirects only supports relative targets; do not add apex URLs here.
+/contact /contact-us 302
+/de/contact /de/contact-us 302
+/es/contact /es/contact-us 302
+/fr/contact /fr/contact-us 302
+/ja/contact /ja/contact-us 302
+/tr/contact /tr/contact-us 302
+/zh/contact /zh/contact-us 302
