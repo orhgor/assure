@@ -116,7 +116,8 @@ PAGES: list[dict] = [
 
 _I18N_ATTR_RE = re.compile(r'data-i18n(?:-html|-placeholder|-aria|-label)?="([^"]+)"')
 _GET_KEY_RE = re.compile(r"strings\.get\(\s*['\"]([a-zA-Z0-9_.]+)['\"]")
-_INCLUDE_RE = re.compile(r"{%-?\s*include\s+'([^']+?)'\s*%-?\}")
+_INCLUDE_RE = re.compile(r"{%-?\s*include\s+['\"]([^']+?)['\"]\s*%-?\}")
+_EXTENDS_RE = re.compile(r"{%-?\s*extends\s+['\"]([^']+?)['\"]\s*%-?\}")
 TEMPLATES_DIR = ROOT / "marketing" / "templates"
 
 
@@ -146,17 +147,72 @@ def _locale_paths() -> dict[str, str]:
     return {loc: "/" if loc == "en" else f"/{loc}/" for loc in publish_locales()}
 
 
+_I18N_TEXT_RE = re.compile(
+    r"<(\w+)((?:[^>]*?\s)?data-i18n=\"([^\"]+)\"[^>]*)>(.*?)</\1>", re.S
+)
+_I18N_HTML_RE = re.compile(
+    r"<(\w+)((?:[^>]*?\s)?data-i18n-html=\"([^\"]+)\"[^>]*)>(.*?)</\1>", re.S
+)
+_I18N_ATTR_RE_ATTR = re.compile(
+    r"<(\w+)([^>]*?\sdata-i18n-(placeholder|aria|label)=\"([^\"]+)\"[^>]*)>"
+)
+_ATTR_FOR_KIND = {"placeholder": "placeholder", "aria": "aria-label", "label": "title"}
+
+
+def _apply_data_i18n(html: str, strings: dict) -> str:
+    """Bake data-i18n strings into the static HTML so server-rendered pages are
+    translated without JS (the client script keeps working for live switches)."""
+
+    def repl_text(m: re.Match) -> str:
+        tag, attrs, key, inner = m.group(1), m.group(2), m.group(3), m.group(4)
+        val = strings.get(key)
+        if not val or "<" in inner:
+            return m.group(0)
+        return f"<{tag}{attrs}>{val}</{tag}>"
+
+    def repl_html(m: re.Match) -> str:
+        tag, attrs, key, inner = m.group(1), m.group(2), m.group(3), m.group(4)
+        val = strings.get(key)
+        if not val:
+            return m.group(0)
+        return f"<{tag}{attrs}>{val}</{tag}>"
+
+    def repl_attr(m: re.Match) -> str:
+        tag, attrs, kind, key = m.group(1), m.group(2), m.group(3), m.group(4)
+        val = strings.get(key)
+        if not val:
+            return m.group(0)
+        attr = _ATTR_FOR_KIND[kind]
+        pattern = re.compile(rf"\s{attr}=\"[^\"]*\"")
+        if pattern.search(attrs):
+            attrs = pattern.sub(f' {attr}="{val}"', attrs)
+        else:
+            attrs = f"{attrs} {attr}=\"{val}\""
+        return f"<{tag}{attrs}>"
+
+    html = _I18N_TEXT_RE.sub(repl_text, html)
+    html = _I18N_HTML_RE.sub(repl_html, html)
+    html = _I18N_ATTR_RE_ATTR.sub(repl_attr, html)
+    return html
+
+
 def _postprocess(
     html: str,
     *,
     locale: str,
     page_suffix: str,
     static_base: str,
+    strings: dict | None = None,
 ) -> str:
     static_base = static_base.rstrip("/")
 
     html = html.replace('="/static/', f'="{static_base}/')
     html = html.replace("='/static/", f"='{static_base}/")
+
+    # Bake translations into the static HTML for every locale except en, whose
+    # hardcoded template text already is the English source.
+    if strings and locale != "en":
+        html = _apply_data_i18n(html, strings)
 
     inject = (
         "<script>"
@@ -188,6 +244,8 @@ def _used_string_keys(app, template_name: str, seen: set | None = None) -> set[s
     for match in _GET_KEY_RE.finditer(source):
         keys.add(match.group(1))
     for match in _INCLUDE_RE.finditer(source):
+        keys |= _used_string_keys(app, match.group(1), seen)
+    for match in _EXTENDS_RE.finditer(source):
         keys |= _used_string_keys(app, match.group(1), seen)
     return keys
 
@@ -248,6 +306,7 @@ def render_locale(
             locale=locale,
             page_suffix=page["suffix"],
             static_base=static_base,
+            strings=string_catalog(locale),
         )
         out_path = output_dir / page["output"]
         out_path.parent.mkdir(parents=True, exist_ok=True)

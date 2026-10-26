@@ -55,7 +55,7 @@
                 <div class="ast-compare">
                     <div class="ast-panel ast-flat">
                         <h3 data-i18n="arch.ast.flat.title">What a generic chatbot gives you</h3>
-                        <pre class="ast-mock" aria-hidden="true">"Q3 revenue reached $4.2M... margins expanded to 32%... European markets led growth..."</pre>
+                        <pre class="ast-mock" aria-hidden="true">{{ strings.get('arch.mock.flat', '"Q3 revenue reached $4.2M... margins expanded to 32%... European markets led growth..."') }}</pre>
                         <ul class="ast-fail-list">
                             <li data-i18n="arch.ast.flat.fail1">One blob&mdash;hard to fix one claim without breaking others</li>
                             <li data-i18n="arch.ast.flat.fail2">Numbers change when you rewrite nearby text</li>
@@ -68,26 +68,26 @@
                             <article class="ast-node ast-node-section">
                                 <div class="ast-node-header">
                                     <span class="ast-node-icon" aria-hidden="true">§</span>
-                                    <span class="ast-node-label">Section</span>
+                                    <span class="ast-node-label">{{ strings.get('arch.node.section', 'Section') }}</span>
                                 </div>
-                                <p class="ast-node-field"><span>title</span> Financial Summary</p>
-                                <p class="ast-node-field"><span>contains</span> paragraph, table</p>
+                                <p class="ast-node-field"><span>{{ strings.get('arch.node.field_title', 'title') }}</span> {{ strings.get('arch.node.sample.title', 'Financial Summary') }}</p>
+                                <p class="ast-node-field"><span>{{ strings.get('arch.node.field_contains', 'contains') }}</span> {{ strings.get('arch.node.sample.contains', 'paragraph, table') }}</p>
                                 <div class="ast-node-children">
                                     <article class="ast-node ast-node-paragraph">
                                         <div class="ast-node-header">
                                             <span class="ast-node-icon" aria-hidden="true">¶</span>
-                                            <span class="ast-node-label">Paragraph</span>
+                                            <span class="ast-node-label">{{ strings.get('arch.node.paragraph', 'Paragraph') }}</span>
                                         </div>
-                                        <p class="ast-node-field"><span>content</span> Q3 revenue reached $4.2M&hellip;</p>
-                                        <span class="ast-badge ast-badge-lock">🔒 Locked</span>
+                                        <p class="ast-node-field"><span>{{ strings.get('arch.node.field_content', 'content') }}</span> {{ strings.get('arch.node.sample.content', 'Q3 revenue reached $4.2M…') }}</p>
+                                        <span class="ast-badge ast-badge-lock">🔒 {{ strings.get('arch.badge.locked', 'Locked') }}</span>
                                     </article>
                                     <article class="ast-node ast-node-table">
                                         <div class="ast-node-header">
                                             <span class="ast-node-icon" aria-hidden="true">⊞</span>
-                                            <span class="ast-node-label">Table</span>
+                                            <span class="ast-node-label">{{ strings.get('arch.node.table', 'Table') }}</span>
                                         </div>
-                                        <p class="ast-node-field"><span>headers</span> Region, Growth</p>
-                                        <span class="ast-badge ast-badge-z3">✅ Verified</span>
+                                        <p class="ast-node-field"><span>{{ strings.get('arch.node.field_headers', 'headers') }}</span> {{ strings.get('arch.node.sample.headers', 'Region, Growth') }}</p>
+                                        <span class="ast-badge ast-badge-z3">✅ {{ strings.get('arch.badge.verified', 'Verified') }}</span>
                                     </article>
                                 </div>
                             </article>

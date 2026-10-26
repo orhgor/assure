@@ -1,5 +1,5 @@
 {# nav_current: "landing" | "architecture" #}
-<a class="skip-link" href="#main-content" data-i18n="landing.skip">Skip to content</a>
+<a class="skip-link" href="#main-content" data-i18n="landing.skip">{{ strings.get('landing.skip', 'Skip to content') }}</a>
 <header class="site-header">
     <div class="container nav-container">
         <a href="/" class="logo logo-brand">
@@ -17,8 +17,8 @@
             <a href="/government/" data-i18n="landing.nav.government">{{ strings.get('landing.nav.government', 'Government') }}</a>
             <a href="/privacy" data-i18n="landing.nav.privacy">{{ strings.get('landing.nav.privacy', 'Privacy') }}</a>
             <label class="landing-lang-wrap" for="landing-lang">
-                <span class="landing-lang-label" data-i18n="landing.lang">Language</span>
-                <select id="landing-lang" class="landing-lang-select" data-i18n-aria="landing.lang" aria-label="Language">
+                <span class="landing-lang-label" data-i18n="landing.lang">{{ strings.get('landing.lang', 'Language') }}</span>
+                <select id="landing-lang" class="landing-lang-select" data-i18n-aria="landing.lang" aria-label="{{ strings.get('landing.lang', 'Language') }}">
                     {% for code, label in languages.items() %}
                     <option value="{{ code }}" {% if locale == code %}selected{% endif %}>{{ label }}</option>
                     {% endfor %}
