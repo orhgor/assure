@@ -360,7 +360,7 @@ body {
 #model-select:focus-visible,
 #sandbox-run-btn:focus-visible,
 #sandbox-advanced-toggle:focus-visible,
-#sandbox-send-workbench:focus-visible,
+#sandbox-send-workspace:focus-visible,
 .nav-menu-toggle:focus-visible {
     outline: 2px solid var(--accent-green);
     outline-offset: 2px;
@@ -1641,7 +1641,7 @@ body {
     }
 }
 
-/* Landing workbench persona demo */
+/* Landing workspace persona demo */
 .lw-demo {
     max-width: 1200px;
     margin: 0 auto;
@@ -1691,7 +1691,7 @@ body {
     outline-offset: 2px;
 }
 
-.lw-workbench {
+.lw-workspace {
     width: 100%;
     background: var(--bg-deep);
     border: 1px solid var(--border-color);
@@ -3770,3 +3770,5 @@ html[dir="rtl"] .flow-arrow-approval .flow-badge { left: auto; right: 50%; trans
     .flow-section + .logos-band.logos-band-inline { padding: var(--space-6) 16px var(--space-2); }
     .logos-band.logos-band-inline + .demo-cta { padding-top: var(--space-6); }
 }
+
+.price-grid { display: grid; grid-template-columns: 1fr; justify-items: center; gap: 1.5rem; max-width: 28rem; margin: 0 auto; }
