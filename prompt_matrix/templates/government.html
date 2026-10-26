@@ -30,7 +30,7 @@
     {% if locale|default('en') == 'ar' %}
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
     {% endif %}
-    <link rel="stylesheet" href="{{ url_for('static', filename='landing.css') }}?v={{ landing_css_version|default('82') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='landing.css') }}?v={{ landing_css_version|default('84') }}">
     {% include 'includes/plausible.html' %}
     {% include 'includes/sentry.html' %}
     <script>
@@ -47,61 +47,22 @@
                 <span class="eyebrow" data-i18n="gov.eyebrow">{{ strings.get('gov.eyebrow', 'Government services') }}</span>
                 <h1 class="hero-title" data-i18n="gov.title">{{ strings.get('gov.title', 'Paperless government services, verified') }}</h1>
                 <p class="hero-sub" data-i18n="gov.sub">{{ strings.get('gov.sub', 'Applicants upload one file. Assure checks it, cross-checks it against the rules, and either tells the applicant exactly what to fix or hands staff a complete file with the evidence attached.') }}</p>
-                <div class="hero-cta-group">
-                    <a href="/contact-us/" class="btn-primary" data-i18n="gov.cta">{{ strings.get('gov.cta', 'Book a Demo') }}</a>
-                </div>
             </div>
         </section>
 
-        <section id="gov-flow" class="diff-section steps-section">
-            <div class="container">
-                <h2 class="section-title" data-i18n="gov.flow.title">{{ strings.get('gov.flow.title', 'From uploaded file to a decision-ready dossier') }}</h2>
-                <div class="diff-grid steps-grid">
-                    <article class="diff-card">
-                        <p class="diff-label"><span>1</span> · <span data-i18n="gov.flow.1.role">{{ strings.get('gov.flow.1.role', 'Check the file') }}</span></p>
-                        <h3 data-i18n="gov.flow.1.name">{{ strings.get('gov.flow.1.name', 'ParSure') }}</h3>
-                        <p class="diff-body" data-i18n="gov.flow.1.body">{{ strings.get('gov.flow.1.body', "ParSure checks an applicant's uploaded file for missing documents, wrong documents and name mismatches.") }}</p>
-                    </article>
-                    <article class="diff-card">
-                        <p class="diff-label"><span>2</span> · <span data-i18n="gov.flow.2.role">{{ strings.get('gov.flow.2.role', 'Cross-check') }}</span></p>
-                        <h3 data-i18n="gov.flow.2.name">{{ strings.get('gov.flow.2.name', 'CrossSure') }}</h3>
-                        <p class="diff-body" data-i18n="gov.flow.2.body">{{ strings.get('gov.flow.2.body', 'CrossSure cross-checks figures and facts against eligibility rules, registers and the other documents in the file.') }}</p>
-                    </article>
-                    <article class="diff-card diff-card-featured">
-                        <p class="diff-label"><span>3</span> · <span data-i18n="gov.flow.3.role">{{ strings.get('gov.flow.3.role', 'Respond or route') }}</span></p>
-                        <h3 data-i18n="gov.flow.3.name">{{ strings.get('gov.flow.3.name', 'Assure') }}</h3>
-                        <p class="diff-body" data-i18n="gov.flow.3.body">{{ strings.get('gov.flow.3.body', 'Assure sends the applicant one clear message saying exactly what is missing or wrong, or routes a complete file to staff with an evidence dossier for human approval.') }}</p>
-                    </article>
-                </div>
-            </div>
-        </section>
-
-
-        <section id="gov-scenarios" class="trust-arch">
-            <div class="container">
-                <h2 class="section-title" data-i18n="gov.scen.title">{{ strings.get('gov.scen.title', 'Example scenarios') }}</h2>
-                <p class="trust-lead" data-i18n="gov.scen.lead">{{ strings.get('gov.scen.lead', 'Generic examples of the document checks Assure supports.') }}</p>
-                <div class="trust-arch-grid">
-                    <article class="trust-card">
-                        <h3 data-i18n="gov.scen.1.title">{{ strings.get('gov.scen.1.title', 'Social support applications') }}</h3>
-                        <p data-i18n="gov.scen.1.body">{{ strings.get('gov.scen.1.body', 'Income and household documents are checked for completeness and consistency: the right documents are present, names match across them, and declared income and household size agree with the supporting evidence and the eligibility rules.') }}</p>
-                    </article>
-                    <article class="trust-card">
-                        <h3 data-i18n="gov.scen.2.title">{{ strings.get('gov.scen.2.title', 'Family visa sponsorship') }}</h3>
-                        <p data-i18n="gov.scen.2.body">{{ strings.get('gov.scen.2.body', 'Salary and housing documents are checked against the sponsorship requirements: salary figures, tenancy or ownership details and the sponsor’s name are cross-checked across every document in the file.') }}</p>
-                    </article>
-                </div>
-            </div>
-        </section>
+        {% set flow_line1 = strings.get('flow.gov.1.line', "Checks the applicant's file") %}
+        {% set flow_line3 = strings.get('flow.gov.3.line', 'Tells the applicant exactly what is missing') %}
+        {% include 'includes/flow.html' %}
+        {% set band_class = 'logos-band-inline' %}{% include 'includes/logos_band.html' %}
 
         <section id="gov-human" class="landing-disclaimer gov-human">
             <div class="container">
                 <h2 class="section-title" data-i18n="gov.human.title">{{ strings.get('gov.human.title', 'People decide. Every finding shows its source.') }}</h2>
-                <p data-i18n="gov.human.body1">{{ strings.get('gov.human.body1', 'A human approval checkpoint sits before any decision. Assure prepares the file; a member of staff reviews the evidence dossier and approves or rejects.') }}</p>
                 <p data-i18n="gov.human.body2">{{ strings.get('gov.human.body2', 'Every finding cites its source page, so staff and applicants can see exactly where it came from.') }}</p>
-                <p><a href="/contact-us/" data-i18n="gov.human.link">{{ strings.get('gov.human.link', 'Talk to us about your service') }}</a></p>
             </div>
         </section>
+
+        {% include 'includes/demo_cta.html' %}
     </main>
 
     {% include 'includes/landing_footer.html' %}

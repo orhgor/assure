@@ -50,38 +50,12 @@
             </div>
         </section>
 
-        <section class="diff-section steps-section">
-            <div class="container">
-                <h2 class="section-title" data-i18n="uc.gov.problem.title">{{ strings.get('uc.gov.problem.title', 'The problem') }}</h2>
-                <p class="diff-intro" data-i18n="uc.gov.problem.body">{{ strings.get('uc.gov.problem.body', 'Applications arrive as bundles of income, household, salary and housing documents. Staff spend their time finding what is missing or inconsistent instead of deciding.') }}</p>
-                <h2 class="section-title" data-i18n="uc.gov.how.title">{{ strings.get('uc.gov.how.title', 'How Assure helps') }}</h2>
-                <div class="diff-grid steps-grid">
-                    <article class="diff-card">
-                        <p class="diff-label"><span>1</span></p>
-                        <h3>ParSure</h3>
-                        <p class="diff-body" data-i18n="uc.gov.how.1">{{ strings.get('uc.gov.how.1', 'ParSure reads the uploaded file and flags missing documents, wrong documents and name mismatches.') }}</p>
-                    </article>
-                    <article class="diff-card">
-                        <p class="diff-label"><span>2</span></p>
-                        <h3>CrossSure</h3>
-                        <p class="diff-body" data-i18n="uc.gov.how.2">{{ strings.get('uc.gov.how.2', 'CrossSure cross-checks figures and facts against eligibility rules, registers and the other documents in the file.') }}</p>
-                    </article>
-                    <article class="diff-card diff-card-featured">
-                        <p class="diff-label"><span>3</span></p>
-                        <h3>Assure</h3>
-                        <p class="diff-body" data-i18n="uc.gov.how.3">{{ strings.get('uc.gov.how.3', 'Assure sends the applicant one clear message about what to fix, or hands staff a complete file with an evidence dossier. Every finding cites its source page.') }}</p>
-                    </article>
-                </div>
-            </div>
-        </section>
-
-        <section class="landing-disclaimer gov-human">
-            <div class="container">
-                <h2 class="section-title" data-i18n="uc.gov.human.title">{{ strings.get('uc.gov.human.title', 'What stays with people') }}</h2>
-                <p data-i18n="uc.gov.human.body">{{ strings.get('uc.gov.human.body', 'A member of staff reviews the evidence dossier and approves or rejects. Assure never makes the decision.') }}</p>
-                <p><a href="/contact-us/" data-i18n="uc.cta">{{ strings.get('uc.cta', 'Book a Demo') }}</a></p>
-            </div>
-        </section>
+        {% set flow_line1 = strings.get('uc.gov.flow.1', '') %}
+        {% set flow_line2 = strings.get('uc.gov.flow.2', '') %}
+        {% set flow_line3 = strings.get('uc.gov.flow.3', '') %}
+        {% include 'includes/flow.html' %}
+        {% set band_class = 'logos-band-inline' %}{% include 'includes/logos_band.html' %}
+        {% include 'includes/demo_cta.html' %}
     </main>
 
     {% include 'includes/landing_footer.html' %}

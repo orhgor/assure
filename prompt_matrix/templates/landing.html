@@ -82,6 +82,8 @@
 
         {% include 'includes/logos_band.html' %}
 
+        {% include 'includes/flow.html' %}
+
         <section id="proof" class="role-demo">
             <div class="container">
                 <h2 class="section-title" data-i18n-html="landing.proof.title_html">{{ strings.get('landing.proof.title_html', strings.get('landing.proof.title', ''))|safe }}</h2>
@@ -124,38 +126,6 @@
                     </div>
                 </div>
                 <p class="why-copy" data-i18n="landing.why.copy">{{ strings.get('landing.why.copy', 'Generative AI is fast, but it is fundamentally unverified. In enterprise compliance, guessing is a liability. Assure AI places a deterministic verification engine between your models and your output. It checks math with formal logic, tracks source provenance down to the exact page, and flags every logical gap before a human ever has to look twice.') }}</p>
-            </div>
-        </section>
-
-        <section id="steps" class="diff-section steps-section">
-            <div class="container">
-                <h2 class="section-title" data-i18n="landing.steps.title">{{ strings.get('landing.steps.title', 'Three steps from file to verified answer') }}</h2>
-                <p class="diff-intro" data-i18n="landing.steps.intro">{{ strings.get('landing.steps.intro', 'Every file passes through the same three stages, and every finding points back to its source page.') }}</p>
-                <div class="diff-grid steps-grid">
-                    <article class="diff-card">
-                        <p class="diff-label"><span>1</span> · <span data-i18n="landing.steps.1.role">{{ strings.get('landing.steps.1.role', '') }}</span></p>
-                        <h3 data-i18n="landing.steps.1.name">{{ strings.get('landing.steps.1.name', '') }}</h3>
-                        <p class="diff-body" data-i18n="landing.steps.1.body">{{ strings.get('landing.steps.1.body', '') }}</p>
-                    </article>
-                    <article class="diff-card">
-                        <p class="diff-label"><span>2</span> · <span data-i18n="landing.steps.2.role">{{ strings.get('landing.steps.2.role', '') }}</span></p>
-                        <h3 data-i18n="landing.steps.2.name">{{ strings.get('landing.steps.2.name', '') }}</h3>
-                        <p class="diff-body" data-i18n="landing.steps.2.body">{{ strings.get('landing.steps.2.body', '') }}</p>
-                    </article>
-                    <article class="diff-card diff-card-featured">
-                        <p class="diff-label"><span>3</span> · <span data-i18n="landing.steps.3.role">{{ strings.get('landing.steps.3.role', '') }}</span></p>
-                        <h3 data-i18n="landing.steps.3.name">{{ strings.get('landing.steps.3.name', '') }}</h3>
-                        <p class="diff-body" data-i18n="landing.steps.3.body">{{ strings.get('landing.steps.3.body', '') }}</p>
-                    </article>
-                </div>
-            </div>
-        </section>
-
-        <section id="government" class="trust-arch gov-teaser">
-            <div class="container">
-                <h2 class="section-title" data-i18n="landing.gov.title">{{ strings.get('landing.gov.title', 'Paperless government services, verified') }}</h2>
-                <p class="trust-lead" data-i18n="landing.gov.body">{{ strings.get('landing.gov.body', 'For social support applications and family visa sponsorship, Assure tells applicants exactly what is missing or wrong, and gives staff a complete file with an evidence dossier. A person always makes the decision, and every finding cites its source page.') }}</p>
-                <p class="gov-teaser-cta"><a class="btn-primary-small" href="/government/" data-i18n="landing.gov.cta">{{ strings.get('landing.gov.cta', 'See how it works') }}</a></p>
             </div>
         </section>
 
