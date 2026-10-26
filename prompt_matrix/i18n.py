@@ -3123,7 +3123,6 @@ ZH = {
     "landing.cta.sub": "查看每个数字如何对照规则检查，并附来源页。",
     "landing.cta.btn": "启动 Assure 工作台",
     "landing.social_proof": "被高风险机构的分析师、研究人员和工程师使用。",
-    "landing.footer.copy": "Assure — 确定性真相引擎",
     "stream.reconnect": "连接中断 — 正在重试…",
     "context": "额外说明（可选）",
     "file": "附加文件（可选）",
