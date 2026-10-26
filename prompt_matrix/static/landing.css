@@ -3755,3 +3755,17 @@ html[dir="rtl"] .flow-arrow-approval .flow-badge { left: auto; right: 50%; trans
     .flow-arrow-approval .flow-badge,
     html[dir="rtl"] .flow-arrow-approval .flow-badge { position: static; transform: none; }
 }
+
+/* Inner pages: breathing room flow -> deployment row -> Book a Demo (existing section spacing) */
+.flow-section + .logos-band.logos-band-inline {
+    padding: var(--space-8) 16px var(--space-3);
+}
+
+.logos-band.logos-band-inline + .demo-cta {
+    padding-top: var(--space-8);
+}
+
+@media (max-width: 760px) {
+    .flow-section + .logos-band.logos-band-inline { padding: var(--space-6) 16px var(--space-2); }
+    .logos-band.logos-band-inline + .demo-cta { padding-top: var(--space-6); }
+}
