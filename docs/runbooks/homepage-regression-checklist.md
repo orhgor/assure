@@ -6,14 +6,14 @@ pricing / contact pages. Verify against the live site after CI lands.
 
 ## 1) Hero integrity
 - [ ] "Documents in. Verified output out." renders as the h1
-- [ ] Subtitle copy correct (three sub-lines, no raw keys)
+- [ ] Subtitle copy correct ("Assure checks your documents against the rules and shows the source page for every finding.", no raw keys)
 - [ ] Primary CTA "See the proof for your role", secondary "Book a Demo"
 - [ ] No accidental hard wraps or awkward line breaks
 
 ## 2) Proof / positioning copy
-- [ ] "Parsure parses incoming files into structured data"
-- [ ] "Assure verifies each claim against the source"
-- [ ] "So teams can trust the outputs they ship and the decisions they make"
+- [ ] One flow component (#steps): ParSure "Checks the file" -> CrossSure "Cross-checks the facts" -> Assure "Sends one clear response", with the "Human approval" badge between steps 2 and 3
+- [ ] "Every finding links to its source page." under the flow; the steps are not repeated elsewhere on the page
+- [ ] Deployment icon row (On-prem, AWS, Amazon S3) sits between the hero and the flow
 - [ ] Proof / verification message stays specific, not generic
 
 ## 3) Trust architecture

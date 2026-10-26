@@ -26,6 +26,7 @@ rsync -a \
   --include 'assure-logo.png' \
   --include 'aws-startups.svg' \
   --include 's3-icon.svg' \
+  --include 'onprem-icon.svg' \
   --include 'favicon.ico' \
   --include 'style.css' \
   --include 'script.js' \
@@ -34,7 +35,11 @@ rsync -a \
   --exclude '*' \
   "$ROOT/prompt_matrix/static/" "$DIST_DIR/static/"
 
-for LOCALE in en es zh fr de ja tr; do
+# Locales to publish. ar is built for preview only: set PUBLISH_LOCALES="en es zh fr de ja tr ar" to turn it on.
+PUBLISH_LOCALES="${PUBLISH_LOCALES:-en es zh fr de ja tr}"
+export PUBLISH_LOCALES
+
+for LOCALE in $PUBLISH_LOCALES; do
   if [ "$LOCALE" = "en" ]; then
     OUT="$DIST_DIR"
   else

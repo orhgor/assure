@@ -18,6 +18,8 @@ Investment bankers and analysts (CIMs, financial models), clinical and grant res
 
 - Home: https://getassureai.com/
 - Architecture: https://getassureai.com/architecture/
+- Government services: https://getassureai.com/government/
+- Use cases: https://getassureai.com/use-cases/
 - Pricing: https://getassureai.com/pricing/
 - Privacy: https://getassureai.com/privacy/
 - Terms: https://getassureai.com/terms/

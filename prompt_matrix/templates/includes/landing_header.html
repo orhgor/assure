@@ -13,6 +13,8 @@
             <a href="{% if nav_current|default('landing') == 'landing' %}#proof{% else %}/#proof{% endif %}" data-i18n="landing.nav.docs">{{ strings.get('landing.nav.docs', 'Proof') }}</a>
             <a href="{% if nav_current|default('landing') == 'landing' %}#why-now{% else %}/#why-now{% endif %}" data-i18n="landing.nav.architecture">{{ strings.get('landing.nav.architecture', 'Why now') }}</a>
             <a href="{% if nav_current|default('landing') == 'landing' %}#trust{% else %}/#trust{% endif %}" data-i18n="landing.nav.sandbox">{{ strings.get('landing.nav.sandbox', 'Trust') }}</a>
+            <a href="/use-cases/" data-i18n="landing.nav.usecases">{{ strings.get('landing.nav.usecases', 'Use cases') }}</a>
+            <a href="/government/" data-i18n="landing.nav.government">{{ strings.get('landing.nav.government', 'Government') }}</a>
             <a href="/privacy" data-i18n="landing.nav.privacy">{{ strings.get('landing.nav.privacy', 'Privacy') }}</a>
             <label class="landing-lang-wrap" for="landing-lang">
                 <span class="landing-lang-label" data-i18n="landing.lang">Language</span>

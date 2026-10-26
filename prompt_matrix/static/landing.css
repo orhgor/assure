@@ -2755,6 +2755,7 @@ body.waitlist-open {
     color: #0a0a0a;
 }
 
+.footer-owner,
 .footer-engineer {
     margin: var(--space-2) auto 0;
     max-width: 42rem;
@@ -3495,3 +3496,276 @@ body.waitlist-open {
     flex-direction: column;
 }
 
+
+/* ==========================================================================
+   Arabic / RTL (html[dir="rtl"], locale ar)
+   Mirrors physical left/right spacing and swaps in an Arabic-friendly font.
+   ========================================================================== */
+html[dir="rtl"] body,
+html[dir="rtl"] button,
+html[dir="rtl"] input,
+html[dir="rtl"] select,
+html[dir="rtl"] textarea {
+    font-family: "Noto Sans Arabic", "Segoe UI", Tahoma, "Geeza Pro", "Droid Arabic Kufi", Inter, sans-serif;
+}
+
+html[dir="rtl"] body {
+    text-align: right;
+    line-height: 1.75;
+    letter-spacing: 0;
+}
+
+html[dir="rtl"] h1,
+html[dir="rtl"] h2,
+html[dir="rtl"] h3 {
+    letter-spacing: 0;
+    line-height: 1.4;
+}
+
+/* centred blocks stay centred */
+html[dir="rtl"] .center,
+html[dir="rtl"] .hero-section,
+html[dir="rtl"] .hero-section .container,
+html[dir="rtl"] .section-title,
+html[dir="rtl"] .trust-lead,
+html[dir="rtl"] .diff-intro,
+html[dir="rtl"] .diff-close,
+html[dir="rtl"] .trust-badge,
+html[dir="rtl"] .gov-teaser,
+html[dir="rtl"] .gov-human,
+html[dir="rtl"] .landing-disclaimer,
+html[dir="rtl"] .site-footer,
+html[dir="rtl"] .role-tabs {
+    text-align: center;
+}
+
+html[dir="rtl"] .skip-link { left: auto; right: -9999px; }
+html[dir="rtl"] .skip-link:focus { left: auto; right: 0; }
+
+html[dir="rtl"] .logo-copy { text-align: right; }
+html[dir="rtl"] .nav-links .btn-primary-small { margin-left: 0; margin-right: 0.25rem; }
+
+html[dir="rtl"] .ast-node,
+html[dir="rtl"] .ast-node--section,
+html[dir="rtl"] .ast-node--claim,
+html[dir="rtl"] .ast-node--paragraph,
+html[dir="rtl"] .ast-node--table,
+html[dir="rtl"] .ast-node-section,
+html[dir="rtl"] .ast-node-paragraph,
+html[dir="rtl"] .ast-node-table,
+html[dir="rtl"] .highlight-quote,
+html[dir="rtl"] .jdf-node,
+html[dir="rtl"] .hero-comparison .hero-before,
+html[dir="rtl"] .hero-comparison .hero-after,
+html[dir="rtl"] .privacy-landing .summary-box,
+html[dir="rtl"] .privacy-landing .privacy-emphasis {
+    border-left: 0;
+    border-right: 3px solid var(--accent-blue, #2563eb);
+}
+
+html[dir="rtl"] .ast-node-children {
+    padding-left: 0;
+    padding-right: 0.75rem;
+    border-left: 0;
+    border-right: 1px dashed var(--border-color);
+}
+
+html[dir="rtl"] .ast-badge { margin-left: 0; margin-right: auto; }
+html[dir="rtl"] .ast-node-field span { margin-right: 0; margin-left: 0.5rem; }
+html[dir="rtl"] .highlight-quote { padding-left: 0; padding-right: 1rem; }
+html[dir="rtl"] .glossary-content ul,
+html[dir="rtl"] .privacy-landing .privacy-toc ul,
+html[dir="rtl"] .privacy-landing .privacy-body ul { padding-left: 0; padding-right: 1.35rem; }
+html[dir="rtl"] .ast-fail-list li { padding-left: 0; padding-right: 1.25rem; }
+html[dir="rtl"] .ast-fail-list li::before { left: auto; right: 0; }
+html[dir="rtl"] .arch-cta-secondary { margin-left: 0; margin-right: 0.75rem; }
+html[dir="rtl"] .messy-scan-label { left: auto; right: 1.25rem; }
+
+html[dir="rtl"] .compare-table th,
+html[dir="rtl"] .compare-table td,
+html[dir="rtl"] .value-table th,
+html[dir="rtl"] .value-table td,
+html[dir="rtl"] .privacy-landing .privacy-page th { text-align: right; }
+
+html[dir="rtl"] .waitlist-close { right: auto; left: var(--space-1); }
+html[dir="rtl"] .waitlist-panel,
+html[dir="rtl"] .waitlist-panel form { text-align: right; }
+
+html[dir="rtl"] .contact-grid,
+html[dir="rtl"] .contact-card { text-align: right; }
+
+/* cards: keep the accent bar on top, text aligned to the reading start */
+html[dir="rtl"] .diff-card,
+html[dir="rtl"] .trust-card,
+html[dir="rtl"] .persona-card,
+html[dir="rtl"] .plan { text-align: right; }
+html[dir="rtl"] .diff-label { letter-spacing: 0; text-transform: none; }
+
+/* inputs: emails and URLs are LTR content */
+html[dir="rtl"] input[type="email"],
+html[dir="rtl"] input[type="url"] { direction: ltr; text-align: right; }
+
+
+/* brand and product names stay LTR inside Arabic runs */
+html[dir="rtl"] .logo-name { direction: ltr; unicode-bidi: isolate; }
+
+@media (max-width: 640px) {
+    html[dir="rtl"] .nav-links.is-collapsed { text-align: right; }
+    html[dir="rtl"] .container { padding-left: 1.25rem; padding-right: 1.25rem; }
+}
+
+/* On-prem mark: same optical height as the S3 mark; band reused inline on inner pages */
+.trust-logos img.trust-logo-onprem {
+    height: 26px;
+    width: auto;
+}
+
+.logos-band.logos-band-inline {
+    padding: 28px 16px 8px;
+}
+
+@media (max-width: 760px) {
+    .trust-logos img.trust-logo-onprem { height: 22px; }
+    .logos-band.logos-band-inline { padding: 20px 16px 4px; }
+}
+
+/* ==========================================================================
+   Flow component: ParSure -> CrossSure -> (human approval) -> Assure
+   One partial (includes/flow.html), reused on every page. Existing palette,
+   card style and a single icon set (24px grid, 1.75 stroke, round caps).
+   ========================================================================== */
+.flow-section { padding: var(--space-8, 4rem) 0; }
+.flow-section .container { text-align: center; }
+
+.flow {
+    list-style: none;
+    margin: 0 auto;
+    padding: 0;
+    display: flex;
+    align-items: stretch;
+    justify-content: center;
+    gap: 0;
+    max-width: 62rem;
+}
+
+.flow-card {
+    flex: 1 1 0;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 1.5rem 1.25rem;
+    border: 1px solid #e2e8f0;
+    border-top: 3px solid #0a0a0a;
+    border-radius: 8px;
+    background: #fff;
+    text-align: center;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.flow-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08); }
+.flow-card:last-child { background: #0a0a0a; border-color: #0a0a0a; border-top-color: var(--accent-green); }
+.flow-card:last-child .flow-name,
+.flow-card:last-child .flow-icon { color: #fff; }
+.flow-card:last-child .flow-line { color: #cbd5e1; }
+
+.flow-icon,
+.flow-arrow-icon,
+.flow-badge-icon {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.75;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.flow-icon { width: 32px; height: 32px; color: #0a0a0a; flex: none; }
+.flow-name { margin: 0; font-size: 1.125rem; font-weight: 600; line-height: 1.3; color: #0a0a0a; }
+.flow-line { margin: 0; font-size: 0.95rem; line-height: 1.5; color: #475569; text-wrap: balance; }
+
+.flow-arrow {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    width: 3.25rem;
+    color: #64748b;
+}
+
+.flow-arrow-icon { width: 28px; height: 28px; }
+
+.flow-arrow-approval { width: 7rem; }
+
+.flow-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.2rem 0.55rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 999px;
+    background: #f8fafc;
+    color: #0a0a0a;
+    font-size: 0.7rem;
+    font-weight: 600;
+    line-height: 1.2;
+    white-space: nowrap;
+}
+
+.flow-badge-icon { width: 14px; height: 14px; color: var(--accent-green, #16a34a); flex: none; }
+
+.flow-source {
+    margin: 1.25rem auto 0;
+    font-size: 0.875rem;
+    color: #64748b;
+    text-wrap: balance;
+}
+
+.demo-cta { padding: 0.5rem 0 var(--space-8, 4rem); }
+.demo-cta .btn-primary { min-width: 14rem; display: inline-flex; justify-content: center; }
+
+/* RTL: flex row follows document direction (cards run right to left); mirror arrows */
+html[dir="rtl"] .flow-arrow-icon { transform: scaleX(-1); }
+
+/* Mobile: stack vertically, arrows point down */
+@media (max-width: 760px) {
+    .flow { flex-direction: column; align-items: stretch; max-width: 22rem; }
+    .flow-arrow,
+    .flow-arrow-approval { width: auto; flex-direction: row; justify-content: center; padding: 0.35rem 0; }
+    .flow-arrow-icon { transform: rotate(90deg); }
+    html[dir="rtl"] .flow-arrow-icon { transform: rotate(90deg); }
+    .flow-card { padding: 1.1rem 1rem; }
+}
+
+/* flow: approval badge sits above the arrow; both arrows share one centre line */
+.flow-arrow-approval { position: relative; width: 9.5rem; }
+.flow-arrow-approval .flow-badge {
+    position: absolute;
+    left: 50%;
+    top: calc(50% - 2rem);
+    transform: translateX(-50%);
+    z-index: 1;
+}
+html[dir="rtl"] .flow-arrow-approval .flow-badge { left: auto; right: 50%; transform: translateX(50%); }
+
+@media (max-width: 760px) {
+    .flow-arrow-approval { width: auto; flex-direction: column; gap: 0.35rem; padding: 0.35rem 0; }
+    .flow-arrow-approval .flow-badge,
+    html[dir="rtl"] .flow-arrow-approval .flow-badge { position: static; transform: none; }
+}
+
+/* Inner pages: breathing room flow -> deployment row -> Book a Demo (existing section spacing) */
+.flow-section + .logos-band.logos-band-inline {
+    padding: var(--space-8) 16px var(--space-3);
+}
+
+.logos-band.logos-band-inline + .demo-cta {
+    padding-top: var(--space-8);
+}
+
+@media (max-width: 760px) {
+    .flow-section + .logos-band.logos-band-inline { padding: var(--space-6) 16px var(--space-2); }
+    .logos-band.logos-band-inline + .demo-cta { padding-top: var(--space-6); }
+}

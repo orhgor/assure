@@ -11,7 +11,7 @@ imports the app and never needs a database.
 |---|---|
 | `app.py` | Standalone Flask app for static rendering — string catalog, brand, gettext, auth/edition shims. No DB, no workbench imports. |
 | `render.py` | Renders the marketing templates to static HTML, one locale per run. |
-| `build.sh` | Builds `dist/` (assets + all 7 locales). |
+| `build.sh` | Builds `dist/` (assets + the published locales). |
 | `deploy.sh` | Uploads changed `dist/` files to Cloudflare R2 and deploys the marketing Worker when its source changes. |
 | `sync_r2.py` | Content-hash sync (uploads only changed files — free-tier friendly). |
 | `worker_changed.py` | Skips redundant Worker deploys. |
@@ -38,3 +38,4 @@ the other's code.
 - Never import `prompt_matrix.web` (or anything that pulls the app/DB) here.
 - Never put page HTML in `landing/` — that folder is hosting metadata + assets only.
 - Bump `LANDING_CSS` in `prompt_matrix/ui_cache.py` when `landing.css` changes.
+- Arabic (`ar`) is built for preview only. To turn it on later: `PUBLISH_LOCALES="en es zh fr de ja tr ar" bash marketing/build.sh` (or set that variable in the deploy workflow); the switcher and the language count follow it automatically.

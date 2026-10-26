@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="{{ 'en' if locale|default('en') == 'ar' else locale|default('en') }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    {% set gov_title = strings.get('uc.index.page_title', 'Use cases · Assure') %}
+    {% set gov_meta = strings.get('uc.index.meta', 'Three ways teams use Assure to check documents against rules, registers and each other.') %}
+    <title>{{ gov_title }}</title>
+    <link rel="canonical" href="https://getassureai.com/{{ page_suffix|default('use-cases/') }}">
+    {% if locale_paths is defined %}
+    {% for code, path in locale_paths.items() %}
+    <link rel="alternate" hreflang="{{ code }}" href="https://getassureai.com{{ path }}{{ page_suffix|default('use-cases/') }}">
+    {% endfor %}
+    <link rel="alternate" hreflang="x-default" href="https://getassureai.com/{{ page_suffix|default('use-cases/') }}">
+    {% endif %}
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="{{ gov_title }}">
+    <meta name="twitter:description" content="{{ gov_meta }}">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Assure">
+    <meta property="og:title" content="{{ gov_title }}">
+    <meta property="og:description" content="{{ gov_meta }}">
+    <meta property="og:url" content="https://getassureai.com/{{ page_suffix|default('use-cases/') }}">
+    <meta name="description" content="{{ gov_meta }}">
+    <link rel="icon" href="{{ url_for('static', filename='assure-logo.png') }}" type="image/png">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='assure-logo.png') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+    {% if locale|default('en') == 'ar' %}
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+    {% endif %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='landing.css') }}?v={{ landing_css_version|default('82') }}">
+    {% include 'includes/plausible.html' %}
+    {% include 'includes/sentry.html' %}
+    <script>
+      window.__assureLandingStrings = {{ strings|tojson }};
+    </script>
+</head>
+<body class="enterprise-landing uc-landing">
+    {% set nav_current = 'use-cases' %}
+    {% include 'includes/landing_header.html' %}
+
+    <main id="main-content">
+        <section class="hero-section gov-hero">
+            <div class="container">
+                <h1 class="hero-title" data-i18n="uc.index.title">{{ strings.get('uc.index.title', 'Use cases') }}</h1>
+                <p class="hero-sub" data-i18n="uc.index.sub">{{ strings.get('uc.index.sub', 'Three ways teams use Assure to check documents against rules, registers and each other.') }}</p>
+            </div>
+        </section>
+
+        <section class="trust-arch">
+            <div class="container">
+                <div class="trust-arch-grid">
+                    <article class="trust-card">
+                        <h3><a href="/use-cases/government/" data-i18n="uc.gov.title">{{ strings.get('uc.gov.title', 'Government document checks') }}</a></h3>
+                        <p data-i18n="uc.gov.sub">{{ strings.get('uc.gov.sub', 'Check applicant files for missing documents, wrong documents and mismatched names, then cross-check them against eligibility rules before a person decides.') }}</p>
+                    </article>
+                    <article class="trust-card">
+                        <h3><a href="/use-cases/insurance/" data-i18n="uc.ins.title">{{ strings.get('uc.ins.title', 'Insurance claims review') }}</a></h3>
+                        <p data-i18n="uc.ins.sub">{{ strings.get('uc.ins.sub', 'Check a claim file against the policy and its supporting documents, and see exactly where the numbers or facts do not line up.') }}</p>
+                    </article>
+                    <article class="trust-card">
+                        <h3><a href="/use-cases/fuel-retail/" data-i18n="uc.fuel.title">{{ strings.get('uc.fuel.title', 'Fuel retail bonus reconciliation') }}</a></h3>
+                        <p data-i18n="uc.fuel.sub">{{ strings.get('uc.fuel.sub', 'How a large fuel retailer can reconcile bonus statements against agreements and sales records.') }}</p>
+                    </article>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    {% include 'includes/landing_footer.html' %}
+</body>
+</html>

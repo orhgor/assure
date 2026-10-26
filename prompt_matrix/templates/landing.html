@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="{{ locale|default('en') }}">
+<html lang="{{ locale|default('en') }}"{% if locale|default('en') == 'ar' %} dir="rtl"{% endif %}>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -35,7 +35,8 @@
         "Page-level provenance for every claim",
         "Deterministic math and logic checks (Z3)",
         "Adversarial Red-Hat review",
-        "Parse incoming documents into structured data (Parsure)",
+        "Read and check incoming documents (ParSure)",
+        "Cross-check figures and facts against rules, registers and other documents (CrossSure)",
         "Audit-ready export with full provenance"
       ],
       "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD", "name": "Evaluation" }
@@ -44,6 +45,9 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+    {% if locale|default('en') == 'ar' %}
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+    {% endif %}
     <link rel="stylesheet" href="{{ url_for('static', filename='landing.css') }}?v={{ landing_css_version|default('78') }}">
     {% include 'includes/plausible.html' %}
     {% include 'includes/sentry.html' %}
@@ -68,20 +72,17 @@
                 </p>
                 <div class="hero-cta-group">
                     <a href="#proof" class="btn-primary" data-i18n="landing.hero.cta_secondary">
-                        <span class="cta-line1">See the proof</span>
-                        <span class="cta-line2">for your role</span>
+                        <span class="cta-line1" data-i18n="landing.hero.cta_line1">{{ strings.get('landing.hero.cta_line1', 'See the proof') }}</span>
+                        <span class="cta-line2" data-i18n="landing.hero.cta_line2">{{ strings.get('landing.hero.cta_line2', 'for your role') }}</span>
                     </a>
                     <button type="button" class="btn-secondary" data-waitlist-open data-i18n="landing.hero.cta_primary">{{ strings.get('landing.hero.cta_primary', 'Book a Demo') }}</button>
                 </div>
             </div>
         </section>
 
-        <div class="logos-band">
-            <div class="trust-logos" role="img" aria-label="{{ strings.get('landing.trust.logos_aria', 'AWS and Amazon S3') }}">
-                <img src="{{ url_for('static', filename='aws-startups.svg') }}?v=2" alt="AWS" loading="lazy">
-                <img src="{{ url_for('static', filename='s3-icon.svg') }}?v=2" alt="Amazon S3" loading="lazy">
-            </div>
-        </div>
+        {% include 'includes/logos_band.html' %}
+
+        {% include 'includes/flow.html' %}
 
         <section id="proof" class="role-demo">
             <div class="container">
@@ -135,19 +136,19 @@
                 <div class="diff-grid">
                     <article class="diff-card">
                         <h3 data-i18n="landing.diff.cat1.title">{{ strings.get('landing.diff.cat1.title', 'Legal copilots') }}</h3>
-                        <p class="diff-row"><span class="diff-label" data-i18n="landing.diff.label.examples">{{ strings.get('landing.diff.label.examples', 'Examples') }}</span><span data-i18n="landing.diff.cat1.examples">{{ strings.get('landing.diff.cat1.examples', 'Harvey, CoCounsel, Spellbook, Paxton') }}</span></p>
+                        <p class="diff-row"><span class="diff-label" data-i18n="landing.diff.label.examples">{{ strings.get('landing.diff.label.examples', 'Typical tools') }}</span><span data-i18n="landing.diff.cat1.examples">{{ strings.get('landing.diff.cat1.examples', 'AI assistants for legal drafting, research and review') }}</span></p>
                         <p class="diff-row"><span class="diff-label" data-i18n="landing.diff.label.strength">{{ strings.get('landing.diff.label.strength', 'What they do well') }}</span><span data-i18n="landing.diff.cat1.strength">{{ strings.get('landing.diff.cat1.strength', 'Speed up drafting, research, and review.') }}</span></p>
                         <p class="diff-row"><span class="diff-label" data-i18n="landing.diff.label.gap">{{ strings.get('landing.diff.label.gap', "What's missing") }}</span><span data-i18n="landing.diff.cat1.gap">{{ strings.get('landing.diff.cat1.gap', 'The proof layer — deterministic grounding, page-level provenance, and reusable verification.') }}</span></p>
                     </article>
                     <article class="diff-card">
-                        <h3 data-i18n="landing.diff.cat2.title">{{ strings.get('landing.diff.cat2.title', 'Document AI / IDP') }}</h3>
-                        <p class="diff-row"><span class="diff-label" data-i18n="landing.diff.label.examples">{{ strings.get('landing.diff.label.examples', 'Examples') }}</span><span data-i18n="landing.diff.cat2.examples">{{ strings.get('landing.diff.cat2.examples', 'ABBYY, UiPath Document Understanding, AWS Textract, Google Document AI, Azure Document Intelligence') }}</span></p>
+                        <h3 data-i18n="landing.diff.cat2.title">{{ strings.get('landing.diff.cat2.title', 'Document AI / IDP tools') }}</h3>
+                        <p class="diff-row"><span class="diff-label" data-i18n="landing.diff.label.examples">{{ strings.get('landing.diff.label.examples', 'Typical tools') }}</span><span data-i18n="landing.diff.cat2.examples">{{ strings.get('landing.diff.cat2.examples', 'OCR, extraction and intelligent document processing platforms') }}</span></p>
                         <p class="diff-row"><span class="diff-label" data-i18n="landing.diff.label.strength">{{ strings.get('landing.diff.label.strength', 'What they do well') }}</span><span data-i18n="landing.diff.cat2.strength">{{ strings.get('landing.diff.cat2.strength', 'OCR, extraction, tables, forms, and layout understanding.') }}</span></p>
                         <p class="diff-row"><span class="diff-label" data-i18n="landing.diff.label.gap">{{ strings.get('landing.diff.label.gap', "What's missing") }}</span><span data-i18n="landing.diff.cat2.gap">{{ strings.get('landing.diff.cat2.gap', 'Claim-level verification and a durable audit trail.') }}</span></p>
                     </article>
                     <article class="diff-card">
                         <h3 data-i18n="landing.diff.cat3.title">{{ strings.get('landing.diff.cat3.title', 'DIY LLM stacks') }}</h3>
-                        <p class="diff-row"><span class="diff-label" data-i18n="landing.diff.label.examples">{{ strings.get('landing.diff.label.examples', 'Examples') }}</span><span data-i18n="landing.diff.cat3.examples">{{ strings.get('landing.diff.cat3.examples', 'Claude / GPT + prompts + RAG + internal scripts') }}</span></p>
+                        <p class="diff-row"><span class="diff-label" data-i18n="landing.diff.label.examples">{{ strings.get('landing.diff.label.examples', 'Typical tools') }}</span><span data-i18n="landing.diff.cat3.examples">{{ strings.get('landing.diff.cat3.examples', 'General-purpose language models + prompts + RAG + internal scripts') }}</span></p>
                         <p class="diff-row"><span class="diff-label" data-i18n="landing.diff.label.strength">{{ strings.get('landing.diff.label.strength', 'What they do well') }}</span><span data-i18n="landing.diff.cat3.strength">{{ strings.get('landing.diff.cat3.strength', 'Fast to prototype and flexible to customize.') }}</span></p>
                         <p class="diff-row"><span class="diff-label" data-i18n="landing.diff.label.gap">{{ strings.get('landing.diff.label.gap', "What's missing") }}</span><span data-i18n="landing.diff.cat3.gap">{{ strings.get('landing.diff.cat3.gap', 'Trust, consistency, auditability, and reusable evidence.') }}</span></p>
                     </article>
@@ -197,7 +198,7 @@
             <div class="container">
                 <h2 class="section-title" data-i18n="landing.trust.title">{{ strings.get('landing.trust.title', 'Enterprise trust architecture') }}</h2>
                 <p class="trust-badge" data-i18n="landing.hero.badge">{{ strings.get('landing.hero.badge', '') }}</p>
-                <p class="trust-lead" data-i18n="landing.trust.lead">{{ strings.get('landing.trust.lead', 'Grounded in your documents, not the model\'s memory. Assure\'s parsing engine extracts every page, table, and clause of your source documents — with per-page confidence — so every check points at a real source, not a statistical guess.') }}</p>
+                <p class="trust-lead" data-i18n="landing.trust.lead">{{ strings.get('landing.trust.lead', 'Grounded in your documents, not the model\'s memory. ParSure reads incoming files, CrossSure cross-checks them against rules, registers and each other, and Assure verifies every page, table, and clause of your source documents, so every check points at a real source, not a statistical guess.') }}</p>
                 <div class="trust-arch-grid trust-arch-grid-four">
                     <article class="trust-card">
                         <h3 data-i18n="landing.trust.card1.title">{{ strings.get('landing.trust.card1.title', '') }}</h3>
@@ -262,7 +263,7 @@
         <div class="waitlist-panel">
             <button type="button" class="waitlist-close" data-waitlist-close aria-label="Close">&times;</button>
             <div id="pilot-form-wrap">
-                <h2 id="waitlist-title" data-i18n="landing.pilot.title">{{ strings.get('landing.pilot.title', 'Book a demo') }}</h2>
+                <h2 id="waitlist-title" data-i18n="landing.pilot.title">{{ strings.get('landing.pilot.title', 'Book a Demo') }}</h2>
                 <p class="text-small" data-i18n="landing.pilot.lead">{{ strings.get('landing.pilot.lead', 'Three fields. We set up your team workspace.') }}</p>
                 <form id="waitlist-form" method="post" action="#">
                     <label for="waitlist-email" data-i18n="landing.pilot.email">{{ strings.get('landing.pilot.email', 'Work email') }}</label>
@@ -277,7 +278,7 @@
                         <option value="Contract Review">{{ strings.get('landing.pilot.workflow.contract', 'Contract Review') }}</option>
                         <option value="Other">{{ strings.get('landing.pilot.workflow.other', 'Other') }}</option>
                     </select>
-                    <button type="submit" class="waitlist-submit" data-i18n="landing.pilot.submit">{{ strings.get('landing.pilot.submit', 'Submit request') }}</button>
+                    <button type="submit" class="waitlist-submit" data-i18n="landing.pilot.submit">{{ strings.get('landing.pilot.submit', 'Book a Demo') }}</button>
                     <p class="waitlist-error" id="waitlist-error" hidden></p>
                 </form>
             </div>

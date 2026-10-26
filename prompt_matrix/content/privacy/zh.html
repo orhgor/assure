@@ -4,7 +4,7 @@
 <h2 id="privacy-s1">1. 我们收集和存储的数据</h2>
 
 <h3>a. 存储在云端的（服务器）数据</h3>
-<p>为提供服务，我们在安全服务器（AWS EC2）上存储以下数据：</p>
+<p>为提供服务，我们在安全服务器上存储以下数据：</p>
 <ul>
   <li><strong>账户数据：</strong>电子邮件地址、订阅层级和 Stripe 客户 ID。</li>
   <li><strong>问题和提示词：</strong>您在命令栏或编译界面中输入的文本（存储在数据库项目和运行日志中）。</li>
@@ -18,7 +18,7 @@
 <h3>b. 本地存储在您设备上的数据</h3>
 <p>以下数据保留<strong>在您的计算机上</strong>，绝不会传输至我们的服务器：</p>
 <ul>
-  <li>已连接提供商的 API 密钥（Claude、Gemini、DeepSeek、Kimi 等）。</li>
+  <li>已连接提供商的 API 密钥。</li>
   <li>Workbench 界面状态和偏好设置（例如布局设置、主题偏好）。</li>
 </ul>
 
@@ -50,7 +50,7 @@
     <tr><td><strong>问题、提示词和源文件</strong></td><td>用于编译、验证和审计您的文档。</td></tr>
     <tr><td><strong>编译草稿和锁定哈希</strong></td><td>提供版本历史和审计追踪。</td></tr>
     <tr><td><strong>审计日志</strong></td><td>跟踪使用情况并为企业客户维护安全。</td></tr>
-    <tr><td><strong>候补名单提交</strong></td><td>在服务上线或需要 beta 测试人员时通知您。</td></tr>
+    <tr><td><strong>候补名单提交</strong></td><td>在服务上线或开展评估冲刺（sprint）时通知您。</td></tr>
     <tr><td><strong>API 密钥</strong></td><td>仅用于将您的本地实例连接至第三方 AI 提供商。密钥绝不会离开您的设备。</td></tr>
     <tr><td><strong>使用分析（可选）</strong></td><td>通过 Plausible 收集匿名、汇总的使用数据。不收集个人数据。</td></tr>
   </tbody>
@@ -64,7 +64,7 @@
 <h2 id="privacy-s3">3. 共享您的数据</h2>
 
 <h3>a. 第三方 AI 提供商</h3>
-<p>当您选择向已连接的提供商（例如 Claude、Gemini、DeepSeek、Kimi）<strong>发送</strong>提示词时：</p>
+<p>当您选择向已连接的提供商<strong>发送</strong>提示词时：</p>
 <ul>
   <li>您的问题及任何附加文件会<strong>直接</strong>传输至您选择的提供商。</li>
   <li>适用该提供商自身的条款和隐私政策。</li>
@@ -162,8 +162,8 @@
 <p><strong>幻觉和错误。</strong></p>
 <p>AI 模型可能产生不正确、误导性或幻觉内容。Assure AI 的验证工具（Z3、Red-Hat、Substrate Vault）旨在降低这些风险，但无法完全消除。</p>
 
-<p><strong>不保证准确性。</strong></p>
-<p>我们不保证输出无错误、完整或最新。</p>
+<p><strong>不承诺准确性。</strong></p>
+<p>我们不承诺输出无错误、完整或最新。</p>
 
 <p><strong>不对依赖承担责任。</strong></p>
 <p>在法律允许的最大范围内，Assure AI 对因您依赖平台生成的输出而产生的任何损失、损害或伤害不承担任何责任。</p>
@@ -192,7 +192,7 @@
   <tbody>
     <tr><td><strong>账户数据</strong></td><td>电子邮件地址、订阅层级、Stripe 客户 ID</td></tr>
     <tr><td><strong>使用数据</strong></td><td>匿名、汇总分析（无个人标识符）</td></tr>
-    <tr><td><strong>内容数据</strong></td><td>您的问题、提示词、上传文件和编译草稿 &ndash; 在我们的 AWS 服务器上安全处理和存储</td></tr>
+    <tr><td><strong>内容数据</strong></td><td>您的问题、提示词、上传文件和编译草稿 &ndash; 在我们的服务器上安全处理和存储</td></tr>
   </tbody>
 </table>
 
@@ -218,14 +218,14 @@
 <p>如需行使这些权利，请联系我们：<a href="mailto:privacy@getassureai.com"><strong>privacy@getassureai.com</strong></a></p>
 
 <h3>e. 数据传输</h3>
-<p>当您向第三方提供商（例如 Claude、Gemini、DeepSeek）<strong>发送</strong>提示词时，您的数据可能被传输至您司法管辖区以外的服务器。这些提供商为独立的数据控制者，受各自的数据保护政策约束。</p>
+<p>当您向第三方提供商<strong>发送</strong>提示词时，您的数据可能被传输至您司法管辖区以外的服务器。这些提供商为独立的数据控制者，受各自的数据保护政策约束。</p>
 </section>
 
 <hr class="privacy-divider">
 
 <section id="transfers" aria-labelledby="privacy-s10">
 <h2 id="privacy-s10">10. 国际数据传输</h2>
-<p>当您向第三方提供商（例如 Claude、Gemini、DeepSeek）<strong>发送</strong>问题时，您的数据可能被传输至您居住国以外的服务器。这些提供商受各自的数据保护政策约束，可能无法提供与您本地司法管辖区同等的保护水平。</p>
+<p>当您向第三方提供商<strong>发送</strong>问题时，您的数据可能被传输至您居住国以外的服务器。这些提供商受各自的数据保护政策约束，可能无法提供与您本地司法管辖区同等的保护水平。</p>
 <p>使用 Assure AI 并选择提供商即表示您同意此传输。</p>
 </section>
 

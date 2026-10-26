@@ -4,7 +4,7 @@
 <h2 id="privacy-s1">1. Welche Daten wir erfassen und speichern</h2>
 
 <h3>a. In der Cloud gespeicherte Daten (Server)</h3>
-<p>Wir speichern die folgenden Daten auf unseren sicheren Servern (AWS EC2), um den Dienst bereitzustellen:</p>
+<p>Wir speichern die folgenden Daten auf unseren sicheren Servern, um den Dienst bereitzustellen:</p>
 <ul>
   <li><strong>Kontodaten:</strong> E-Mail-Adresse, Abonnementstufe und Stripe-Kunden-ID.</li>
   <li><strong>Fragen und Prompts:</strong> Der Text, den Sie in der Befehlsleiste oder der Kompilierungsoberfl&auml;che eingeben (gespeichert in Datenbankprojekten und Ausf&uuml;hrungsprotokollen).</li>
@@ -18,7 +18,7 @@
 <h3>b. Lokal auf Ihrem Ger&auml;t gespeicherte Daten</h3>
 <p>Die folgenden Daten verbleiben <strong>auf Ihrem Computer</strong> und werden niemals an unsere Server &uuml;bertragen:</p>
 <ul>
-  <li>API-Schl&uuml;ssel f&uuml;r verbundene Anbieter (Claude, Gemini, DeepSeek, Kimi usw.).</li>
+  <li>API-Schl&uuml;ssel f&uuml;r verbundene Anbieter.</li>
   <li>Workbench-Oberfl&auml;chenzustand und Einstellungen (z.&nbsp;B. Layout-Einstellungen, Theme-Pr&auml;ferenzen).</li>
 </ul>
 
@@ -50,7 +50,7 @@
     <tr><td><strong>Fragen, Prompts und Quelldateien</strong></td><td>Zum Kompilieren, Verifizieren und Pr&uuml;fen Ihrer Dokumente.</td></tr>
     <tr><td><strong>Kompilierte Entw&uuml;rfe und Sperr-Hashes</strong></td><td>Zur Bereitstellung von Versionsverlauf und Audit-Trails.</td></tr>
     <tr><td><strong>Audit-Protokolle</strong></td><td>Zur Nutzungsverfolgung und Sicherheitsgew&auml;hrleistung f&uuml;r Unternehmenskunden.</td></tr>
-    <tr><td><strong>Wartelisten-Anmeldungen</strong></td><td>Um Sie beim Start des Dienstes oder bei Bedarf an Beta-Testern zu benachrichtigen.</td></tr>
+    <tr><td><strong>Wartelisten-Anmeldungen</strong></td><td>Um Sie beim Start des Dienstes oder bei einem Evaluierungs-Sprint zu benachrichtigen.</td></tr>
     <tr><td><strong>API-Schl&uuml;ssel</strong></td><td>Ausschlie&szlig;lich zur Verbindung Ihrer lokalen Instanz mit Drittanbieter-KI-Anbietern. Schl&uuml;ssel verlassen niemals Ihren Rechner.</td></tr>
     <tr><td><strong>Nutzungsanalysen (optional)</strong></td><td>Anonymisierte, aggregierte Nutzungsdaten &uuml;ber Plausible. Es werden keine personenbezogenen Daten erfasst.</td></tr>
   </tbody>
@@ -64,7 +64,7 @@
 <h2 id="privacy-s3">3. Weitergabe Ihrer Daten</h2>
 
 <h3>a. Drittanbieter-KI-Anbieter</h3>
-<p>Wenn Sie sich entscheiden, einen Prompt an einen verbundenen Anbieter (z.&nbsp;B. Claude, Gemini, DeepSeek, Kimi) zu <strong>Senden</strong>:</p>
+<p>Wenn Sie sich entscheiden, einen Prompt an einen verbundenen Anbieter zu <strong>Senden</strong>:</p>
 <ul>
   <li>Ihre Frage und alle angeh&auml;ngten Dateien werden <strong>direkt</strong> an den von Ihnen gew&auml;hlten Anbieter &uuml;bertragen.</li>
   <li>Es gelten die eigenen Bedingungen und Datenschutzrichtlinien des Anbieters.</li>
@@ -162,8 +162,8 @@
 <p><strong>Halluzinationen und Fehler.</strong></p>
 <p>KI-Modelle k&ouml;nnen falsche, irref&uuml;hrende oder halluzinierte Inhalte erzeugen. Assure AIs Verifizierungstools (Z3, Red-Hat, Substrate Vault) sind darauf ausgelegt, diese Risiken zu reduzieren, beseitigen sie jedoch nicht vollst&auml;ndig.</p>
 
-<p><strong>Keine Genauigkeitsgarantie.</strong></p>
-<p>Wir garantieren nicht, dass die Ausgabe fehlerfrei, vollst&auml;ndig oder aktuell ist.</p>
+<p><strong>Kein Genauigkeitsversprechen.</strong></p>
+<p>Wir versprechen nicht, dass die Ausgabe fehlerfrei, vollst&auml;ndig oder aktuell ist.</p>
 
 <p><strong>Keine Haftung f&uuml;r Vertrauen.</strong></p>
 <p>Im gr&ouml;&szlig;tm&ouml;glich gesetzlich zul&auml;ssigen Umfang lehnt Assure AI jede Haftung f&uuml;r Verluste, Sch&auml;den oder Nachteile ab, die aus Ihrem Vertrauen in die von der Plattform erzeugten Ausgaben entstehen.</p>
@@ -192,7 +192,7 @@
   <tbody>
     <tr><td><strong>Kontodaten</strong></td><td>E-Mail-Adresse, Abonnementstufe, Stripe-Kunden-ID</td></tr>
     <tr><td><strong>Nutzungsdaten</strong></td><td>Anonymisierte, aggregierte Analysen (ohne personenbezogene Kennungen)</td></tr>
-    <tr><td><strong>Inhaltsdaten</strong></td><td>Ihre Fragen, Prompts, hochgeladene Dateien und kompilierte Entw&uuml;rfe &ndash; sicher verarbeitet und auf unseren AWS-Servern gespeichert</td></tr>
+    <tr><td><strong>Inhaltsdaten</strong></td><td>Ihre Fragen, Prompts, hochgeladene Dateien und kompilierte Entw&uuml;rfe &ndash; sicher verarbeitet und auf unseren Servern gespeichert</td></tr>
   </tbody>
 </table>
 
@@ -218,14 +218,14 @@
 <p>Um diese Rechte auszu&uuml;ben, kontaktieren Sie uns unter: <a href="mailto:privacy@getassureai.com"><strong>privacy@getassureai.com</strong></a></p>
 
 <h3>e. Daten&uuml;bermittlungen</h3>
-<p>Wenn Sie einen Prompt an einen Drittanbieter (z.&nbsp;B. Claude, Gemini, DeepSeek) <strong>Senden</strong>, k&ouml;nnen Ihre Daten an Server au&szlig;erhalb Ihrer Rechtsordnung &uuml;bermittelt werden. Diese Anbieter sind unabh&auml;ngige Verantwortliche und unterliegen ihren eigenen Datenschutzrichtlinien.</p>
+<p>Wenn Sie einen Prompt an einen Drittanbieter <strong>Senden</strong>, k&ouml;nnen Ihre Daten an Server au&szlig;erhalb Ihrer Rechtsordnung &uuml;bermittelt werden. Diese Anbieter sind unabh&auml;ngige Verantwortliche und unterliegen ihren eigenen Datenschutzrichtlinien.</p>
 </section>
 
 <hr class="privacy-divider">
 
 <section id="transfers" aria-labelledby="privacy-s10">
 <h2 id="privacy-s10">10. Internationale Daten&uuml;bermittlungen</h2>
-<p>Wenn Sie eine Frage an einen Drittanbieter (z.&nbsp;B. Claude, Gemini, DeepSeek) <strong>Senden</strong>, k&ouml;nnen Ihre Daten an Server au&szlig;erhalb Ihres Wohnsitzlandes &uuml;bermittelt werden. Diese Anbieter unterliegen ihren eigenen Datenschutzrichtlinien und bieten m&ouml;glicherweise nicht denselben Schutz wie Ihre lokale Rechtsordnung.</p>
+<p>Wenn Sie eine Frage an einen Drittanbieter <strong>Senden</strong>, k&ouml;nnen Ihre Daten an Server au&szlig;erhalb Ihres Wohnsitzlandes &uuml;bermittelt werden. Diese Anbieter unterliegen ihren eigenen Datenschutzrichtlinien und bieten m&ouml;glicherweise nicht denselben Schutz wie Ihre lokale Rechtsordnung.</p>
 <p>Durch die Nutzung von Assure AI und die Auswahl eines Anbieters stimmen Sie dieser &Uuml;bermittlung zu.</p>
 </section>
 

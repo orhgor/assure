@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="{{ locale|default('en') }}"{% if page_class is defined %} class="{{ page_class }}"{% endif %}>
+<html lang="{{ 'en' if locale|default('en') == 'ar' else locale|default('en') }}"{% if page_class is defined %} class="{{ page_class }}"{% endif %}>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -62,7 +62,7 @@
     <p class="footer-lock privacy-badge"><span aria-hidden="true">🔒</span> Your data stays on your machine. Send only to your chosen provider.</p>
     <p class="footer-meta">
       <strong>Assure</strong>.
-      <span>© 2026 Assure. All rights reserved.</span>
+      <span>© 2026 Archeon Cloud. Assure is a product of Archeon Cloud, Dubai.</span>
       <a href="/about{{ q }}">About</a>
       <a href="/privacy{{ q }}">Privacy</a>
       <a href="/terms{{ q }}">Terms</a>

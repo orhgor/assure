@@ -20,7 +20,7 @@ This file is **portable**. Copy it into any site repo. Fill **§0 Project profil
 
 | Field | Value |
 |---|---|
-| Brand / product name | *e.g. SeroState* |
+| Brand / product name | *e.g. Assure* |
 | Primary UI font | *e.g. Nunito via `--font-sans` — never Inter / Roboto / system-only as primary* |
 | Mono / instrument font | *e.g. JetBrains Mono* |
 | Shell max / pad | *e.g. `--shell-max: 1080px`, `--shell-pad-x: 3rem`* |

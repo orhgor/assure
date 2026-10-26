@@ -7,7 +7,7 @@
 | Branch | current workspace |
 | Surfaces | `landing/index.html`, `landing/404.html` |
 | Auditor | agent |
-| Standard | `docs/WEBPAGE_AUDIT_STANDARD.md` (portable file from SeroState PR #148, §A bound to Assure) |
+| Standard | `docs/WEBPAGE_AUDIT_STANDARD.md` (portable standard, §A bound to Assure) |
 | Preflight | Claims from `prompt_matrix/i18n.py` / in-app Pricing and Privacy. PEM MCP was unavailable this session. |
 
 ## Summary

@@ -41,6 +41,36 @@ PAGES: list[dict] = [
         "suffix": "architecture/",
     },
     {
+        "template": "government.html",
+        "output": "government/index.html",
+        "kind": "landing",
+        "suffix": "government/",
+    },
+    {
+        "template": "use_cases_index.html",
+        "output": "use-cases/index.html",
+        "kind": "landing",
+        "suffix": "use-cases/",
+    },
+    {
+        "template": "use_case_government.html",
+        "output": "use-cases/government/index.html",
+        "kind": "landing",
+        "suffix": "use-cases/government/",
+    },
+    {
+        "template": "use_case_insurance.html",
+        "output": "use-cases/insurance/index.html",
+        "kind": "landing",
+        "suffix": "use-cases/insurance/",
+    },
+    {
+        "template": "use_case_fuel.html",
+        "output": "use-cases/fuel-retail/index.html",
+        "kind": "landing",
+        "suffix": "use-cases/fuel-retail/",
+    },
+    {
         "template": "landing_privacy.html",
         "output": "privacy/index.html",
         "kind": "landing",
@@ -89,8 +119,30 @@ _INCLUDE_RE = re.compile(r"{%-?\s*include\s+'([^']+?)'\s*%-?\}")
 TEMPLATES_DIR = ROOT / "prompt_matrix" / "templates"
 
 
+# Locales that exist for preview but are not published yet (turn on via PUBLISH_LOCALES).
+UNPUBLISHED_BY_DEFAULT = frozenset({"ar"})
+
+# Locales that can be built with the marketing site (7 + ar)
+MARKETING_LOCALES = ("en", "es", "zh", "fr", "de", "ja", "tr", "ar")
+
+
+def publish_locales() -> list[str]:
+    """Locales shown in the switcher / hreflang / language count.
+
+    PUBLISH_LOCALES="en es zh fr de ja tr ar" (space or comma separated) overrides the default,
+    which is every locale in LOCALES except those in UNPUBLISHED_BY_DEFAULT.
+    """
+    raw = os.environ.get("PUBLISH_LOCALES", "").replace(",", " ").split()
+    if raw:
+        unknown = [loc for loc in raw if loc not in LOCALES]
+        if unknown:
+            raise SystemExit(f"PUBLISH_LOCALES has unknown locale(s): {unknown}")
+        return [loc for loc in LOCALES if loc in raw]
+    return [loc for loc in LOCALES if loc not in UNPUBLISHED_BY_DEFAULT]
+
+
 def _locale_paths() -> dict[str, str]:
-    return {loc: "/" if loc == "en" else f"/{loc}/" for loc in LOCALES}
+    return {loc: "/" if loc == "en" else f"/{loc}/" for loc in publish_locales()}
 
 
 def _postprocess(
@@ -160,6 +212,9 @@ def _public_strings(app, page: dict, locale: str) -> dict:
     used = _used_string_keys(app, page["template"])
     # landing-demo.js resolves keys dynamically ("landing.demo." + name).
     filtered = {k: v for k, v in catalog.items() if k in used or k.startswith("landing.demo.")}
+    badge = filtered.get("landing.hero.badge")
+    if badge:  # "... 8 languages" follows the number of published locales
+        filtered["landing.hero.badge"] = re.sub(r"\d+", str(len(publish_locales())), badge, count=1)
     return filtered
 
 
@@ -170,7 +225,7 @@ def _render_page(app, page: dict, locale: str) -> str:
             session["lang"] = locale
             ctx: dict = {
                 "locale": locale,
-                "languages": LOCALE_LABELS,
+                "languages": {loc: LOCALE_LABELS[loc] for loc in publish_locales()},
                 "strings": _public_strings(app, page, locale),
                 "locale_paths": _locale_paths(),
                 "page_suffix": page["suffix"],
@@ -217,7 +272,7 @@ def render_locale(
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Render marketing HTML for one locale.")
-    parser.add_argument("--locale", required=True, choices=LOCALES)
+    parser.add_argument("--locale", required=True, choices=MARKETING_LOCALES)
     parser.add_argument(
         "--output", required=True, type=Path, help="Locale root (e.g. dist or dist/es)"
     )

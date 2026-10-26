@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="{{ locale|default('en') }}">
+<html lang="{{ locale|default('en') }}"{% if locale|default('en') == 'ar' %} dir="rtl"{% endif %}>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -24,6 +24,9 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    {% if locale|default('en') == 'ar' %}
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+    {% endif %}
     <link rel="stylesheet" href="{{ url_for('static', filename='landing.css') }}?v={{ landing_css_version|default('71') }}">
     {% include 'includes/plausible.html' %}
     {% include 'includes/sentry.html' %}
@@ -126,7 +129,7 @@
                         <button type="submit" class="btn-primary" data-i18n="contact.submit">{{ strings.get('contact.submit', 'Send request') }}</button>
                         <p class="contact-error" id="contact-error" hidden></p>
                     </form>
-                    <p id="contact-done" data-i18n="contact.done" hidden>{{ strings.get('contact.done', 'Thanks — we’ll respond within 1 business day.') }}</p>
+                    <p id="contact-done" data-i18n="contact.done" hidden>{{ strings.get('contact.done', 'Thanks — we’ll be in touch.') }}</p>
                     <p class="contact-alt">{{ strings.get('contact.alt', 'Prefer email?') }} <a class="contact-email" href="mailto:sales@getassureai.com">sales@getassureai.com</a></p>
                 </div>
 

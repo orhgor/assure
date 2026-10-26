@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="{{ locale|default('en') }}">
+<html lang="{{ 'en' if locale|default('en') == 'ar' else locale|default('en') }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -23,6 +23,9 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    {% if locale|default('en') == 'ar' %}
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+    {% endif %}
     <link rel="stylesheet" href="{{ url_for('static', filename='landing.css') }}?v={{ landing_css_version|default('44') }}">
     {% include 'includes/plausible.html' %}
     {% include 'includes/sentry.html' %}
@@ -51,7 +54,7 @@
 
                 <div class="ast-compare">
                     <div class="ast-panel ast-flat">
-                        <h3 data-i18n="arch.ast.flat.title">What ChatGPT gives you</h3>
+                        <h3 data-i18n="arch.ast.flat.title">What a generic chatbot gives you</h3>
                         <pre class="ast-mock" aria-hidden="true">"Q3 revenue reached $4.2M... margins expanded to 32%... European markets led growth..."</pre>
                         <ul class="ast-fail-list">
                             <li data-i18n="arch.ast.flat.fail1">One blob&mdash;hard to fix one claim without breaking others</li>
