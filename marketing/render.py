@@ -41,6 +41,12 @@ PAGES: list[dict] = [
         "suffix": "architecture/",
     },
     {
+        "template": "government.html",
+        "output": "government/index.html",
+        "kind": "landing",
+        "suffix": "government/",
+    },
+    {
         "template": "landing_privacy.html",
         "output": "privacy/index.html",
         "kind": "landing",
