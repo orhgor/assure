@@ -80,12 +80,7 @@
             </div>
         </section>
 
-        <div class="logos-band">
-            <div class="trust-logos" role="img" aria-label="{{ strings.get('landing.trust.logos_aria', 'AWS and Amazon S3') }}">
-                <img src="{{ url_for('static', filename='aws-startups.svg') }}?v=2" alt="AWS" loading="lazy">
-                <img src="{{ url_for('static', filename='s3-icon.svg') }}?v=2" alt="Amazon S3" loading="lazy">
-            </div>
-        </div>
+        {% include 'includes/logos_band.html' %}
 
         <section id="proof" class="role-demo">
             <div class="container">

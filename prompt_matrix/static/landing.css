@@ -3613,3 +3613,18 @@ html[dir="rtl"] .logo-name { direction: ltr; unicode-bidi: isolate; }
     html[dir="rtl"] .nav-links.is-collapsed { text-align: right; }
     html[dir="rtl"] .container { padding-left: 1.25rem; padding-right: 1.25rem; }
 }
+
+/* On-prem mark: same optical height as the S3 mark; band reused inline on inner pages */
+.trust-logos img.trust-logo-onprem {
+    height: 26px;
+    width: auto;
+}
+
+.logos-band.logos-band-inline {
+    padding: 28px 16px 8px;
+}
+
+@media (max-width: 760px) {
+    .trust-logos img.trust-logo-onprem { height: 22px; }
+    .logos-band.logos-band-inline { padding: 20px 16px 4px; }
+}

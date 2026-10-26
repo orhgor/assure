@@ -62,7 +62,7 @@ EN = {
         "Secure by design. Processed on our servers, never used to train our models."
     ),
     "landing.hero.subtitle": "ParSure reads and checks the incoming documents. CrossSure cross-checks figures and facts against rules, registers and the other documents. Assure returns one clear, sourced response.",
-    "landing.trust.logos_aria": "AWS and Amazon S3",
+    "landing.trust.logos_aria": "On-prem, AWS and Amazon S3",
     "brand.tagline": "Compile. Verify. Trust what you ship.",
     "tagline_html": 'The right question produces a <span class="trust">trusted</span> answer.',
     "brand.tagline_html": "The Intellectual Compiler",
@@ -213,7 +213,7 @@ EN = {
         "formal logic, tracks source provenance down to the exact page, and flags every logical gap before a human ever has to look twice."
     ),
     "landing.trust.title": "Enterprise trust architecture",
-    "landing.trust.logos_aria": "AWS and Amazon S3",
+    "landing.trust.logos_aria": "On-prem, AWS and Amazon S3",
     "landing.trust.card1.title": "Orchestration Engine",
     "landing.trust.card1.body": (
         "One intent. Multiple specialized models working in concert. No prompt engineering required."
@@ -1520,6 +1520,8 @@ EN = {
     "uc.fuel.how.3": "Assure returns a sourced reconciliation that lists every difference and the page it came from.",
     "uc.fuel.human.title": "What stays with people",
     "uc.fuel.human.body": "Finance staff review each difference and decide what to pay or query. Assure surfaces the evidence.",
+    "landing.onprem.alt": "On-prem",
+    "landing.onprem.title": "On-prem deployment",
 }
 
 ES = {
@@ -2895,6 +2897,9 @@ ES = {
     "landing.compare.assure.2": "Comprueba cada cifra con las reglas y muestra la página de origen.",
     "landing.compare.assure.3": "Con el despliegue on-prem, tus datos nunca salen de tu infraestructura.",
     "landing.features.3.body": "Con el despliegue on-prem, tus datos nunca salen de tu infraestructura.",
+    "landing.trust.logos_aria": "On-prem, AWS y Amazon S3",
+    "landing.onprem.alt": "On-prem",
+    "landing.onprem.title": "Despliegue on-prem",
 }
 
 ZH = {
@@ -5369,6 +5374,9 @@ ZH = {
     "landing.compare.assure.2": "对照规则检查每个数字，并显示来源页。",
     "landing.compare.assure.3": "采用本地部署（on-prem）时，您的数据不会离开您的基础设施。",
     "landing.features.3.body": "采用本地部署（on-prem）时，您的数据不会离开您的基础设施。",
+    "landing.trust.logos_aria": "本地部署、AWS 和 Amazon S3",
+    "landing.onprem.alt": "本地部署",
+    "landing.onprem.title": "本地部署（on-prem）",
 }
 
 FR = {
@@ -6731,6 +6739,9 @@ FR = {
     "landing.compare.assure.2": "Vérifie chaque chiffre au regard des règles et indique la page source.",
     "landing.compare.assure.3": "Avec un déploiement on-prem, vos données ne quittent jamais votre infrastructure.",
     "landing.features.3.body": "Avec un déploiement on-prem, vos données ne quittent jamais votre infrastructure.",
+    "landing.trust.logos_aria": "On-prem, AWS et Amazon S3",
+    "landing.onprem.alt": "On-prem",
+    "landing.onprem.title": "Déploiement on-prem",
 }
 
 DE = {
@@ -8106,6 +8117,9 @@ DE = {
     "landing.compare.assure.2": "Prüft jede Zahl anhand der Regeln und zeigt die Quellseite.",
     "landing.compare.assure.3": "Beim On-Prem-Betrieb verlassen Ihre Daten nie Ihre Infrastruktur.",
     "landing.features.3.body": "Beim On-Prem-Betrieb verlassen Ihre Daten nie Ihre Infrastruktur.",
+    "landing.trust.logos_aria": "On-Prem, AWS und Amazon S3",
+    "landing.onprem.alt": "On-Prem",
+    "landing.onprem.title": "On-Prem-Betrieb",
 }
 
 JA = {
@@ -9480,6 +9494,9 @@ JA = {
     "landing.compare.assure.2": "すべての数値をルールと照合し、出典ページを示します。",
     "landing.compare.assure.3": "オンプレミス導入では、データがお客様のインフラの外に出ることはありません。",
     "landing.features.3.body": "オンプレミス導入では、データがお客様のインフラの外に出ることはありません。",
+    "landing.trust.logos_aria": "オンプレミス、AWS、Amazon S3",
+    "landing.onprem.alt": "オンプレミス",
+    "landing.onprem.title": "オンプレミス導入",
 }
 
 TR = {
@@ -10860,6 +10877,9 @@ TR = {
     "landing.compare.assure.2": "Her rakamı kurallara göre kontrol eder ve kaynak sayfasını gösterir.",
     "landing.compare.assure.3": "On-prem kurulumda verileriniz altyapınızdan hiç çıkmaz.",
     "landing.features.3.body": "On-prem kurulumda verileriniz altyapınızdan hiç çıkmaz.",
+    "landing.trust.logos_aria": "On-prem, AWS ve Amazon S3",
+    "landing.onprem.alt": "On-prem",
+    "landing.onprem.title": "On-prem kurulum",
 }
 
 # Arabic: draft translation, needs native-speaker review before deploy.
@@ -10953,7 +10973,7 @@ AR = {
     "landing.hero.cta_line2": "لدورك الوظيفي",
     "landing.trust.title": "بنية الثقة للمؤسسات",
     "landing.trust.lead": "قائم على مستنداتك، لا على ذاكرة النموذج. يقرأ ParSure الملفات الواردة، ويقابلها CrossSure مع القواعد والسجلات وبعضها بعضًا، ويتحقق Assure من كل صفحة وجدول وبند في مستنداتك المصدرية، فتشير كل عملية فحص إلى مصدر حقيقي لا إلى تخمين إحصائي.",
-    "landing.trust.logos_aria": "AWS وAmazon S3",
+    "landing.trust.logos_aria": "داخل المقر (On-prem)، وAWS وAmazon S3",
     "landing.trust.card1.title": "محرك التنسيق",
     "landing.trust.card1.body": "مقصد واحد. نماذج متخصصة متعددة تعمل معًا. بلا حاجة إلى هندسة الموجّهات.",
     "landing.trust.card2.title": "محرك المنطق الرياضي",
@@ -11039,6 +11059,8 @@ AR = {
     "gov.human.body2": "تذكر كل ملاحظة صفحتها المصدرية، ليرى الموظفون ومقدّمو الطلبات بدقة من أين جاءت.",
     "gov.human.link": "تحدّث إلينا عن خدمتك",
     "landing.nav.usecases": "حالات الاستخدام",
+    "landing.onprem.alt": "داخل المقر",
+    "landing.onprem.title": "نشر داخل المقر (On-prem)",
 }
 
 CATALOGS = {"en": EN, "es": ES, "zh": ZH, "fr": FR, "de": DE, "ja": JA, "tr": TR, "ar": AR}
