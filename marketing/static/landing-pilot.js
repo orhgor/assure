@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  function openWaitlist() {
+  function openDemo() {
     var modal = document.getElementById("download-modal");
     if (!modal) return;
     modal.hidden = false;
@@ -10,7 +10,7 @@
     if (email) email.focus();
   }
 
-  function closeWaitlist() {
+  function closeDemo() {
     var modal = document.getElementById("download-modal");
     if (!modal) return;
     modal.hidden = true;
@@ -26,7 +26,7 @@
     }
   }
 
-  function bindWaitlist() {
+  function bindDemo() {
     var modal = document.getElementById("download-modal");
     var form = document.getElementById("demo-form");
     var done = document.getElementById("demo-done");
@@ -35,15 +35,15 @@
     document.querySelectorAll("[data-demo-open]").forEach(function (el) {
       el.addEventListener("click", function (e) {
         e.preventDefault();
-        openWaitlist();
+        openDemo();
       });
     });
     if (!modal) return;
     modal.querySelectorAll("[data-demo-close]").forEach(function (el) {
-      el.addEventListener("click", closeWaitlist);
+      el.addEventListener("click", closeDemo);
     });
     document.addEventListener("keydown", function (e) {
-      if (e.key === "Escape" && !modal.hidden) closeWaitlist();
+      if (e.key === "Escape" && !modal.hidden) closeDemo();
     });
     if (!form) return;
     form.addEventListener("submit", function (e) {
@@ -58,7 +58,7 @@
       var company = nameEl ? String(nameEl.value || "").trim() : "";
       var email = emailEl ? String(emailEl.value || "").trim() : "";
       var workflow = workflowEl ? String(workflowEl.value || "").trim() : "";
-      var name = workflow ? company + " — " + workflow : company;
+      var name = workflow ? company + " / " + workflow : company;
       fetch("/contact-submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -113,6 +113,6 @@
     });
   }
 
-  bindWaitlist();
+  bindDemo();
   bindRoleTabs();
 })();

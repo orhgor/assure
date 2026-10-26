@@ -383,6 +383,10 @@ EN = {
     'vault.prompts.edit': 'Edit',
     'vault.prompts.name': 'Name',
     'wizard.back': 'Back',
+'landing.pilot.lead': 'Three fields. We will contact you to set up a demo.',
+    'landing.pilot.ready_badge': 'Request received',
+    'landing.pilot.ready_body': 'Our team will contact you at your work email to schedule the demo.',
+    'landing.pilot.ready_title': 'Thank you',
 }
 
 ES = {
@@ -747,6 +751,10 @@ ES = {
     'vault.prompts.edit': 'Editar',
     'vault.prompts.name': 'Nombre',
     'wizard.back': 'Back',
+'landing.pilot.lead': 'Tres campos. Nos pondremos en contacto con usted para coordinar la demo.',
+    'landing.pilot.ready_badge': 'Solicitud recibida',
+    'landing.pilot.ready_body': 'Nuestro equipo le contactará en su correo de trabajo para agendar la demo.',
+    'landing.pilot.ready_title': 'Gracias',
 }
 
 ZH = {
@@ -1130,6 +1138,10 @@ ZH = {
     'vault.prompts.edit': '编辑',
     'vault.prompts.name': '名称',
     'wizard.back': 'Back',
+'landing.pilot.lead': '三个字段。我们将与您联系，安排演示。',
+    'landing.pilot.ready_badge': '已收到请求',
+    'landing.pilot.ready_body': '我们的团队将通过您的工作邮箱与您联系，安排演示时间。',
+    'landing.pilot.ready_title': '谢谢',
 }
 
 FR = {
@@ -1494,6 +1506,10 @@ FR = {
     'vault.prompts.edit': 'Modifier',
     'vault.prompts.name': 'Nom',
     'wizard.back': 'Back',
+'landing.pilot.lead': 'Trois champs. Nous vous contacterons pour organiser la démonstration.',
+    'landing.pilot.ready_badge': 'Demande reçue',
+    'landing.pilot.ready_body': 'Notre équipe vous contactera à votre adresse professionnelle pour planifier la démonstration.',
+    'landing.pilot.ready_title': 'Merci',
 }
 
 DE = {
@@ -1858,6 +1874,10 @@ DE = {
     'vault.prompts.edit': 'Bearbeiten',
     'vault.prompts.name': 'Name',
     'wizard.back': 'Back',
+'landing.pilot.lead': 'Drei Felder. Wir kontaktieren Sie, um die Demo vorzubereiten.',
+    'landing.pilot.ready_badge': 'Anfrage erhalten',
+    'landing.pilot.ready_body': 'Unser Team meldet sich unter Ihrer geschäftlichen E-Mail-Adresse, um die Demo zu vereinbaren.',
+    'landing.pilot.ready_title': 'Vielen Dank',
 }
 
 JA = {
@@ -2222,6 +2242,10 @@ JA = {
     'vault.prompts.edit': '編集',
     'vault.prompts.name': '名前',
     'wizard.back': 'Back',
+'landing.pilot.lead': '入力は3項目です。こちらからご連絡してデモを準備します。',
+    'landing.pilot.ready_badge': 'リクエストを受け付けました',
+    'landing.pilot.ready_body': 'チームからご登録の仕事用メールアドレスにご連絡し、デモの日程を調整します。',
+    'landing.pilot.ready_title': 'ありがとうございます',
 }
 
 TR = {
@@ -2586,6 +2610,10 @@ TR = {
     'vault.prompts.edit': 'Düzenle',
     'vault.prompts.name': 'Ad',
     'wizard.back': 'Back',
+'landing.pilot.lead': 'Üç alan. Demoyu planlamak için sizinle iletişime geçeceğiz.',
+    'landing.pilot.ready_badge': 'Talep alındı',
+    'landing.pilot.ready_body': 'Ekibimiz demoyu planlamak için iş e-posta adresiniz üzerinden size ulaşacak.',
+    'landing.pilot.ready_title': 'Teşekkürler',
 }
 
 AR = {
@@ -2694,10 +2722,10 @@ AR = {
     'landing.personas.title': 'مصمَّم للأعمال عالية الأهمية',
     'landing.pilot.company': 'اسم الشركة',
     'landing.pilot.email': 'البريد الإلكتروني للعمل',
-    'landing.pilot.lead': 'ثلاثة حقول. نجهّز لك مساحة عمل لفريقك.',
-    'landing.pilot.ready_badge': 'مساحة العمل جاهزة',
-    'landing.pilot.ready_body': 'افتح Assure لصياغة مستند والتحقق منه. سيصلك تأكيد على بريدك الإلكتروني للعمل.',
-    'landing.pilot.ready_title': 'كل شيء جاهز',
+    'landing.pilot.lead': 'ثلاثة حقول. سنتواصل معك لترتيب العرض التجريبي.',
+    'landing.pilot.ready_badge': 'تم استلام الطلب',
+    'landing.pilot.ready_body': 'سيتواصل معك فريقنا عبر بريدك الإلكتروني المهني لتحديد موعد العرض التجريبي.',
+    'landing.pilot.ready_title': 'شكراً لك',
     'landing.pilot.submit': 'احجز عرضًا توضيحيًا',
     'landing.pilot.title': 'احجز عرضًا توضيحيًا',
     'landing.pilot.workflow': 'سير عمل المستندات الرئيسي',
