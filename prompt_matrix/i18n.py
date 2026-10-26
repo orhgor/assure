@@ -1,13 +1,14 @@
 """Assure UI strings. English is the source.
 
-Locales: en, es, zh, fr, de, ja, tr.
+Locales: en, es, zh, fr, de, ja, tr, ar.
 Flask-Babel is wired in web.py. Catalogs here are what the page actually loads
 so a missing .mo file does not blank the UI.
 """
 
 from __future__ import annotations
 
-LOCALES = ("en", "es", "zh", "fr", "de", "ja", "tr")
+LOCALES = ("en", "es", "zh", "fr", "de", "ja", "tr", "ar")
+RTL_LOCALES = frozenset({"ar"})
 LOCALE_LABELS = {
     "en": "English",
     "es": "Español",
@@ -16,6 +17,7 @@ LOCALE_LABELS = {
     "de": "Deutsch",
     "ja": "日本語",
     "tr": "Türkçe",
+    "ar": "العربية",
 }
 
 # English source. Keys are stable. Do not invent stats here.
@@ -36,7 +38,7 @@ EN = {
     "brand.category": "The Intellectual Compiler",
     "brand.eyebrow": "Compile. Verify. Trust what you ship.",
     "brand.hero_title": "Documents in. Verified output out.",
-    "landing.hero.badge": "Enterprise ready · Bring your own keys · 7 languages",
+    "landing.hero.badge": "Enterprise ready · Bring your own keys · 8 languages",
     "landing.proof.tab1.body": (
 
         "Never submit an unverified citation. Assure's Z3 logic engine grounds every precedent, statute, and "
@@ -1533,7 +1535,7 @@ ES = {
     "hero": "Assure",
     "brand.category": "El Compilador Intelectual",
     "brand.eyebrow": "Compila. Verifica. Confía en lo que envías.",
-    "landing.hero.badge": "Listo para empresas · Trae tus propias claves · 7 idiomas",
+    "landing.hero.badge": "Listo para empresas · Trae tus propias claves · 8 idiomas",
     "landing.proof.tab1.body": (
 
         "Nunca envíes una cita sin verificar. El motor lógico Z3 de Assure fundamenta cada precedente, estatuto "
@@ -2905,7 +2907,7 @@ ZH = {
     "brand.category": "智能编译器",
     "brand.eyebrow": "编译。验证。信任所交付的内容。",
     "brand.hero_title": "文档输入。输出可信。",
-    "landing.hero.badge": "企业就绪 · 自带密钥 · 7 种语言",
+    "landing.hero.badge": "企业就绪 · 自带密钥 · 8 种语言",
     "landing.proof.tab1.body": (
 
         "绝不提交未经核验的引用。Assure 的 Z3 逻辑引擎将您引用的每一条先例、法规和保单除外条款"
@@ -5375,7 +5377,7 @@ FR = {
     "brand.category": "Le Compilateur Intellectuel",
     "brand.eyebrow": "Compilez. Vérifiez. Faites confiance à ce que vous livrez.",
     "brand.hero_title": "Documents à l'entrée. Résultats vérifiés.",
-    "landing.hero.badge": "Prêt pour l'entreprise · Apportez vos propres clés · 7 langues",
+    "landing.hero.badge": "Prêt pour l'entreprise · Apportez vos propres clés · 8 langues",
     "landing.proof.tab1.body": (
 
         "Ne soumettez jamais une citation non vérifiée. Le moteur logique Z3 d'Assure ancre chaque précédent, "
@@ -6733,7 +6735,7 @@ DE = {
     "brand.category": "Der Intellektuelle Compiler",
     "brand.eyebrow": "Kompilieren. Prüfen. Vertrauen, was Sie liefern.",
     "brand.hero_title": "Dokumente hinein. Verifiziertes Ergebnis heraus.",
-    "landing.hero.badge": "Enterprise-ready · Eigene Schlüssel mitbringen · 7 Sprachen",
+    "landing.hero.badge": "Enterprise-ready · Eigene Schlüssel mitbringen · 8 Sprachen",
     "landing.proof.tab1.body": (
 
         "Reichen Sie nie eine ungeprüfte Zitation ein. Assures Z3-Logik-Engine verankert jeden Präzedenzfall, "
@@ -8104,7 +8106,7 @@ JA = {
     "brand.category": "インテレクチュアル・コンパイラー",
     "brand.eyebrow": "コンパイル。検証。出荷するものを信頼する。",
     "brand.hero_title": "ドキュメント入力。検証された成果物。",
-    "landing.hero.badge": "エンタープライズ対応 · 独自キーを持ち込み · 7言語",
+    "landing.hero.badge": "エンタープライズ対応 · 独自キーを持ち込み · 8言語",
     "landing.proof.tab1.body": (
 
         "未検証の引用を提出しない。Assure の Z3 論理エンジンは引用する判例・法令・ポリシー除外を"
@@ -9474,7 +9476,7 @@ TR = {
     "brand.category": "Zihinsel Derleyici",
     "brand.eyebrow": "Derleyin. Doğrulayın. Gönderdiğinize güvenin.",
     "brand.hero_title": "Belgeler girer. Doğrulanmış çıktı çıkar.",
-    "landing.hero.badge": "Şirket düzeyinde hazır · Kendi anahtarlarınızı getirin · 7 dil",
+    "landing.hero.badge": "Şirket düzeyinde hazır · Kendi anahtarlarınızı getirin · 8 dil",
     "landing.proof.tab1.body": (
 
         "Doğrulanmamış alıntı asla göndermeyin. Assure'un Z3 mantık motoru, atıf yaptığınız her emsal, "
@@ -10796,7 +10798,185 @@ TR = {
     "landing.gov.body": "Sosyal destek başvurularında ve aile vizesi sponsorluğunda Assure, başvuru sahiplerine neyin eksik veya yanlış olduğunu tam olarak söyler, personele de kanıt dosyalı eksiksiz bir dosya verir. Kararı her zaman bir insan verir ve her bulgu kaynak sayfasını belirtir.",
 }
 
-CATALOGS = {"en": EN, "es": ES, "zh": ZH, "fr": FR, "de": DE, "ja": JA, "tr": TR}
+# Arabic: draft translation, needs native-speaker review before deploy.
+AR = {
+    "brand.page_title": "Assure AI — مستندات تدخل، ومخرجات موثّقة تخرج.",
+    "brand.hero_title": "مستندات تدخل. ومخرجات موثّقة تخرج.",
+    "brand.meta_description": "يقرأ ParSure مستنداتك ويتحقق منها. ويقابل CrossSure الأرقام والوقائع مع القواعد والسجلات والمستندات الأخرى. ويعيد Assure ردًّا واحدًا واضحًا موثّقًا بمصادره.",
+    "brand.tagline": "صِغ. تحقّق. وثِق بما تسلّمه.",
+    "brand.architecture_title": "Assure AI — كيف يعمل",
+    "brand.architecture_meta_description": "لماذا يفشل التخمين، وكيف يحوّل Assure مقصدك إلى مستندات موثّقة جاهزة للتسليم.",
+    "landing.skip": "انتقل إلى المحتوى",
+    "landing.lang": "اللغة",
+    "landing.nav.aria": "التنقل الرئيسي",
+    "landing.nav.menu": "القائمة",
+    "landing.nav.docs": "الإثبات",
+    "landing.nav.architecture": "لماذا الآن",
+    "landing.nav.sandbox": "الثقة",
+    "landing.nav.government": "الخدمات الحكومية",
+    "landing.nav.privacy": "الخصوصية",
+    "landing.nav.launch": "افتح التطبيق",
+    "landing.hero.badge": "جاهز للمؤسسات · أحضر مفاتيحك الخاصة · 8 لغات",
+    "landing.hero.subtitle": "يقرأ ParSure المستندات الواردة ويتحقق منها. ويقابل CrossSure الأرقام والوقائع مع القواعد والسجلات والمستندات الأخرى. ويعيد Assure ردًّا واحدًا واضحًا موثّقًا بمصادره.",
+    "landing.hero.cta_primary": "احجز عرضًا توضيحيًا",
+    "landing.proof.title": "شاهد كيف يعمل Assure لدورك الوظيفي.",
+    "landing.proof.tablist": "الأدوار",
+    "landing.proof.tab1.title": "مستشارو التغطية والمحامون",
+    "landing.proof.tab2.title": "خبراء تسوية المطالبات ومديرو المخاطر",
+    "landing.proof.tab3.title": "مسؤولو الامتثال",
+    "landing.proof.tab1.body": "لا تقدّم أي استشهاد غير موثّق. يربط محرك المنطق Z3 في Assure كل سابقة قضائية ونص نظامي واستثناء في وثيقة التأمين تستشهد به بصفحته المصدرية الدقيقة. صِغ آراء التغطية والمذكرات بسرعة الذكاء الاصطناعي، مدعومة بمصدر على مستوى الصفحة يمكنك تسليمه للطرف المقابل.",
+    "landing.proof.tab2.body": "اكشف فجوات التغطية التي تفوتها القراءة اليدوية. يختبر محرك Red-Hat في Assure رفض المطالبات مقابل الوثيقة الرئيسية التي ترفعها، ويرصد التناقضات والاستثناءات غير المسنودة والأرقام التي لا تتطابق، مع ذكر الصفحة المصدرية لكل ملاحظة.",
+    "landing.proof.tab3.body": "كل ادعاء في مسودات الامتثال لديك يعود إلى مصدره. يربط Substrate Vault في Assure كل رقم واستشهاد بالصفحة الدقيقة من الوثيقة أو اللائحة التي رفعتها، فلا يُسلَّم شيء لا تستطيع الدفاع عنه فورًا.",
+    "landing.why.title": "لماذا الآن",
+    "landing.why.status_quo": "الوضع الراهن",
+    "landing.why.q1": "الذكاء الاصطناعي يكتب النص.",
+    "landing.why.q2": "والبشر يثقون به يدويًا.",
+    "landing.why.q3": "والمسؤولية تختبئ في المسودات.",
+    "landing.why.standard": "معيار Assure AI",
+    "landing.why.a1": "الذكاء الاصطناعي يكتب النص.",
+    "landing.why.a2": "والفحوص الحتمية تتحقق منه.",
+    "landing.why.a3": "وتُقفل الادعاءات الحرجة قبل التصدير.",
+    "landing.why.copy": "الذكاء الاصطناعي سريع، لكنه غير موثّق في أساسه. وفي امتثال المؤسسات يصبح التخمين عبئًا. يضع Assure AI محرك تحقق حتميًا بين نماذجك ومخرجاتك: يفحص الحسابات بالمنطق الصوري، ويتتبّع المصدر حتى الصفحة الدقيقة، ويرصد كل فجوة منطقية قبل أن يضطر أي إنسان إلى النظر مرتين.",
+    "landing.steps.title": "ثلاث خطوات من الملف إلى الإجابة الموثّقة",
+    "landing.steps.intro": "يمر كل ملف بالمراحل الثلاث نفسها، وتشير كل ملاحظة إلى صفحتها المصدرية.",
+    "landing.steps.1.name": "ParSure",
+    "landing.steps.1.role": "القراءة والفحص",
+    "landing.steps.1.body": "يقرأ المستندات الواردة ويتحقق منها: ما الموجود، وما الناقص، وهل تتطابق الأسماء والتفاصيل.",
+    "landing.steps.2.name": "CrossSure",
+    "landing.steps.2.role": "المقابلة",
+    "landing.steps.2.body": "يقابل الأرقام والوقائع مع القواعد والسجلات والمستندات الأخرى.",
+    "landing.steps.3.name": "Assure",
+    "landing.steps.3.role": "الرد",
+    "landing.steps.3.body": "يعيد ردًّا واحدًا واضحًا موثّقًا بمصادره، وترتبط كل ملاحظة بصفحتها المصدرية.",
+    "landing.gov.title": "خدمات حكومية بلا أوراق، وموثّقة",
+    "landing.gov.body": "في طلبات الدعم الاجتماعي وكفالة التأشيرات العائلية، يخبر Assure مقدّمي الطلبات بدقة بما ينقص أو يخطئ، ويمنح الموظفين ملفًّا مكتملًا مع ملف أدلة. القرار دائمًا بيد إنسان، وكل ملاحظة تذكر صفحتها المصدرية.",
+    "landing.gov.cta": "اكتشف كيف يعمل",
+    "landing.diff.title": "لماذا يختلف Assure",
+    "landing.diff.intro": "تساعدك معظم أدوات الذكاء الاصطناعي في المؤسسات على الاستخراج أو الصياغة أو البحث. أما Assure فمبني للمشكلة الأصعب: إثبات أن كل مخرَج مستند إلى مصدره.",
+    "landing.diff.label.examples": "أدوات نموذجية",
+    "landing.diff.label.strength": "ما تجيده",
+    "landing.diff.label.gap": "ما ينقصها",
+    "landing.diff.cat1.title": "مساعدو الصياغة القانونية",
+    "landing.diff.cat1.examples": "مساعدات ذكاء اصطناعي للصياغة والبحث والمراجعة القانونية",
+    "landing.diff.cat1.strength": "تسريع الصياغة والبحث والمراجعة.",
+    "landing.diff.cat1.gap": "طبقة الإثبات: ربط حتمي بالمصادر، ومصدر على مستوى الصفحة، وتحقق قابل لإعادة الاستخدام.",
+    "landing.diff.cat2.title": "أدوات الذكاء الاصطناعي للمستندات / المعالجة الذكية",
+    "landing.diff.cat2.examples": "منصات التعرف الضوئي والاستخراج ومعالجة المستندات الذكية",
+    "landing.diff.cat2.strength": "التعرف الضوئي والاستخراج والجداول والنماذج وفهم التخطيط.",
+    "landing.diff.cat2.gap": "تحقق على مستوى الادعاء وسجل تدقيق دائم.",
+    "landing.diff.cat3.title": "حلول النماذج اللغوية المبنية ذاتيًا",
+    "landing.diff.cat3.examples": "نماذج لغوية عامة + موجّهات + RAG + نصوص برمجية داخلية",
+    "landing.diff.cat3.strength": "سريعة في النمذجة وقابلة للتخصيص.",
+    "landing.diff.cat3.gap": "الثقة والاتساق وقابلية التدقيق وأدلة قابلة لإعادة الاستخدام.",
+    "landing.diff.cat4.title": "Assure",
+    "landing.diff.cat4.body": "أدلة منظّمة. منطق حتمي. مراجعة خصمية. مصدر على مستوى الصفحة.",
+    "landing.diff.callout": "المخرَج مستند. والمنتج هو التحقق.",
+    "landing.diff.close": "السوق مليء بأدوات تعالج المستندات. أما Assure فمبني لإثباتها.",
+    "landing.personas.title": "مصمَّم للأعمال عالية الأهمية",
+    "landing.personas.bankers.title": "للمصرفيين الاستثماريين والمحللين",
+    "landing.personas.bankers.body": "<strong>دقة رقمية.</strong> أزل انحراف البيانات عبر مذكرات معلومات من 50 صفحة. يقفل Z3 Truth Ledger متغيراتك المالية من النموذج حتى السرد النهائي.",
+    "landing.personas.researchers.title": "للباحثين السريريين وباحثي المنح",
+    "landing.personas.researchers.body": "<strong>لا يصمد أي تناقض.</strong> تُفحص الملخصات مقابل الجداول الخام ادعاءً بعد ادعاء. وإذا انحرفت نقطة بيانات واحدة يرصدها Red-Hat قبل أن يراها أي مراجع.",
+    "landing.personas.legal.title": "للمستشارين القانونيين والامتثال",
+    "landing.personas.legal.body": "<strong>دقة جاهزة للتدقيق.</strong> تعامل مع الوثائق المعقدة كما تتعامل مع الشيفرة المصدرية. يُتحقق رمزيًا من كل متغير، تاركًا سجل تدقيق دائمًا.",
+    "landing.personas.architects.title": "للمعماريين التقنيين",
+    "landing.personas.architects.body": "<strong>تخلّص من تآكل الوثائق.</strong> قسّم المواصفات ومقترحات البنية إلى عُقد خاضعة للإصدار تبقى متزامنة.",
+    "landing.personas.journalists.title": "للصحفيين ومدققي الحقائق",
+    "landing.personas.journalists.body": "<strong>حقيقة قائمة على المصدر.</strong> اربط كل اقتباس وتاريخ وإحصاء بالمحضر الأصلي أو السجل القضائي لإزالة مخاطر التشهير.",
+    "landing.personas.creators.title": "لصنّاع المحتوى المنفردين في الأعمال عالية الأهمية",
+    "landing.personas.creators.body": "<strong>محامي شيطان لا يكلّ.</strong> يهاجم خصم Red-Hat مسودتك قبل أن يفعل نقادك، ويكشف الادعاءات غير المسنودة التي تنهي المسارات المهنية.",
+    "landing.hero.cta_line1": "شاهد الإثبات",
+    "landing.hero.cta_line2": "لدورك الوظيفي",
+    "landing.trust.title": "بنية الثقة للمؤسسات",
+    "landing.trust.lead": "قائم على مستنداتك، لا على ذاكرة النموذج. يقرأ ParSure الملفات الواردة، ويقابلها CrossSure مع القواعد والسجلات وبعضها بعضًا، ويتحقق Assure من كل صفحة وجدول وبند في مستنداتك المصدرية، فتشير كل عملية فحص إلى مصدر حقيقي لا إلى تخمين إحصائي.",
+    "landing.trust.logos_aria": "AWS وAmazon S3",
+    "landing.trust.card1.title": "محرك التنسيق",
+    "landing.trust.card1.body": "مقصد واحد. نماذج متخصصة متعددة تعمل معًا. بلا حاجة إلى هندسة الموجّهات.",
+    "landing.trust.card2.title": "محرك المنطق الرياضي",
+    "landing.trust.card2.body": "النماذج اللغوية تخمّن. أما Assure فيتحقق. كل رقم مرتبط بمستنداتك المصدرية.",
+    "landing.trust.card3.title": "التدقيق الخصمي",
+    "landing.trust.card3.body": "قبل أن تسلّم عملك، يهاجمه Assure بنفسه. فيكشف التناقضات والادعاءات غير المسنودة التي قد يستغلها الآخرون.",
+    "landing.trust.card4.title": "تصدير جاهز للتدقيق",
+    "landing.trust.card4.body": "صدّر ملف تدقيق كاملًا: أقفال تشفيرية، وملاحظات Red-Hat، واعتمادات المراجعين. نقرة واحدة، ومصدر كامل.",
+    "landing.plans.title": "الباقات",
+    "landing.plans.lead": "أنت تحضر مفاتيحك الخاصة. تُحتسب تكلفة استخدام النماذج عليك مباشرة، ويُرخَّص Assure لكل فريق.",
+    "landing.plans.free": "التقييم",
+    "landing.plans.free.price": "مجاني أثناء التقييم",
+    "landing.plans.free.1": "المحرك الكامل: فحص الحسابات، واختبار الإجهاد، والمصدر",
+    "landing.plans.free.2": "مصدر كامل وفحوص منطق Z3",
+    "landing.plans.free.3": "لا حاجة إلى بطاقة",
+    "landing.plans.enterprise": "المؤسسات",
+    "landing.plans.pilot": "تسعير مخصص",
+    "landing.plans.ent.1": "بيئة تجريبية مخصصة",
+    "landing.plans.ent.2": "حزم تدقيق للأعمال الخاضعة للتنظيم",
+    "landing.plans.ent.3": "مفاتيحك أو موجّهات مُدارة",
+    "landing.plans.contact": "تواصل مع المبيعات",
+    "landing.disclaimer.title": "ملاحظة حول التحقق",
+    "landing.disclaimer.body": "يصوغ Assure المستندات ويتحقق منها لتسلّمها ومعها سجل واضح. المخرجات ليست مشورة قانونية أو مالية أو مهنية. المراجعة البشرية مطلوبة قبل أن تعتمد على أي مستند.",
+    "landing.disclaimer.link": "اقرأ شروط الاستخدام",
+    "landing.footer.copy": "Assure — الذكاء الاصطناعي يخمّن. Assure يثبت.",
+    "landing.footer.owner": "© 2026 Archeon Cloud. Assure منتج من Archeon Cloud، دبي.",
+    "footer.rights": "© 2026 Archeon Cloud. Assure منتج من Archeon Cloud، دبي.",
+    "landing.footer.engineer_tagline": "مصمَّم ليكون آمنًا. يُعالَج على خوادمنا ولا يُستخدم أبدًا لتدريب نماذجنا.",
+    "landing.footer.docs": "وثائق المطورين",
+    "landing.footer.back_top": "العودة إلى الأعلى",
+    "landing.pilot.title": "احجز عرضًا توضيحيًا",
+    "landing.pilot.lead": "ثلاثة حقول. نجهّز لك مساحة عمل لفريقك.",
+    "landing.pilot.email": "البريد الإلكتروني للعمل",
+    "landing.pilot.company": "اسم الشركة",
+    "landing.pilot.workflow": "سير عمل المستندات الرئيسي",
+    "landing.pilot.workflow.select": "اختر سير العمل",
+    "landing.pilot.workflow.binders": "وثائق التأمين المؤقتة",
+    "landing.pilot.workflow.regulatory": "الطلبات التنظيمية",
+    "landing.pilot.workflow.contract": "مراجعة العقود",
+    "landing.pilot.workflow.other": "أخرى",
+    "landing.pilot.submit": "احجز عرضًا توضيحيًا",
+    "landing.pilot.ready_badge": "مساحة العمل جاهزة",
+    "landing.pilot.ready_title": "كل شيء جاهز",
+    "landing.pilot.ready_body": "افتح Assure لصياغة مستند والتحقق منه. سيصلك تأكيد على بريدك الإلكتروني للعمل.",
+    "contact.page_title": "تواصل المؤسسات · Assure AI",
+    "contact.meta": "احجز عرضًا توضيحيًا أو اطلب تسعير المؤسسات لـ Assure AI.",
+    "contact.title": "تواصل مع المبيعات",
+    "contact.lead": "أخبرنا بما تقيّمه وسنتواصل معك مباشرة.",
+    "contact.form_title": "نموذج الطلب",
+    "contact.f_name": "الاسم",
+    "contact.f_email": "البريد الإلكتروني للعمل",
+    "contact.f_company": "الشركة",
+    "contact.f_message": "ما الذي ينبغي أن يغطيه العرض التوضيحي؟",
+    "contact.submit": "أرسل الطلب",
+    "contact.done": "شكرًا لك، سنكون على تواصل.",
+    "contact.alt": "تفضّل البريد الإلكتروني؟",
+    "contact.direct_title": "مباشرةً",
+    "contact.direct_body": "راسلنا مباشرة واذكر حالة الاستخدام وحجم المستندات والجدول الزمني. المرفقات مقبولة.",
+    "gov.page_title": "خدمات حكومية بلا أوراق، وموثّقة · Assure",
+    "gov.title": "خدمات حكومية بلا أوراق، وموثّقة",
+    "gov.meta": "يفحص Assure ملفات مقدّمي الطلبات، ويقابلها مع القواعد والسجلات، ويحيل الملفات المكتملة إلى الموظفين مع ملف أدلة للموافقة البشرية.",
+    "gov.eyebrow": "الخدمات الحكومية",
+    "gov.sub": "يرفع مقدّمو الطلبات ملفًّا واحدًا. يفحصه Assure ويقابله مع القواعد، ثم إما يخبر مقدّم الطلب بدقة بما يجب تصحيحه، أو يسلّم الموظفين ملفًّا مكتملًا مرفقًا بالأدلة.",
+    "gov.cta": "احجز عرضًا توضيحيًا",
+    "gov.flow.title": "من الملف المرفوع إلى ملف جاهز للقرار",
+    "gov.flow.1.role": "فحص الملف",
+    "gov.flow.1.name": "ParSure",
+    "gov.flow.1.body": "يفحص ParSure الملف الذي رفعه مقدّم الطلب بحثًا عن مستندات ناقصة ومستندات خاطئة وأسماء غير متطابقة.",
+    "gov.flow.2.role": "المقابلة",
+    "gov.flow.2.name": "CrossSure",
+    "gov.flow.2.body": "يقابل CrossSure الأرقام والوقائع مع قواعد الأهلية والسجلات والمستندات الأخرى في الملف.",
+    "gov.flow.3.role": "الرد أو الإحالة",
+    "gov.flow.3.name": "Assure",
+    "gov.flow.3.body": "يرسل Assure إلى مقدّم الطلب رسالة واضحة واحدة تبيّن بدقة ما هو ناقص أو خاطئ، أو يحيل الملف المكتمل إلى الموظفين مع ملف أدلة للموافقة البشرية.",
+    "gov.scen.title": "سيناريوهات توضيحية",
+    "gov.scen.lead": "أمثلة عامة على فحوص المستندات التي يدعمها Assure.",
+    "gov.scen.1.title": "طلبات الدعم الاجتماعي",
+    "gov.scen.1.body": "تُفحص مستندات الدخل والأسرة من حيث الاكتمال والاتساق: المستندات الصحيحة موجودة، والأسماء متطابقة فيما بينها، والدخل المصرّح به وحجم الأسرة يتفقان مع الأدلة الداعمة وقواعد الأهلية.",
+    "gov.scen.2.title": "كفالة التأشيرة العائلية",
+    "gov.scen.2.body": "تُفحص مستندات الراتب والسكن مقابل متطلبات الكفالة: تُقابَل أرقام الراتب وبيانات الإيجار أو الملكية واسم الكفيل عبر كل مستند في الملف.",
+    "gov.human.title": "البشر يقررون. وكل ملاحظة تُظهر مصدرها.",
+    "gov.human.body1": "تقع نقطة موافقة بشرية قبل أي قرار. يُعدّ Assure الملف، ويراجع أحد الموظفين ملف الأدلة ويوافق أو يرفض.",
+    "gov.human.body2": "تذكر كل ملاحظة صفحتها المصدرية، ليرى الموظفون ومقدّمو الطلبات بدقة من أين جاءت.",
+    "gov.human.link": "تحدّث إلينا عن خدمتك",
+}
+
+CATALOGS = {"en": EN, "es": ES, "zh": ZH, "fr": FR, "de": DE, "ja": JA, "tr": TR, "ar": AR}
 
 
 def normalize_locale(value: str | None) -> str:
@@ -10813,6 +10993,8 @@ def normalize_locale(value: str | None) -> str:
         return "ja"
     if raw.startswith("tr"):
         return "tr"
+    if raw.startswith("ar"):
+        return "ar"
     if raw.startswith("en"):
         return "en"
     return "en" if raw not in CATALOGS else raw

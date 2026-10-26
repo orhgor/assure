@@ -34,7 +34,7 @@ rsync -a \
   --exclude '*' \
   "$ROOT/prompt_matrix/static/" "$DIST_DIR/static/"
 
-for LOCALE in en es zh fr de ja tr; do
+for LOCALE in en es zh fr de ja tr ar; do
   if [ "$LOCALE" = "en" ]; then
     OUT="$DIST_DIR"
   else
