@@ -3770,3 +3770,5 @@ html[dir="rtl"] .flow-arrow-approval .flow-badge { left: auto; right: 50%; trans
     .flow-section + .logos-band.logos-band-inline { padding: var(--space-6) 16px var(--space-2); }
     .logos-band.logos-band-inline + .demo-cta { padding-top: var(--space-6); }
 }
+
+.price-grid { display: grid; grid-template-columns: 1fr; justify-items: center; gap: 1.5rem; max-width: 28rem; margin: 0 auto; }
