@@ -754,7 +754,7 @@ EN = {
     "footer": "Assure. PEM engine. Your data stays on your machine. Send only to your chosen provider.",
     "footer.engine": "PEM engine.",
     "footer.copy": "Your data stays on your machine. Send only to your chosen provider.",
-    "footer.rights": "© 2026 Assure. All rights reserved.",
+    "footer.rights": "© 2026 Archeon Cloud. Assure is a product of Archeon Cloud, Dubai.",
     "chip.unlimited": "unlimited Sends",
     "chip.left": "Sends left today",
     "connected": "connected",
@@ -1440,6 +1440,7 @@ EN = {
     "jdf.redhat.analyze_full": "🛡️ Run Red-Hat on Full Document",
     "jdf.redhat.empty": "Nothing to analyze yet.",
     "jdf.redhat.none": "No issues found.",
+    "landing.footer.owner": "© 2026 Archeon Cloud. Assure is a product of Archeon Cloud, Dubai.",
 }
 
 ES = {
@@ -2025,7 +2026,7 @@ ES = {
     "footer": "Assure. Motor PEM. Tus datos se quedan en tu máquina. El envío va solo al proveedor que elegiste.",
     "footer.engine": "Motor PEM.",
     "footer.copy": "Tus datos se quedan en tu máquina. El envío va solo al proveedor que elegiste.",
-    "footer.rights": "© 2026 Assure. Todos los derechos reservados.",
+    "footer.rights": "© 2026 Archeon Cloud. Assure es un producto de Archeon Cloud, Dubái.",
     "classes.export": "Exportar",
     "classes.empty": "Aún no hay clases. Genera un prompt y guárdalo, o aprende uno de un ejemplo pegado.",
     "classes.lead": "Plantillas guardadas para Redactar.",
@@ -2761,6 +2762,7 @@ ES = {
     # errors
     "error.catalog": "No se pudo cargar el catálogo",
     "error.classes": "No se pudieron cargar las clases",
+    "landing.footer.owner": "© 2026 Archeon Cloud. Assure es un producto de Archeon Cloud, Dubái.",
 }
 
 ZH = {
@@ -3321,7 +3323,7 @@ ZH = {
     "footer": "Assure。PEM 引擎。数据留在你的机器上。发送只走你选的提供商。",
     "footer.engine": "PEM 引擎。",
     "footer.copy": "数据留在你的机器上。发送只走你选的提供商。",
-    "footer.rights": "© 2026 Assure。保留所有权利。",
+    "footer.rights": "© 2026 Archeon Cloud。Assure 是 Archeon Cloud（迪拜）的产品。",
     "classes.export": "导出",
     "classes.empty": "还没有类。生成提示词并保存，或从粘贴的例子学习一个。",
     "classes.lead": "撰写用的已存模板。",
@@ -4445,7 +4447,7 @@ ZH = {
     "footer": "Assure。PEM 引擎。数据留在你的机器上。发送只走你选的提供商。",
     "footer.engine": "PEM 引擎。",
     "footer.copy": "数据留在你的机器上。发送只走你选的提供商。",
-    "footer.rights": "© 2026 Assure。保留所有权利。",
+    "footer.rights": "© 2026 Archeon Cloud。Assure 是 Archeon Cloud（迪拜）的产品。",
     "classes.export": "导出",
     "classes.empty": "还没有类。生成提示词并保存，或从粘贴的例子学习一个。",
     "classes.lead": "撰写用的已存模板。",
@@ -5181,6 +5183,7 @@ ZH = {
     # errors
     "error.catalog": "无法加载目录",
     "error.classes": "无法加载类",
+    "landing.footer.owner": "© 2026 Archeon Cloud。Assure 是 Archeon Cloud（迪拜）的产品。",
 }
 
 FR = {
@@ -5803,7 +5806,7 @@ FR = {
     "footer": "Assure. Moteur PEM. Vos données restent sur votre machine. L'envoi va seulement vers le fournisseur choisi.",
     "footer.engine": "Moteur PEM.",
     "footer.copy": "Vos données restent sur votre machine. L'envoi va seulement vers le fournisseur choisi.",
-    "footer.rights": "© 2026 Assure. Tous droits réservés.",
+    "footer.rights": "© 2026 Archeon Cloud. Assure est un produit d’Archeon Cloud, Dubaï.",
     "classes.export": "Exporter",
     "classes.empty": "Pas encore de classes. Générez un prompt et enregistrez-le, ou apprenez-en un depuis un exemple collé.",
     "classes.lead": "Modèles enregistrés pour Rédiger.",
@@ -6488,6 +6491,7 @@ FR = {
     # errors
     "error.catalog": "Impossible de charger le catalogue",
     "error.classes": "Impossible de charger les classes",
+    "landing.footer.owner": "© 2026 Archeon Cloud. Assure est un produit d’Archeon Cloud, Dubaï.",
 }
 
 DE = {
@@ -7071,7 +7075,7 @@ DE = {
     "footer": "Assure. PEM-Engine. Ihre Daten bleiben auf Ihrem Rechner. Senden geht nur an den gewählten Anbieter.",
     "footer.engine": "PEM-Engine.",
     "footer.copy": "Ihre Daten bleiben auf Ihrem Rechner. Senden geht nur an den gewählten Anbieter.",
-    "footer.rights": "© 2026 Assure. Alle Rechte vorbehalten.",
+    "footer.rights": "© 2026 Archeon Cloud. Assure ist ein Produkt von Archeon Cloud, Dubai.",
     "classes.export": "Exportieren",
     "classes.empty": "Noch keine Klassen. Erzeugen Sie einen Prompt und speichern Sie ihn, oder lernen Sie einen aus einem eingefügten Beispiel.",
     "classes.lead": "Gespeicherte Vorlagen für Verfassen.",
@@ -7807,6 +7811,7 @@ DE = {
     # errors
     "error.catalog": "Katalog konnte nicht geladen werden",
     "error.classes": "Klassen konnten nicht geladen werden",
+    "landing.footer.owner": "© 2026 Archeon Cloud. Assure ist ein Produkt von Archeon Cloud, Dubai.",
 }
 
 JA = {
@@ -8390,7 +8395,7 @@ JA = {
     "footer": "Assure。PEM エンジン。データはこのマシンに残ります。送信は選んだ提供元だけです。",
     "footer.engine": "PEM エンジン。",
     "footer.copy": "データはこのマシンに残ります。送信は選んだ提供元だけです。",
-    "footer.rights": "© 2026 Assure. 無断転載を禁じます。",
+    "footer.rights": "© 2026 Archeon Cloud. Assure は Archeon Cloud（ドバイ）の製品です。",
     "classes.export": "書き出し",
     "classes.empty": "まだクラスはありません。プロンプトを作って保存するか、貼った例から学びます。",
     "classes.lead": "作成用の保存テンプレート。",
@@ -9126,6 +9131,7 @@ JA = {
     # errors
     "error.catalog": "カタログを読み込めませんでした",
     "error.classes": "クラスを読み込めませんでした",
+    "landing.footer.owner": "© 2026 Archeon Cloud. Assure は Archeon Cloud（ドバイ）の製品です。",
 }
 
 TR = {
@@ -9777,7 +9783,7 @@ TR = {
     "footer": "Assure. PEM motoru. Verilerin makinenizde kalır. Gönderim sadece seçtiğin sağlayıcıyadır.",
     "footer.engine": "PEM motoru.",
     "footer.copy": "Verilerin makinenizde kalır. Gönderim sadece seçtiğin sağlayıcıyadır.",
-    "footer.rights": "© 2026 Assure. Tüm hakları saklıdır.",
+    "footer.rights": "© 2026 Archeon Cloud. Assure, Dubai merkezli Archeon Cloud’un bir ürünüdür.",
     "classes.export": "Dışa aktar",
     "classes.empty": "Henüz sınıf yok. Bir prompt üretip kaydet, veya yapıştırdığın örnekten öğren.",
     "classes.lead": "Yaz için kayıtlı şablonlar.",
@@ -10451,6 +10457,7 @@ TR = {
     # errors
     "error.catalog": "Katalog yüklenemedi",
     "error.classes": "Sınıflar yüklenemedi",
+    "landing.footer.owner": "© 2026 Archeon Cloud. Assure, Dubai merkezli Archeon Cloud’un bir ürünüdür.",
 }
 
 CATALOGS = {"en": EN, "es": ES, "zh": ZH, "fr": FR, "de": DE, "ja": JA, "tr": TR}
