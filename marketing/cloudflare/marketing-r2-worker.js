@@ -1,7 +1,19 @@
 /**
- * Marketing from R2; /app and /api hit EC2 via Tunnel (no Worker routes on those paths).
+ * Marketing site from R2. Wildcard routes on the zone mean every path hits
+ * this Worker: pages come from R2, /app and /api redirect to the workbench
+ * origin on app.getassureai.com, /contact* redirects to the matching
+ * /contact-us/ page, unknown paths get the site's own 404 page with 404.
  */
 const HTML = "text/html; charset=utf-8";
+
+// Security headers, mirrors landing/_headers (sync_r2 does not upload _headers).
+const SECURITY_HEADERS = {
+  "X-Content-Type-Options": "nosniff",
+  "X-Frame-Options": "DENY",
+  "Referrer-Policy": "strict-origin-when-cross-origin",
+  "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+  "Strict-Transport-Security": "max-age=31536000; includeSubDomains; preload",
+};
 
 function contentType(key) {
   if (key.endsWith(".html")) return HTML;
@@ -120,7 +132,12 @@ export default {
       return handleContactSubmit(request, env);
     }
     if (url.pathname === "/contact" || url.pathname === "/contact/") {
-      return Response.redirect(new URL("/contact-us/", url.origin).toString(), 308);
+      return Response.redirect(new URL("/contact-us/", url.origin).toString(), 301);
+    }
+    // /{locale}/contact and /{locale}/contact/ -> matching /{locale}/contact-us/
+    const m = url.pathname.match(/^\/([a-z]{2})(\/contact)(\/?)$/i);
+    if (m) {
+      return Response.redirect(new URL(`/${m[1]}/contact-us/`, url.origin).toString(), 301);
     }
     if (url.pathname.startsWith("/app") || url.pathname.startsWith("/api")) {
       const target = new URL(url.pathname + url.search, APP_ORIGIN);
@@ -136,19 +153,25 @@ export default {
       object = await env.MARKETING.get(`${key}/index.html`);
     }
 
+    let status = 200;
     if (!object) {
-      return new Response("Not found", { status: 404, headers: { "Cache-Control": "no-store" } });
+      // Serve the site's own 404 page from R2, with status 404.
+      object = await env.MARKETING.get("404.html");
+      status = 404;
     }
 
     const headers = new Headers();
     object.writeHttpMetadata(headers);
-    headers.set("content-type", contentType(key));
-    headers.set("Cache-Control", "public, max-age=300");
+    headers.set("content-type", status === 404 ? HTML : contentType(key));
+    headers.set("Cache-Control", status === 404 ? "no-store" : "public, max-age=300");
     headers.set("Access-Control-Allow-Origin", "*");
+    for (const [name, value] of Object.entries(SECURITY_HEADERS)) {
+      headers.set(name, value);
+    }
 
     if (request.method === "HEAD") {
-      return new Response(null, { status: 200, headers });
+      return new Response(null, { status, headers });
     }
-    return new Response(object.body, { headers });
+    return new Response(object.body, { status, headers });
   },
 };

@@ -78,12 +78,6 @@ PAGES: list[dict] = [
     },
     {
         "template": "contact.html",
-        "output": "contact/index.html",
-        "kind": "landing",
-        "suffix": "contact/",
-    },
-    {
-        "template": "contact.html",
         "output": "contact-us/index.html",
         "kind": "landing",
         "suffix": "contact-us/",
@@ -110,13 +104,20 @@ PAGES: list[dict] = [
         "suffix": "pricing/",
         "extra": {"stripe_ready": False},
     },
+    {
+        "template": "404.html",
+        "output": "404.html",
+        "kind": "landing",
+        "suffix": "",
+        "locales": ["en"],  # one 404 page at the dist root
+    },
 ]
 
 
 _I18N_ATTR_RE = re.compile(r'data-i18n(?:-html|-placeholder|-aria|-label)?="([^"]+)"')
 _GET_KEY_RE = re.compile(r"strings\.get\(\s*['\"]([a-zA-Z0-9_.]+)['\"]")
 _INCLUDE_RE = re.compile(r"{%-?\s*include\s+'([^']+?)'\s*%-?\}")
-TEMPLATES_DIR = ROOT / "prompt_matrix" / "templates"
+TEMPLATES_DIR = ROOT / "marketing" / "templates"
 
 
 # Locales that exist for preview but are not published yet (turn on via PUBLISH_LOCALES).
@@ -255,6 +256,8 @@ def render_locale(
     output_dir.mkdir(parents=True, exist_ok=True)
 
     for page in PAGES:
+        if page.get("locales") and locale not in page["locales"]:
+            continue
         html = _render_page(app, page, locale)
         html = _postprocess(
             html,
