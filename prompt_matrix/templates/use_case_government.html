@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="{{ locale|default('en') }}"{% if locale|default('en') == 'ar' %} dir="rtl"{% endif %}>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    {% set gov_title = strings.get('uc.gov.page_title', 'Government document checks · Assure') %}
+    {% set gov_meta = strings.get('uc.gov.meta', 'Check applicant files for missing documents, wrong documents and mismatched names, then cross-check them against eligibility rules before a person decides.') %}
+    <title>{{ gov_title }}</title>
+    <link rel="canonical" href="https://getassureai.com/{{ page_suffix|default('use-cases/government/') }}">
+    {% if locale_paths is defined %}
+    {% for code, path in locale_paths.items() %}
+    <link rel="alternate" hreflang="{{ code }}" href="https://getassureai.com{{ path }}{{ page_suffix|default('use-cases/government/') }}">
+    {% endfor %}
+    <link rel="alternate" hreflang="x-default" href="https://getassureai.com/{{ page_suffix|default('use-cases/government/') }}">
+    {% endif %}
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="{{ gov_title }}">
+    <meta name="twitter:description" content="{{ gov_meta }}">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Assure">
+    <meta property="og:title" content="{{ gov_title }}">
+    <meta property="og:description" content="{{ gov_meta }}">
+    <meta property="og:url" content="https://getassureai.com/{{ page_suffix|default('use-cases/government/') }}">
+    <meta name="description" content="{{ gov_meta }}">
+    <link rel="icon" href="{{ url_for('static', filename='assure-logo.png') }}" type="image/png">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='assure-logo.png') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+    {% if locale|default('en') == 'ar' %}
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+    {% endif %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='landing.css') }}?v={{ landing_css_version|default('82') }}">
+    {% include 'includes/plausible.html' %}
+    {% include 'includes/sentry.html' %}
+    <script>
+      window.__assureLandingStrings = {{ strings|tojson }};
+    </script>
+</head>
+<body class="enterprise-landing uc-landing">
+    {% set nav_current = 'use-cases' %}
+    {% include 'includes/landing_header.html' %}
+
+    <main id="main-content">
+        <section class="hero-section gov-hero">
+            <div class="container">
+                <a href="/use-cases/" class="back-link" data-i18n="uc.back">{{ strings.get('uc.back', '← All use cases') }}</a>
+                <h1 class="hero-title" data-i18n="uc.gov.title">{{ strings.get('uc.gov.title', 'Government document checks') }}</h1>
+                <p class="hero-sub" data-i18n="uc.gov.sub">{{ strings.get('uc.gov.sub', 'Check applicant files for missing documents, wrong documents and mismatched names, then cross-check them against eligibility rules before a person decides.') }}</p>
+            </div>
+        </section>
+
+        <section class="diff-section steps-section">
+            <div class="container">
+                <h2 class="section-title" data-i18n="uc.gov.problem.title">{{ strings.get('uc.gov.problem.title', 'The problem') }}</h2>
+                <p class="diff-intro" data-i18n="uc.gov.problem.body">{{ strings.get('uc.gov.problem.body', 'Applications arrive as bundles of income, household, salary and housing documents. Staff spend their time finding what is missing or inconsistent instead of deciding.') }}</p>
+                <h2 class="section-title" data-i18n="uc.gov.how.title">{{ strings.get('uc.gov.how.title', 'How Assure helps') }}</h2>
+                <div class="diff-grid steps-grid">
+                    <article class="diff-card">
+                        <p class="diff-label"><span>1</span></p>
+                        <h3>ParSure</h3>
+                        <p class="diff-body" data-i18n="uc.gov.how.1">{{ strings.get('uc.gov.how.1', 'ParSure reads the uploaded file and flags missing documents, wrong documents and name mismatches.') }}</p>
+                    </article>
+                    <article class="diff-card">
+                        <p class="diff-label"><span>2</span></p>
+                        <h3>CrossSure</h3>
+                        <p class="diff-body" data-i18n="uc.gov.how.2">{{ strings.get('uc.gov.how.2', 'CrossSure cross-checks figures and facts against eligibility rules, registers and the other documents in the file.') }}</p>
+                    </article>
+                    <article class="diff-card diff-card-featured">
+                        <p class="diff-label"><span>3</span></p>
+                        <h3>Assure</h3>
+                        <p class="diff-body" data-i18n="uc.gov.how.3">{{ strings.get('uc.gov.how.3', 'Assure sends the applicant one clear message about what to fix, or hands staff a complete file with an evidence dossier. Every finding cites its source page.') }}</p>
+                    </article>
+                </div>
+            </div>
+        </section>
+
+        <section class="landing-disclaimer gov-human">
+            <div class="container">
+                <h2 class="section-title" data-i18n="uc.gov.human.title">{{ strings.get('uc.gov.human.title', 'What stays with people') }}</h2>
+                <p data-i18n="uc.gov.human.body">{{ strings.get('uc.gov.human.body', 'A member of staff reviews the evidence dossier and approves or rejects. Assure never makes the decision.') }}</p>
+                <p><a href="/contact-us/" data-i18n="uc.cta">{{ strings.get('uc.cta', 'Book a Demo') }}</a></p>
+            </div>
+        </section>
+    </main>
+
+    {% include 'includes/landing_footer.html' %}
+</body>
+</html>

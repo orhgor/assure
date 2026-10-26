@@ -47,6 +47,30 @@ PAGES: list[dict] = [
         "suffix": "government/",
     },
     {
+        "template": "use_cases_index.html",
+        "output": "use-cases/index.html",
+        "kind": "landing",
+        "suffix": "use-cases/",
+    },
+    {
+        "template": "use_case_government.html",
+        "output": "use-cases/government/index.html",
+        "kind": "landing",
+        "suffix": "use-cases/government/",
+    },
+    {
+        "template": "use_case_insurance.html",
+        "output": "use-cases/insurance/index.html",
+        "kind": "landing",
+        "suffix": "use-cases/insurance/",
+    },
+    {
+        "template": "use_case_fuel.html",
+        "output": "use-cases/fuel-retail/index.html",
+        "kind": "landing",
+        "suffix": "use-cases/fuel-retail/",
+    },
+    {
         "template": "landing_privacy.html",
         "output": "privacy/index.html",
         "kind": "landing",

@@ -1480,6 +1480,49 @@ EN = {
     "landing.nav.government": "Government",
     "landing.gov.title": "Paperless government services, verified",
     "landing.gov.body": "For social support applications and family visa sponsorship, Assure tells applicants exactly what is missing or wrong, and gives staff a complete file with an evidence dossier. A person always makes the decision, and every finding cites its source page.",
+    "uc.back": "← All use cases",
+    "uc.cta": "Book a Demo",
+    "uc.index.title": "Use cases",
+    "uc.index.sub": "Three ways teams use Assure to check documents against rules, registers and each other.",
+    "uc.index.page_title": "Use cases · Assure",
+    "uc.index.meta": "Three ways teams use Assure to check documents against rules, registers and each other.",
+    "landing.nav.usecases": "Use cases",
+    "uc.gov.title": "Government document checks",
+    "uc.gov.sub": "Check applicant files for missing documents, wrong documents and mismatched names, then cross-check them against eligibility rules before a person decides.",
+    "uc.gov.page_title": "Government document checks · Assure",
+    "uc.gov.meta": "Check applicant files for missing documents, wrong documents and mismatched names, then cross-check them against eligibility rules before a person decides.",
+    "uc.gov.problem.title": "The problem",
+    "uc.gov.problem.body": "Applications arrive as bundles of income, household, salary and housing documents. Staff spend their time finding what is missing or inconsistent instead of deciding.",
+    "uc.gov.how.title": "How Assure helps",
+    "uc.gov.how.1": "ParSure reads the uploaded file and flags missing documents, wrong documents and name mismatches.",
+    "uc.gov.how.2": "CrossSure cross-checks figures and facts against eligibility rules, registers and the other documents in the file.",
+    "uc.gov.how.3": "Assure sends the applicant one clear message about what to fix, or hands staff a complete file with an evidence dossier. Every finding cites its source page.",
+    "uc.gov.human.title": "What stays with people",
+    "uc.gov.human.body": "A member of staff reviews the evidence dossier and approves or rejects. Assure never makes the decision.",
+    "uc.ins.title": "Insurance claims review",
+    "uc.ins.sub": "Check a claim file against the policy and its supporting documents, and see exactly where the numbers or facts do not line up.",
+    "uc.ins.page_title": "Insurance claims review · Assure",
+    "uc.ins.meta": "Check a claim file against the policy and its supporting documents, and see exactly where the numbers or facts do not line up.",
+    "uc.ins.problem.title": "The problem",
+    "uc.ins.problem.body": "A claim file mixes the policy, invoices, reports and correspondence. Contradictions and unsupported exclusions are easy to miss in a manual read.",
+    "uc.ins.how.title": "How Assure helps",
+    "uc.ins.how.1": "ParSure reads the claim file and checks that the expected documents are present and that names and policy details match.",
+    "uc.ins.how.2": "CrossSure cross-checks claimed amounts, dates and exclusions against the policy wording and the other documents.",
+    "uc.ins.how.3": "Assure returns one sourced summary of what agrees and what does not, with each finding tied to its source page.",
+    "uc.ins.human.title": "What stays with people",
+    "uc.ins.human.body": "The claims handler reviews the findings and decides. Assure prepares the evidence; it does not approve or deny a claim.",
+    "uc.fuel.title": "Fuel retail bonus reconciliation",
+    "uc.fuel.sub": "How a large fuel retailer can reconcile bonus statements against agreements and sales records.",
+    "uc.fuel.page_title": "Fuel retail bonus reconciliation · Assure",
+    "uc.fuel.meta": "How a large fuel retailer can reconcile bonus statements against agreements and sales records.",
+    "uc.fuel.problem.title": "The problem",
+    "uc.fuel.problem.body": "A large fuel retailer pays bonuses across many sites. Each payment depends on agreements, volumes and statements that rarely match on the first pass.",
+    "uc.fuel.how.title": "How Assure helps",
+    "uc.fuel.how.1": "ParSure reads the bonus statements and agreements and checks that each site has the documents it needs.",
+    "uc.fuel.how.2": "CrossSure cross-checks volumes, rates and totals against the agreement terms and the sales records.",
+    "uc.fuel.how.3": "Assure returns a sourced reconciliation that lists every difference and the page it came from.",
+    "uc.fuel.human.title": "What stays with people",
+    "uc.fuel.human.body": "Finance staff review each difference and decide what to pay or query. Assure surfaces the evidence.",
 }
 
 ES = {
@@ -2851,6 +2894,7 @@ ES = {
     "landing.nav.government": "Gobierno",
     "landing.gov.title": "Servicios públicos sin papel, verificados",
     "landing.gov.body": "En solicitudes de ayuda social y patrocinio de visados familiares, Assure dice a los solicitantes exactamente qué falta o qué está mal, y entrega al personal un expediente completo con un dossier de pruebas. Siempre decide una persona, y cada hallazgo cita su página de origen.",
+    "landing.nav.usecases": "Casos de uso",
 }
 
 ZH = {
@@ -5321,6 +5365,7 @@ ZH = {
     "landing.nav.government": "政务",
     "landing.gov.title": "无纸化政务服务，经过验证",
     "landing.gov.body": "在社会救助申请和家庭团聚签证担保中，Assure 会准确告诉申请人缺少什么或哪里有误，并为工作人员提供附有证据档案的完整案卷。决定始终由人作出，每项发现都引用其来源页。",
+    "landing.nav.usecases": "用例",
 }
 
 FR = {
@@ -6679,6 +6724,7 @@ FR = {
     "landing.nav.government": "Secteur public",
     "landing.gov.title": "Services publics sans papier, vérifiés",
     "landing.gov.body": "Pour les demandes d’aide sociale et le parrainage de visas familiaux, Assure indique aux demandeurs exactement ce qui manque ou ce qui est erroné, et remet au personnel un dossier complet avec un dossier de preuves. Une personne décide toujours, et chaque constat cite sa page source.",
+    "landing.nav.usecases": "Cas d’usage",
 }
 
 DE = {
@@ -8050,6 +8096,7 @@ DE = {
     "landing.nav.government": "Verwaltung",
     "landing.gov.title": "Papierlose Verwaltungsleistungen, geprüft",
     "landing.gov.body": "Bei Anträgen auf Sozialleistungen und Familienvisa mit Bürgschaft sagt Assure den Antragstellenden genau, was fehlt oder falsch ist, und gibt der Sachbearbeitung eine vollständige Akte mit Nachweisdossier. Immer entscheidet ein Mensch, und jeder Befund nennt seine Quellseite.",
+    "landing.nav.usecases": "Anwendungsfälle",
 }
 
 JA = {
@@ -9420,6 +9467,7 @@ JA = {
     "landing.nav.government": "行政",
     "landing.gov.title": "ペーパーレスの行政サービスを、検証つきで",
     "landing.gov.body": "社会的支援の申請や家族ビザのスポンサーシップで、Assure は申請者に不足や誤りを正確に伝え、職員には根拠資料つきの完全なファイルを渡します。判断は常に人が行い、すべての指摘は出典ページを示します。",
+    "landing.nav.usecases": "ユースケース",
 }
 
 TR = {
@@ -10796,6 +10844,7 @@ TR = {
     "landing.nav.government": "Kamu",
     "landing.gov.title": "Kâğıtsız kamu hizmetleri, doğrulanmış",
     "landing.gov.body": "Sosyal destek başvurularında ve aile vizesi sponsorluğunda Assure, başvuru sahiplerine neyin eksik veya yanlış olduğunu tam olarak söyler, personele de kanıt dosyalı eksiksiz bir dosya verir. Kararı her zaman bir insan verir ve her bulgu kaynak sayfasını belirtir.",
+    "landing.nav.usecases": "Kullanım alanları",
 }
 
 # Arabic: draft translation, needs native-speaker review before deploy.
@@ -10974,6 +11023,7 @@ AR = {
     "gov.human.body1": "تقع نقطة موافقة بشرية قبل أي قرار. يُعدّ Assure الملف، ويراجع أحد الموظفين ملف الأدلة ويوافق أو يرفض.",
     "gov.human.body2": "تذكر كل ملاحظة صفحتها المصدرية، ليرى الموظفون ومقدّمو الطلبات بدقة من أين جاءت.",
     "gov.human.link": "تحدّث إلينا عن خدمتك",
+    "landing.nav.usecases": "حالات الاستخدام",
 }
 
 CATALOGS = {"en": EN, "es": ES, "zh": ZH, "fr": FR, "de": DE, "ja": JA, "tr": TR, "ar": AR}
