@@ -7,7 +7,8 @@ marketing/locales/<locale>.json.
 
 --identical mode: for each locale, finds keys whose value is byte-identical to
 the EN value (English placeholders that were never translated), and translates
-those. Same prompt and rules as default mode.
+those. Same prompt and rules as default mode. With --dry-run, prints what would
+be sent without making any API call or writing anything.
 
 All paths are relative to the repository root (the directory containing
 marketing/). Never prints or logs the API key.
@@ -37,6 +38,9 @@ LEGIT_ENGLISH = {
     "de": {"Name", "Enterprise"},
 }
 
+# Values kept as-is in every locale (never translated)
+KEEP_AS_IS = {"ParSure", "CrossSure", "Assure", "PDF", "Red-Hat", "Pro"}
+
 BANNED = ["pilot", "beta", "coming soon", "waitlist", "free", "guaranteed",
           "zero errors", "100%", "garanti"]
 
@@ -45,6 +49,7 @@ Translate English UI strings into the target locale. Professional and natural, n
 Keep HTML tags and {placeholders} exactly as-is. No em dashes. Use full-width punctuation for zh/ja.
 Never use words meaning pilot, beta, coming soon, waitlist, free, guaranteed, zero errors, 100%, garanti.
 No certifications, timelines, or vendor/client names. Translate legal/privacy text faithfully, without softening it.
+Keep the product names ParSure, CrossSure and Assure untranslated.
 Return valid JSON only: an object mapping each input key to its translation, same keys as input."""
 
 
@@ -107,8 +112,16 @@ def write_catalog(loc: str, catalog: dict) -> None:
         f.write("\n")
 
 
-def translate_locale(api_key: str, loc: str, items: dict) -> int:
-    """Translate one locale's items. Returns number of keys written."""
+def translate_locale(api_key: str, loc: str, items: dict, en_cat: dict, overwrite: bool = False) -> int:
+    """Translate one locale's items. Returns number of keys written.
+
+    When overwrite=False (default mode): reject any returned key that already
+    exists in the catalog.
+
+    When overwrite=True (identical mode): accept a returned key only if it is
+    in `items` AND the current catalog value is still byte-identical to the EN
+    value. Never write keys that were not in `items`.
+    """
     if not items:
         print(f"\n{loc}: nothing to translate, skipping.")
         return 0
@@ -125,14 +138,24 @@ def translate_locale(api_key: str, loc: str, items: dict) -> int:
     merged = {}
     rejected = 0
     for key, val in translations.items():
-        if key in catalog:
-            print(f"  REJECT (already exists): {key}")
+        if key not in items:
+            print(f"  REJECT (not in items): {key}")
             rejected += 1
             continue
+        if overwrite:
+            if catalog.get(key) != en_cat.get(key):
+                print(f"  REJECT (no longer identical to EN): {key}")
+                rejected += 1
+                continue
+        else:
+            if key in catalog:
+                print(f"  REJECT (already exists): {key}")
+                rejected += 1
+                continue
         merged[key] = val
 
     if rejected:
-        print(f"  Rejected {rejected} keys that already exist in catalog.")
+        print(f"  Rejected {rejected} keys.")
 
     catalog.update(merged)
     write_catalog(loc, catalog)
@@ -165,18 +188,19 @@ def default_mode(api_key: str) -> int:
         print("STOP: estimated cost over $2.00")
         return 1
 
+    en_cat = load_catalog("en")
     total_written = 0
     for loc in LOCALES:
         if loc == "en":
             continue
         items = to_translate.get(loc, {})
-        total_written += translate_locale(api_key, loc, items)
+        total_written += translate_locale(api_key, loc, items, en_cat, overwrite=False)
 
     print(f"\nDone. Total written: {total_written}")
     return 0
 
 
-def identical_mode(api_key: str) -> int:
+def identical_mode(api_key: str, dry_run: bool = False) -> int:
     # Load EN catalog as reference
     en_cat = load_catalog("en")
 
@@ -193,17 +217,29 @@ def identical_mode(api_key: str) -> int:
             loc_val = cat[key]
             if loc_val != en_val:
                 continue  # not identical to EN
+            if key.startswith("meta."):
+                continue  # skip meta.* keys
+            if en_val in KEEP_AS_IS:
+                continue  # skip kept-as-is values
             if is_brand_only_or_url_or_email(en_val):
-                continue
-            if en_val in LEGIT_ENGLISH.get(loc, set()):
                 continue
             items[key] = en_val
 
-        n = translate_locale(api_key, loc, items)
-        print(f"  {loc}: {n} identical-to-EN keys found")
+        count = len(items)
+        print(f"\n{loc}: {count} identical-to-EN keys found")
+        if dry_run:
+            for key, en_val in sorted(items.items()):
+                print(f"  {loc} | {key} | {en_val}")
+            total_written += count
+            continue
+
+        n = translate_locale(api_key, loc, items, en_cat, overwrite=True)
         total_written += n
 
-    print(f"\nDone. Total written: {total_written}")
+    if dry_run:
+        print(f"\nDry run complete. Total items that would be sent: {total_written}")
+    else:
+        print(f"\nDone. Total written: {total_written}")
     return 0
 
 
@@ -211,6 +247,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Fill missing i18n translations")
     parser.add_argument("--identical", action="store_true",
                         help="Translate keys identical to EN value (placeholders)")
+    parser.add_argument("--dry-run", action="store_true",
+                        help="Dry run: print what would be sent, no API call, no writes")
     args = parser.parse_args()
 
     api_key = os.environ.get("OPENROUTER_API_KEY")
@@ -219,7 +257,7 @@ def main() -> int:
         return 1
 
     if args.identical:
-        return identical_mode(api_key)
+        return identical_mode(api_key, dry_run=args.dry_run)
     return default_mode(api_key)
 
 
