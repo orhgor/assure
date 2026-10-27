@@ -85,6 +85,7 @@
   "contact.direct_body": "راسلنا مباشرة واذكر حالة الاستخدام وحجم المستندات والجدول الزمني. المرفقات مقبولة.",
   "contact.direct_title": "مباشرةً",
   "contact.done": "شكرًا لك، سنكون على تواصل.",
+  "contact.f_company": "الشركة",
   "contact.f_email": "البريد الإلكتروني للعمل",
   "contact.f_message": "ما الذي ينبغي أن يغطيه العرض التوضيحي؟",
   "contact.f_name": "الاسم",
@@ -458,5 +459,6 @@
   "vault.prompts.class.research": "بحث",
   "vault.prompts.content": "محتوى",
   "vault.prompts.edit": "تعديل",
+  "vault.prompts.name": "الاسم",
   "wizard.back": "العودة"
 }
