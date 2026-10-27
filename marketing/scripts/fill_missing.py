@@ -23,7 +23,7 @@ import urllib.error
 import urllib.request
 
 # Repository root = parent of marketing/
-REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 LOCALES_DIR = os.path.join(REPO_ROOT, "marketing", "locales")
 CLEANED_PATH = os.path.join(REPO_ROOT, "i18n_cleaned.json")
 LOCALES = ["en", "es", "zh", "fr", "de", "ja", "tr", "ar"]
