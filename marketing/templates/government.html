@@ -3,25 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    {% set gov_title = strings.get('gov.page_title', 'Paperless government services, verified · Assure') %}
-    {% set gov_meta = strings.get('gov.meta', 'Assure checks applicant files, cross-checks them against rules and registers, and routes complete files to staff with an evidence dossier for human approval.') %}
-    <title>{{ gov_title }}</title>
-    <link rel="canonical" href="https://getassureai.com/{{ page_suffix|default('government/') }}">
-    {% if locale_paths is defined %}
+    <title>{{ page_title }}</title>
+    <meta name="description" content="{{ page_description }}">
+    <link rel="canonical" href="{{ page_url }}">
+    <meta property="og:url" content="{{ page_url }}">
+    <meta property="og:locale" content="{{ og_locale }}">
     {% for code, path in locale_paths.items() %}
     <link rel="alternate" hreflang="{{ code }}" href="https://getassureai.com{{ path }}{{ page_suffix|default('government/') }}">
     {% endfor %}
-    <link rel="alternate" hreflang="x-default" href="https://getassureai.com/{{ page_suffix|default('government/') }}">
-    {% endif %}
+    <link rel="alternate" hreflang="x-default" href="{{ en_url }}">
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="{{ gov_title }}">
-    <meta name="twitter:description" content="{{ gov_meta }}">
-    <meta property="og:type" content="website">
-    <meta property="og:site_name" content="Assure">
-    <meta property="og:title" content="{{ gov_title }}">
-    <meta property="og:description" content="{{ gov_meta }}">
-    <meta property="og:url" content="https://getassureai.com/{{ page_suffix|default('government/') }}">
-    <meta name="description" content="{{ gov_meta }}">
+    <meta name="twitter:title" content="{{ page_title }}">
+    <meta name="twitter:description" content="{{ page_description }}">
+    <meta property="og:title" content="{{ page_title }}">
+    <meta property="og:description" content="{{ page_description }}">
+    <meta property="og:image" content="{{ og_image }}">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
     <link rel="icon" href="{{ url_for('static', filename='assure-logo.png') }}" type="image/png">
     <link rel="apple-touch-icon" href="{{ url_for('static', filename='assure-logo.png') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -31,11 +29,9 @@
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
     {% endif %}
     <link rel="stylesheet" href="{{ url_for('static', filename='landing.css') }}?v={{ landing_css_version|default('85') }}">
-    {% include 'includes/plausible.html' %}
-    {% include 'includes/sentry.html' %}
-    <script>
-      window.__assureLandingStrings = {{ strings|tojson }};
-    </script>
+    {% for item in json_ld %}
+    <script type="application/ld+json">{{ item|tojson }}</script>
+    {% endfor %}
 </head>
 <body class="enterprise-landing gov-landing">
     {% set nav_current = 'government' %}

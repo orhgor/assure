@@ -120,6 +120,34 @@ _INCLUDE_RE = re.compile(r"{%-?\s*include\s+['\"]([^']+?)['\"]\s*%-?\}")
 _EXTENDS_RE = re.compile(r"{%-?\s*extends\s+['\"]([^']+?)['\"]\s*%-?\}")
 TEMPLATES_DIR = ROOT / "marketing" / "templates"
 
+TEMPLATE_TO_META = {
+    "landing.html": "landing",
+    "architecture.html": "architecture",
+    "government.html": "government",
+    "use_cases_index.html": "use_cases_index",
+    "use_case_government.html": "use_case_government",
+    "use_case_insurance.html": "use_case_insurance",
+    "use_case_fuel.html": "use_case_fuel",
+    "landing_privacy.html": "landing_privacy",
+    "contact.html": "contact",
+    "terms.html": "terms",
+    "about.html": "about",
+    "pricing.html": "pricing",
+}
+
+LOCALE_TO_OG = {
+    "en": "en_US",
+    "es": "es_ES",
+    "zh": "zh_CN",
+    "fr": "fr_FR",
+    "de": "de_DE",
+    "ja": "ja_JP",
+    "tr": "tr_TR",
+    "ar": "ar_AE",
+}
+
+OG_IMAGE = "https://getassureai.com/static/og-image.png"
+
 
 # Locales that exist for preview but are not published yet (turn on via PUBLISH_LOCALES).
 UNPUBLISHED_BY_DEFAULT = frozenset()
@@ -267,12 +295,87 @@ def _render_page(app, page: dict, locale: str) -> str:
     with app.app_context():
         with app.test_request_context(path="/", query_string={"lang": locale}):
             session["lang"] = locale
+            meta_prefix = TEMPLATE_TO_META.get(page["template"])
+            full = string_catalog(locale)
+            page_title = full.get(f"meta.{meta_prefix}.title") if meta_prefix else None
+            if not page_title:
+                page_title = full.get("brand.page_title", "Assure AI")
+            page_title = f"{page_title} · Assure AI"
+            page_description = (
+                full.get(f"meta.{meta_prefix}.description") if meta_prefix else None
+            ) or full.get("brand.meta_description", "")
+            path = _locale_paths()[locale]
+            page_url = "https://getassureai.com" + path + page["suffix"]
+            en_url = "https://getassureai.com" + "/" + page["suffix"]
+            og_locale = LOCALE_TO_OG.get(locale, "en_US")
+
+            is_home = page["template"] == "landing.html" and page["suffix"] == ""
+            json_ld = [
+                {
+                    "@context": "https://schema.org",
+                    "@type": "Organization",
+                    "name": "Assure AI",
+                    "url": "https://getassureai.com",
+                    "logo": "https://getassureai.com/static/assure-logo.png",
+                    "inLanguage": locale,
+                }
+            ]
+            if is_home:
+                json_ld.append(
+                    {
+                        "@context": "https://schema.org",
+                        "@type": "WebSite",
+                        "name": "Assure AI",
+                        "url": "https://getassureai.com/",
+                        "inLanguage": locale,
+                    }
+                )
+            else:
+                json_ld.append(
+                    {
+                        "@context": "https://schema.org",
+                        "@type": "WebPage",
+                        "name": page_title,
+                        "url": page_url,
+                        "inLanguage": locale,
+                    }
+                )
+                json_ld.append(
+                    {
+                        "@context": "https://schema.org",
+                        "@type": "BreadcrumbList",
+                        "inLanguage": locale,
+                        "itemListElement": [
+                            {
+                                "@type": "ListItem",
+                                "position": 1,
+                                "name": "Home",
+                                "item": "https://getassureai.com/",
+                            },
+                            {
+                                "@type": "ListItem",
+                                "position": 2,
+                                "name": page_title,
+                                "item": page_url,
+                            },
+                        ],
+                    }
+                )
+
             ctx: dict = {
                 "locale": locale,
                 "languages": {loc: LOCALE_LABELS[loc] for loc in publish_locales()},
                 "strings": _public_strings(app, page, locale),
                 "locale_paths": _locale_paths(),
                 "page_suffix": page["suffix"],
+                "page_title": page_title,
+                "page_description": page_description,
+                "page_url": page_url,
+                "en_url": en_url,
+                "og_locale": og_locale,
+                "og_image": OG_IMAGE,
+                "json_ld": json_ld,
+                "locale_path": path,
             }
             if page["kind"] == "landing":
                 ctx["landing_css_version"] = LANDING_CSS

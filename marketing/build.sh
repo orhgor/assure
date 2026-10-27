@@ -24,6 +24,7 @@ rsync -a \
   --include 'favicon.svg' \
   --include 'favicon.ico' \
   --include 'assure-logo.png' \
+  --include 'og-image.png' \
   --include 'aws-startups.svg' \
   --include 's3-icon.svg' \
   --include 'onprem-icon.svg' \

@@ -3,50 +3,34 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ brand.page_title }}</title>
-    <link rel="canonical" href="https://getassureai.com/{{ page_suffix|default('') }}">
-    {% if locale_paths is defined %}
+    <title>{{ page_title }}</title>
+    <meta name="description" content="{{ page_description }}">
+    <link rel="canonical" href="{{ page_url }}">
+    <meta property="og:url" content="{{ page_url }}">
+    <meta property="og:locale" content="{{ og_locale }}">
     {% for code, path in locale_paths.items() %}
     <link rel="alternate" hreflang="{{ code }}" href="https://getassureai.com{{ path }}{{ page_suffix|default('') }}">
     {% endfor %}
-    <link rel="alternate" hreflang="x-default" href="https://getassureai.com/{{ page_suffix|default('') }}">
-    {% endif %}
+    <link rel="alternate" hreflang="x-default" href="{{ en_url }}">
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="{{ brand.page_title }}">
-    <meta name="twitter:description" content="{{ brand.meta_description }}">
+    <meta name="twitter:title" content="{{ page_title }}">
+    <meta name="twitter:description" content="{{ page_description }}">
+    <meta property="og:title" content="{{ page_title }}">
+    <meta property="og:description" content="{{ page_description }}">
+    <meta property="og:image" content="{{ og_image }}">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
     <link rel="icon" href="{{ url_for('static', filename='assure-logo.png') }}" type="image/png">
     <link rel="apple-touch-icon" href="{{ url_for('static', filename='assure-logo.png') }}">
-    <meta name="description" content="{{ brand.meta_description }}">
-    <meta property="og:title" content="{{ brand.page_title }}">
-    <meta property="og:description" content="{{ brand.meta_description }}">
-    <meta property="og:url" content="https://getassureai.com/{{ page_suffix|default('') }}">
-    <meta property="og:type" content="website">
-    <meta property="og:site_name" content="Assure">
-    <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "SoftwareApplication",
-      "name": "Assure",
-      "applicationCategory": "BusinessApplication",
-      "operatingSystem": "Web",
-      "description": {{ brand.meta_description|tojson }},
-      "url": "https://getassureai.com/",
-      "featureList": [
-        "Page-level provenance for every claim",
-        "Deterministic math and logic checks (Z3)",
-        "Adversarial Red-Hat review",
-        "Read and check incoming documents (ParSure)",
-        "Cross-check figures and facts against rules, registers and other documents (CrossSure)",
-        "Audit-ready export with full provenance"
-      ]
-    }
-    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
     {% if locale|default('en') == 'ar' %}
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
     {% endif %}
+    {% for item in json_ld %}
+    <script type="application/ld+json">{{ item|tojson }}</script>
+    {% endfor %}
     <link rel="stylesheet" href="{{ url_for('static', filename='landing.css') }}?v={{ landing_css_version|default('78') }}">
     {% include 'includes/plausible.html' %}
     {% include 'includes/sentry.html' %}

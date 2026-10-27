@@ -3,23 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ brand.architecture_title }}</title>
-    <link rel="canonical" href="https://getassureai.com/architecture/">
-    {% if locale_paths is defined %}
+    <title>{{ page_title }}</title>
+    <meta name="description" content="{{ page_description }}">
+    <link rel="canonical" href="{{ page_url }}">
+    <meta property="og:url" content="{{ page_url }}">
+    <meta property="og:locale" content="{{ og_locale }}">
     {% for code, path in locale_paths.items() %}
     <link rel="alternate" hreflang="{{ code }}" href="https://getassureai.com{{ path }}architecture/">
     {% endfor %}
-    <link rel="alternate" hreflang="x-default" href="https://getassureai.com/architecture/">
-    {% endif %}
+    <link rel="alternate" hreflang="x-default" href="{{ en_url }}">
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="{{ brand.architecture_title }}">
-    <meta name="twitter:description" content="{{ brand.architecture_meta_description }}">
-    <meta property="og:url" content="https://getassureai.com/architecture/">
+    <meta name="twitter:title" content="{{ page_title }}">
+    <meta name="twitter:description" content="{{ page_description }}">
+    <meta property="og:title" content="{{ page_title }}">
+    <meta property="og:description" content="{{ page_description }}">
+    <meta property="og:image" content="{{ og_image }}">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
     <link rel="icon" href="{{ url_for('static', filename='assure-logo.png') }}" type="image/png">
     <link rel="apple-touch-icon" href="{{ url_for('static', filename='assure-logo.png') }}">
-    <meta name="description" content="{{ brand.architecture_meta_description }}">
-    <meta property="og:title" content="{{ brand.architecture_title }}">
-    <meta property="og:description" content="{{ brand.architecture_meta_description }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -27,11 +29,9 @@
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
     {% endif %}
     <link rel="stylesheet" href="{{ url_for('static', filename='landing.css') }}?v={{ landing_css_version|default('44') }}">
-    {% include 'includes/plausible.html' %}
-    {% include 'includes/sentry.html' %}
-    <script>
-      window.__assureLandingStrings = {{ strings|tojson }};
-    </script>
+    {% for item in json_ld %}
+    <script type="application/ld+json">{{ item|tojson }}</script>
+    {% endfor %}
 </head>
 <body>
     {% set nav_current = 'architecture' %}

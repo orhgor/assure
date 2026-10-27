@@ -3,24 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title data-i18n="contact.page_title">{{ strings.get('contact.page_title', 'Enterprise contact · Assure AI') }}</title>
-    <link rel="canonical" href="https://getassureai.com/{{ page_suffix|default('contact/') }}">
-    {% if locale_paths is defined %}
+    <title>{{ page_title }}</title>
+    <meta name="description" content="{{ page_description }}">
+    <link rel="canonical" href="{{ page_url }}">
+    <meta property="og:url" content="{{ page_url }}">
+    <meta property="og:locale" content="{{ og_locale }}">
     {% for code, path in locale_paths.items() %}
     <link rel="alternate" hreflang="{{ code }}" href="https://getassureai.com{{ path }}{{ page_suffix|default('contact/') }}">
     {% endfor %}
-    <link rel="alternate" hreflang="x-default" href="https://getassureai.com/{{ page_suffix|default('contact/') }}">
-    {% endif %}
+    <link rel="alternate" hreflang="x-default" href="{{ en_url }}">
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="{{ strings.get('contact.page_title', 'Enterprise contact · Assure AI') }}">
-    <meta name="twitter:description" content="{{ strings.get('contact.meta', brand.meta_description) }}">
-    <meta property="og:type" content="website">
-    <meta property="og:site_name" content="Assure AI">
-    <meta property="og:title" content="{{ strings.get('contact.page_title', 'Enterprise contact · Assure AI') }}">
-    <meta property="og:description" content="{{ strings.get('contact.meta', brand.meta_description) }}">
-    <meta property="og:url" content="https://getassureai.com/{{ page_suffix|default('contact/') }}">
+    <meta name="twitter:title" content="{{ page_title }}">
+    <meta name="twitter:description" content="{{ page_description }}">
+    <meta property="og:title" content="{{ page_title }}">
+    <meta property="og:description" content="{{ page_description }}">
+    <meta property="og:image" content="{{ og_image }}">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
     <link rel="icon" href="{{ url_for('static', filename='assure-logo.png') }}" type="image/png">
-    <meta name="description" content="{{ strings.get('contact.meta', brand.meta_description) }}">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='assure-logo.png') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -28,34 +29,9 @@
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
     {% endif %}
     <link rel="stylesheet" href="{{ url_for('static', filename='landing.css') }}?v={{ landing_css_version|default('71') }}">
-    {% include 'includes/plausible.html' %}
-    {% include 'includes/sentry.html' %}
-    <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "ContactPage",
-      "name": "Contact sales · Assure AI",
-      "url": "https://getassureai.com/{{ page_suffix|default('contact/') }}",
-      "description": "Book a demo or request enterprise pricing for Assure AI, the deterministic verification engine for high-stakes documents.",
-      "about": {
-        "@type": "SoftwareApplication",
-        "name": "Assure AI",
-        "applicationCategory": "BusinessApplication",
-        "operatingSystem": "Web"
-      },
-      "mainEntity": {
-        "@type": "Organization",
-        "name": "Assure AI",
-        "url": "https://getassureai.com/",
-        "contactPoint": {
-          "@type": "ContactPoint",
-          "contactType": "sales",
-          "email": "sales@getassureai.com",
-          "availableLanguage": ["English"]
-        }
-      }
-    }
-    </script>
+    {% for item in json_ld %}
+    <script type="application/ld+json">{{ item|tojson }}</script>
+    {% endfor %}
     <script>window.__assureLandingStrings = {{ strings|tojson }};</script>
     <style>
         .contact-main { padding: var(--space-12) 0; }
