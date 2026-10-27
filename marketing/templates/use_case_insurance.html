@@ -3,25 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    {% set gov_title = strings.get('uc.ins.page_title', 'Insurance claims review · Assure') %}
-    {% set gov_meta = strings.get('uc.ins.meta', 'Check a claim file against the policy and its supporting documents, and see exactly where the numbers or facts do not line up.') %}
-    <title>{{ gov_title }}</title>
-    <link rel="canonical" href="https://getassureai.com/{{ page_suffix|default('use-cases/insurance/') }}">
-    {% if locale_paths is defined %}
+    <title>{{ page_title }}</title>
+    <meta name="description" content="{{ page_description }}">
+    <link rel="canonical" href="{{ page_url }}">
+    <meta property="og:url" content="{{ page_url }}">
+    <meta property="og:locale" content="{{ og_locale }}">
     {% for code, path in locale_paths.items() %}
     <link rel="alternate" hreflang="{{ code }}" href="https://getassureai.com{{ path }}{{ page_suffix|default('use-cases/insurance/') }}">
     {% endfor %}
-    <link rel="alternate" hreflang="x-default" href="https://getassureai.com/{{ page_suffix|default('use-cases/insurance/') }}">
-    {% endif %}
+    <link rel="alternate" hreflang="x-default" href="{{ en_url }}">
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="{{ gov_title }}">
-    <meta name="twitter:description" content="{{ gov_meta }}">
-    <meta property="og:type" content="website">
-    <meta property="og:site_name" content="Assure">
-    <meta property="og:title" content="{{ gov_title }}">
-    <meta property="og:description" content="{{ gov_meta }}">
-    <meta property="og:url" content="https://getassureai.com/{{ page_suffix|default('use-cases/insurance/') }}">
-    <meta name="description" content="{{ gov_meta }}">
+    <meta name="twitter:title" content="{{ page_title }}">
+    <meta name="twitter:description" content="{{ page_description }}">
+    <meta property="og:title" content="{{ page_title }}">
+    <meta property="og:description" content="{{ page_description }}">
+    <meta property="og:image" content="{{ og_image }}">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
     <link rel="icon" href="{{ url_for('static', filename='assure-logo.png') }}" type="image/png">
     <link rel="apple-touch-icon" href="{{ url_for('static', filename='assure-logo.png') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -31,11 +29,9 @@
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
     {% endif %}
     <link rel="stylesheet" href="{{ url_for('static', filename='landing.css') }}?v={{ landing_css_version|default('82') }}">
-    {% include 'includes/plausible.html' %}
-    {% include 'includes/sentry.html' %}
-    <script>
-      window.__assureLandingStrings = {{ strings|tojson }};
-    </script>
+    {% for item in json_ld %}
+    <script type="application/ld+json">{{ item|tojson }}</script>
+    {% endfor %}
 </head>
 <body class="enterprise-landing uc-landing">
     {% set nav_current = 'use-cases' %}
@@ -44,7 +40,7 @@
     <main id="main-content">
         <section class="hero-section gov-hero">
             <div class="container">
-                <a href="/use-cases/" class="back-link" data-i18n="uc.back">{{ strings.get('uc.back', '← All use cases') }}</a>
+                <a href="{{ locale_path }}use-cases/" class="back-link" data-i18n="uc.back">{{ strings.get('uc.back', '← All use cases') }}</a>
                 <h1 class="hero-title" data-i18n="uc.ins.title">{{ strings.get('uc.ins.title', 'Insurance claims review') }}</h1>
                 <p class="hero-sub" data-i18n="uc.ins.sub">{{ strings.get('uc.ins.sub', 'Check a claim file against the policy and its supporting documents, and see exactly where the numbers or facts do not line up.') }}</p>
             </div>
