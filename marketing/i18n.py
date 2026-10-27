@@ -408,6 +408,7 @@ EN = {
     'meta.use_case_insurance.description': 'Check a claim file against the policy and its supporting documents, and see exactly where the numbers or facts do not line up, with the source page for each.',
     'meta.use_cases_index.title': 'Use cases: government, insurance, fuel retail',
     'meta.use_cases_index.description': 'Three ways teams use Assure to check documents against rules, registers and each other: government applications, insurance claims and fuel retail bonuses.',
+    'meta.home.name': 'Home',
 }
 
 ES = {
@@ -797,6 +798,7 @@ ES = {
     'meta.use_case_insurance.description': 'Revise un archivo de reclamación contra la póliza y sus documentos de respaldo, y vea dónde no coinciden números o hechos, con la página de origen.',
     'meta.use_cases_index.title': 'Casos de uso: gobierno, seguros, combustible',
     'meta.use_cases_index.description': 'Tres formas en que los equipos usan Assure para revisar documentos frente a reglas, registros y entre sí: gobierno, seguros y venta de combustible.',
+    'meta.home.name': 'Inicio',
 }
 
 ZH = {
@@ -1181,6 +1183,7 @@ ZH = {
     'landing.pilot.ready_badge': '已收到请求',
     'landing.pilot.ready_body': '我们的团队将通过您的工作邮箱与您联系，安排演示时间。',
     'landing.pilot.ready_title': '谢谢',
+    'meta.home.name': '主页',
 }
 
 FR = {
@@ -1545,7 +1548,7 @@ FR = {
     'landing.pilot.ready_badge': 'Demande reçue',
     'landing.pilot.ready_body': 'Notre équipe vous contactera à votre adresse professionnelle pour planifier la démonstration.',
     'landing.pilot.ready_title': 'Merci',
-    'footer.copy': "S'exécute dans votre cloud ou sur vos propres serveurs, avec vos propres clés.",
+    'meta.home.name': 'Accueil',
 }
 
 DE = {
@@ -1911,6 +1914,7 @@ DE = {
     'landing.pilot.ready_badge': 'Anfrage erhalten',
     'landing.pilot.ready_body': 'Unser Team meldet sich unter Ihrer geschäftlichen E-Mail-Adresse, um die Demo zu vereinbaren.',
     'landing.pilot.ready_title': 'Vielen Dank',
+    'meta.home.name': 'Startseite',
 }
 
 JA = {
@@ -2276,6 +2280,7 @@ JA = {
     'landing.pilot.ready_badge': 'リクエストを受け付けました',
     'landing.pilot.ready_body': 'チームからご登録の仕事用メールアドレスにご連絡し、デモの日程を調整します。',
     'landing.pilot.ready_title': 'ありがとうございます',
+    'meta.home.name': 'ホーム',
 }
 
 TR = {
@@ -2641,6 +2646,7 @@ TR = {
     'landing.pilot.ready_badge': 'Talep alındı',
     'landing.pilot.ready_body': 'Ekibimiz demoyu planlamak için iş e-posta adresiniz üzerinden size ulaşacak.',
     'landing.pilot.ready_title': 'Teşekkürler',
+    'meta.home.name': 'Ana Sayfa',
 }
 
 AR = {
@@ -3097,7 +3103,7 @@ AR = {
     'arch.node.sample.headers': 'المنطقة، النمو',
     'arch.badge.locked': 'مقفل',
     'arch.badge.verified': 'تم التحقق',
-
+    'meta.home.name': 'الصفحة الرئيسية',
 }
 
 CATALOGS = {"en": EN, "es": ES, "zh": ZH, "fr": FR, "de": DE, "ja": JA, "tr": TR, "ar": AR}

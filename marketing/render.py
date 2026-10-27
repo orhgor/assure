@@ -310,17 +310,18 @@ def _render_page(app, page: dict, locale: str) -> str:
             og_locale = LOCALE_TO_OG.get(locale, "en_US")
 
             is_home = page["template"] == "landing.html" and page["suffix"] == ""
-            json_ld = [
-                {
-                    "@context": "https://schema.org",
-                    "@type": "Organization",
-                    "name": "Assure AI",
-                    "url": "https://getassureai.com",
-                    "logo": "https://getassureai.com/static/assure-logo.png",
-                    "inLanguage": locale,
-                }
-            ]
+            json_ld = []
             if is_home:
+                json_ld.append(
+                    {
+                        "@context": "https://schema.org",
+                        "@type": "Organization",
+                        "name": "Assure AI",
+                        "url": "https://getassureai.com",
+                        "logo": "https://getassureai.com/static/assure-logo.png",
+                        "inLanguage": locale,
+                    }
+                )
                 json_ld.append(
                     {
                         "@context": "https://schema.org",
@@ -331,6 +332,7 @@ def _render_page(app, page: dict, locale: str) -> str:
                     }
                 )
             else:
+                home_name = full.get("meta.home.name", "Home")
                 json_ld.append(
                     {
                         "@context": "https://schema.org",
@@ -349,7 +351,7 @@ def _render_page(app, page: dict, locale: str) -> str:
                             {
                                 "@type": "ListItem",
                                 "position": 1,
-                                "name": "Home",
+                                "name": home_name,
                                 "item": "https://getassureai.com/",
                             },
                             {

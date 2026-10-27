@@ -77,10 +77,10 @@
       if (lang) {
         lang.addEventListener("change", function () {
           try { localStorage.setItem("assure_locale", lang.value); } catch (_) {}
-          var parts = location.pathname.split("/");
-          if (parts[1] === "") parts[1] = lang.value;
-          else parts[1] = lang.value;
-          location.href = "/" + parts.slice(1).join("/") + location.search + location.hash;
+          var paths = {{ locale_paths|tojson }};
+          var suffix = {{ page_suffix|tojson }};
+          var target = (lang.value === "en") ? ("/" + suffix) : (paths[lang.value] + suffix);
+          location.href = target + location.search + location.hash;
         });
       }
     })();
