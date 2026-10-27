@@ -58,7 +58,7 @@ def normalize_locale(value: str | None) -> str:
 
 def catalog(lang: str | None = None) -> dict[str, str]:
     locale = normalize_locale(lang)
-    base = dict(CATALOGS.get(locale, {}))
+    base = {**CATALOGS["en"], **CATALOGS.get(locale, {})}
     # The enterprise privacy body lives in marketing/content/privacy/<locale>.html
     # (own copy of the marketing site; the workbench keeps its own).
     from marketing.privacy_enterprise import privacy_body_html, privacy_summary
