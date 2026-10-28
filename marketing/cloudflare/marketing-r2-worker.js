@@ -47,6 +47,15 @@ function objectKey(pathname) {
   return `${p}/index.html`;
 }
 
+// Locale folders in dist/ (mirrors marketing/locales, en lives at the root).
+const LOCALES = ["de", "es", "fr", "tr", "ja", "zh", "ar"];
+
+/** Locale folder for a path like /de/..., or "" for the root site. */
+function pathLocale(pathname) {
+  const seg = pathname.split("/")[1] || "";
+  return LOCALES.includes(seg) ? seg : "";
+}
+
 const SALES_INBOX = "sales@getassureai.com";
 const EMAIL_FROM = "Assure Website <website@getassureai.com>";
 
@@ -154,9 +163,16 @@ export default {
 
     let status = 200;
     if (!object) {
-      // Serve the site's own 404 page from R2, with status 404. If the page
-      // itself is missing, fall back to a plain text 404 rather than throwing.
-      object = await env.MARKETING.get("404.html");
+      // Serve the site's own 404 page from R2, with status 404: the locale's
+      // 404 first, then the root one. If both are missing, fall back to a
+      // plain text 404 rather than throwing.
+      const loc = pathLocale(url.pathname);
+      if (loc) {
+        object = await env.MARKETING.get(`${loc}/404.html`);
+      }
+      if (!object) {
+        object = await env.MARKETING.get("404.html");
+      }
       status = 404;
     }
 
