@@ -463,5 +463,16 @@
   "vault.prompts.content": "Inhalt",
   "vault.prompts.edit": "Bearbeiten",
   "vault.prompts.name": "Name",
-  "wizard.back": "Zurück"
+  "wizard.back": "Zurück",
+  "uc.sample.label": "Beispielbefund",
+  "uc.label.checks": "Was Assure prüft",
+  "uc.label.sees": "Was die prüfende Person sieht",
+  "uc.label.before": "Was Sie senden",
+  "uc.more": "So funktioniert es",
+  "uc.gov.sample.finding": "Der Name im Ausweis stimmt nicht mit dem Namen im Antragsformular überein.",
+  "uc.gov.sample.source": "Ausweis, Seite 2 · Antragsformular, Seite 1",
+  "uc.ins.sample.finding": "Der Rechnungsbetrag weicht vom Betrag im Schadenformular ab.",
+  "uc.ins.sample.source": "Rechnung, Seite 1 · Schadenformular, Seite 3",
+  "uc.fuel.sample.finding": "Der Bonussatz in der Abrechnung weicht vom Satz in der Vereinbarung ab.",
+  "uc.fuel.sample.source": "Abrechnung, Seite 4 · Vereinbarung, Klausel 6"
 }

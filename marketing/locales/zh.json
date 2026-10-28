@@ -466,5 +466,16 @@
   "vault.prompts.content": "内容",
   "vault.prompts.edit": "编辑",
   "vault.prompts.name": "名称",
-  "wizard.back": "返回"
+  "wizard.back": "返回",
+  "uc.sample.label": "发现示例",
+  "uc.label.checks": "Assure 检查什么",
+  "uc.label.sees": "审核人员看到什么",
+  "uc.label.before": "您提交的文件",
+  "uc.more": "了解工作原理",
+  "uc.gov.sample.finding": "身份证件上的姓名与申请表上的姓名不一致。",
+  "uc.gov.sample.source": "身份证件第 2 页，申请表第 1 页",
+  "uc.ins.sample.finding": "发票总额与理赔申请表上的金额不一致。",
+  "uc.ins.sample.source": "发票第 1 页，理赔申请表第 3 页",
+  "uc.fuel.sample.finding": "对账单上的奖励比例与协议中的比例不一致。",
+  "uc.fuel.sample.source": "对账单第 4 页，协议第 6 条"
 }

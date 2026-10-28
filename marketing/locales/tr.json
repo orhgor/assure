@@ -463,5 +463,16 @@
   "vault.prompts.content": "İçerik",
   "vault.prompts.edit": "Düzenle",
   "vault.prompts.name": "Ad",
-  "wizard.back": "Geri"
+  "wizard.back": "Geri",
+  "uc.sample.label": "Örnek bulgu",
+  "uc.label.checks": "Assure neyi kontrol eder",
+  "uc.label.sees": "İnceleyen kişi ne görür",
+  "uc.label.before": "Gönderdiğiniz belgeler",
+  "uc.more": "Nasıl çalıştığını görün",
+  "uc.gov.sample.finding": "Kimlikteki ad, başvuru formundaki adla eşleşmiyor.",
+  "uc.gov.sample.source": "Kimlik, sayfa 2 · Başvuru formu, sayfa 1",
+  "uc.ins.sample.finding": "Fatura toplamı, hasar formundaki tutardan farklı.",
+  "uc.ins.sample.source": "Fatura, sayfa 1 · Hasar formu, sayfa 3",
+  "uc.fuel.sample.finding": "Ekstredeki prim oranı, sözleşmedeki orandan farklı.",
+  "uc.fuel.sample.source": "Ekstre, sayfa 4 · Sözleşme, madde 6"
 }

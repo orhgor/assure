@@ -463,5 +463,16 @@
   "vault.prompts.content": "内容",
   "vault.prompts.edit": "編集",
   "vault.prompts.name": "名前",
-  "wizard.back": "戻る"
+  "wizard.back": "戻る",
+  "uc.sample.label": "指摘の例",
+  "uc.label.checks": "Assureがチェックする内容",
+  "uc.label.sees": "レビュー担当者に表示される内容",
+  "uc.label.before": "送信する書類",
+  "uc.more": "仕組みを見る",
+  "uc.gov.sample.finding": "身分証明書の氏名が申請書の氏名と一致しません。",
+  "uc.gov.sample.source": "身分証明書 2ページ目・申請書 1ページ目",
+  "uc.ins.sample.finding": "請求書の合計額が保険金請求書の金額と異なります。",
+  "uc.ins.sample.source": "請求書 1ページ目・保険金請求書 3ページ目",
+  "uc.fuel.sample.finding": "明細書のボーナス率が契約書の料率と異なります。",
+  "uc.fuel.sample.source": "明細書 4ページ目・契約書 第6条"
 }

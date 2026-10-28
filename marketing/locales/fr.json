@@ -463,5 +463,16 @@
   "vault.prompts.content": "Contenu",
   "vault.prompts.edit": "Modifier",
   "vault.prompts.name": "Nom",
-  "wizard.back": "Retour"
+  "wizard.back": "Retour",
+  "uc.sample.label": "Exemple de constat",
+  "uc.label.checks": "Ce que vérifie Assure",
+  "uc.label.sees": "Ce que voit le réviseur",
+  "uc.label.before": "Ce que vous envoyez",
+  "uc.more": "Voir comment ça marche",
+  "uc.gov.sample.finding": "Le nom sur la pièce d'identité ne correspond pas au nom sur le formulaire de demande.",
+  "uc.gov.sample.source": "Pièce d'identité, page 2 · Formulaire de demande, page 1",
+  "uc.ins.sample.finding": "Le total de la facture diffère du montant indiqué sur le formulaire de sinistre.",
+  "uc.ins.sample.source": "Facture, page 1 · Formulaire de sinistre, page 3",
+  "uc.fuel.sample.finding": "Le taux de bonus du relevé diffère du taux prévu dans l'accord.",
+  "uc.fuel.sample.source": "Relevé, page 4 · Accord, clause 6"
 }
