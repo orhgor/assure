@@ -40,7 +40,7 @@
           <span class="wordmark">Assure</span>
         </span>
       </a>
-      <nav class="site-nav" aria-label="Main">
+      <nav class="site-nav" data-i18n-aria="nav.main_aria" aria-label="{{ strings.get('nav.main_aria', 'Main') }}">
         <a href="{{ locale_path }}"{% if active == 'home' %} class="is-on"{% endif %} data-i18n="landing.nav.docs">{{ strings.get('landing.nav.docs', 'Proof') }}</a>
         <a href="{{ locale_path }}architecture/"{% if active == 'architecture' %} class="is-on"{% endif %} data-i18n="landing.nav.architecture">{{ strings.get('landing.nav.architecture', 'Why now') }}</a>
         <a href="{{ locale_path }}pricing/"{% if active == 'pricing' %} class="is-on"{% endif %} data-i18n="nav.pricing">{{ strings.get('nav.pricing', 'Pricing') }}</a>
@@ -48,7 +48,7 @@
       </nav>
       <div class="header-meta">
         <label class="lang-wrap" for="lang">
-          <select id="lang" class="form-control select-control" aria-label="Language">
+          <select id="lang" class="form-control select-control" data-i18n-aria="nav.language_aria" aria-label="{{ strings.get('nav.language_aria', 'Language') }}">
             {% for code, label in languages.items() %}
             <option value="{{ code }}" {% if locale == code %}selected{% endif %}>{{ label }}</option>
             {% endfor %}
