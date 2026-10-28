@@ -3,6 +3,11 @@ name: Quality Check
 on:
   pull_request:
     branches: [staging, main]
+    # Website-only PRs run their own checks in webpage-deploy.yml.
+    paths-ignore:
+      - "marketing/**"
+      - "landing/**"
+      - ".github/workflows/webpage-deploy.yml"
   push:
     branches: [staging]
 

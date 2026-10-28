@@ -68,6 +68,28 @@ jobs:
             exit 1
           fi
 
+  website-checks:
+    # Website-only checks: build the static site and run the website tests.
+    # Never imports or starts the workbench app.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install build and test deps
+        run: pip install -q -r marketing/requirements.txt pytest pydantic
+
+      - name: Build static marketing site
+        run: bash marketing/build.sh
+
+      - name: Website tests
+        run: pytest tests/test_counter_copy_i18n.py tests/test_r2_sync_marketing.py -v
+
   deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 10
