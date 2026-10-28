@@ -3772,3 +3772,46 @@ html[dir="rtl"] .flow-arrow-approval .flow-badge { left: auto; right: 50%; trans
 }
 
 .price-grid { display: grid; grid-template-columns: 1fr; justify-items: center; gap: 1.5rem; max-width: 28rem; margin: 0 auto; }
+
+/* ---- Use cases index redesign (uc2) ---- */
+.uc2-hero { padding-bottom: var(--space-5); }
+.uc2-list { padding: 0 0 var(--space-8); }
+.uc2-case {
+    display: grid;
+    grid-template-columns: 1.1fr 1fr 1fr;
+    gap: var(--space-5);
+    padding: var(--space-6) 0;
+    border-top: 1px solid #e2e8f0;
+}
+.uc2-case:last-of-type { border-bottom: 1px solid #e2e8f0; margin-bottom: var(--space-3); }
+.uc2-num { display: block; font-size: 0.8rem; font-weight: 600; letter-spacing: 0.08em; color: #94a3b8; margin-bottom: var(--space-1); }
+.uc2-title { font-size: 1.5rem; line-height: 1.25; font-weight: 600; color: #0a0a0a; margin-bottom: var(--space-2); }
+.uc2-sub { color: #475569; line-height: 1.6; margin-bottom: var(--space-3); }
+.uc2-more { color: #0a0a0a; font-weight: 600; text-decoration: none; border-bottom: 1px solid #0a0a0a; padding-bottom: 2px; }
+.uc2-more:hover { color: var(--accent-blue); border-color: var(--accent-blue); }
+[dir="rtl"] .uc2-arrow { display: inline-block; transform: scaleX(-1); }
+.uc2-label { display: block; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #64748b; margin-bottom: var(--space-2); }
+.uc2-steps { list-style: none; display: flex; flex-direction: column; gap: 12px; counter-reset: uc2; }
+.uc2-steps li { display: flex; flex-direction: column; gap: 2px; padding: 12px 16px; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; border-inline-start: 3px solid #0a0a0a; }
+.uc2-step-name { font-weight: 600; font-size: 0.9rem; color: #0a0a0a; }
+.uc2-steps li span:last-child { color: #475569; font-size: 0.9rem; }
+.uc2-finding { background: #0a0a0a; color: #f0f2f5; border-radius: 8px; padding: var(--space-3); display: flex; flex-direction: column; gap: 12px; }
+.uc2-finding-tag { align-self: flex-start; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #0a0a0a; background: var(--assure-accent-gold); border-radius: 9999px; padding: 3px 10px; }
+.uc2-finding-text { font-size: 1rem; line-height: 1.5; font-weight: 500; }
+.uc2-finding-src, .uc2-finding-approve { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: #a8b0bd; }
+.uc2-finding-approve { color: #f0f2f5; border-top: 1px solid #2a3344; padding-top: 12px; }
+.uc2-finding svg { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.uc2-sheet { background: #fff; border: 1px solid #e2e8f0; border-radius: 4px; padding: 16px; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 4px 12px rgba(15,23,42,0.05); }
+.uc2-sheet i { display: block; height: 8px; border-radius: 4px; background: #e2e8f0; }
+.uc2-sheet i.short { width: 55%; }
+.uc2-sheet i.uc2-hl { background: rgba(212,168,67,0.55); outline: 2px solid var(--assure-accent-gold); outline-offset: 2px; }
+@media (max-width: 900px) {
+    .uc2-case { grid-template-columns: 1fr; gap: var(--space-3); padding: var(--space-5) 0; }
+}
+/* uc2: document sketch above the finding card */
+.uc2-sketch { border: 1px solid #e2e8f0; border-bottom: none; border-radius: 8px 8px 0 0; background: #f8fafc; padding: 12px 16px 16px; }
+.uc2-sketch + .uc2-finding { border-radius: 0 0 8px 8px; }
+.uc2-sketch-label { display: block; font-size: 0.7rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #64748b; margin-bottom: 10px; }
+.uc2-sketch-pages { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.uc2-sketch .uc2-sheet { padding: 12px; gap: 6px; }
+.uc2-sketch .uc2-sheet i { height: 6px; }

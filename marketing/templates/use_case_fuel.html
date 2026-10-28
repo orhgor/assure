@@ -28,7 +28,7 @@
     {% if locale|default('en') == 'ar' %}
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
     {% endif %}
-    <link rel="stylesheet" href="{{ url_for('static', filename='landing.css') }}?v={{ landing_css_version|default('82') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='landing.css') }}?v={{ landing_css_version|default('87') }}">
     {% for item in json_ld %}
     <script type="application/ld+json">{{ item|tojson }}</script>
     {% endfor %}

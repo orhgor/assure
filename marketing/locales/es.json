@@ -463,5 +463,16 @@
   "vault.prompts.content": "Contenido",
   "vault.prompts.edit": "Editar",
   "vault.prompts.name": "Nombre",
-  "wizard.back": "Atrás"
+  "wizard.back": "Atrás",
+  "uc.sample.label": "Hallazgo de ejemplo",
+  "uc.label.checks": "Qué comprueba Assure",
+  "uc.label.sees": "Qué ve el revisor",
+  "uc.label.before": "Qué envía usted",
+  "uc.more": "Ver cómo funciona",
+  "uc.gov.sample.finding": "El nombre del documento de identidad no coincide con el del formulario de solicitud.",
+  "uc.gov.sample.source": "Documento de identidad, página 2 · Formulario de solicitud, página 1",
+  "uc.ins.sample.finding": "El total de la factura no coincide con el importe del formulario de reclamación.",
+  "uc.ins.sample.source": "Factura, página 1 · Formulario de reclamación, página 3",
+  "uc.fuel.sample.finding": "La tasa de bonificación del extracto no coincide con la del acuerdo.",
+  "uc.fuel.sample.source": "Extracto, página 4 · Acuerdo, cláusula 6"
 }

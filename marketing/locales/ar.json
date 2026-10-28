@@ -467,5 +467,16 @@
   "vault.prompts.content": "محتوى",
   "vault.prompts.edit": "تعديل",
   "vault.prompts.name": "الاسم",
-  "wizard.back": "العودة"
+  "wizard.back": "العودة",
+  "uc.sample.label": "ملاحظة نموذجية",
+  "uc.label.checks": "ما يتحقق منه Assure",
+  "uc.label.sees": "ما يراه المراجع",
+  "uc.label.before": "ما ترسله",
+  "uc.more": "اطّلع على طريقة العمل",
+  "uc.gov.sample.finding": "الاسم في الهوية لا يطابق الاسم في نموذج الطلب.",
+  "uc.gov.sample.source": "الهوية، الصفحة 2 · نموذج الطلب، الصفحة 1",
+  "uc.ins.sample.finding": "إجمالي الفاتورة يختلف عن المبلغ الوارد في نموذج المطالبة.",
+  "uc.ins.sample.source": "الفاتورة، الصفحة 1 · نموذج المطالبة، الصفحة 3",
+  "uc.fuel.sample.finding": "نسبة المكافأة في الكشف تختلف عن النسبة الواردة في الاتفاقية.",
+  "uc.fuel.sample.source": "الكشف، الصفحة 4 · الاتفاقية، البند 6"
 }

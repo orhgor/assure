@@ -462,5 +462,16 @@
   "vault.prompts.content": "Content",
   "vault.prompts.edit": "Edit",
   "vault.prompts.name": "Name",
-  "wizard.back": "Back"
+  "wizard.back": "Back",
+  "uc.sample.label": "Sample finding",
+  "uc.label.checks": "What Assure checks",
+  "uc.label.sees": "What the reviewer sees",
+  "uc.label.before": "What you send",
+  "uc.more": "See how it works",
+  "uc.gov.sample.finding": "The name on the ID does not match the name on the application form.",
+  "uc.gov.sample.source": "ID, page 2 · Application form, page 1",
+  "uc.ins.sample.finding": "The invoice total is different from the amount on the claim form.",
+  "uc.ins.sample.source": "Invoice, page 1 · Claim form, page 3",
+  "uc.fuel.sample.finding": "The bonus rate on the statement is different from the rate in the agreement.",
+  "uc.fuel.sample.source": "Statement, page 4 · Agreement, clause 6"
 }
