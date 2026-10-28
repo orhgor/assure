@@ -32,6 +32,11 @@
     var done = document.getElementById("demo-done");
     var wrap = document.getElementById("pilot-form-wrap");
     var err = document.getElementById("demo-error");
+    var strings = window.__assureLandingStrings || {};
+    var errorText =
+      strings["landing.pilot.error"] ||
+      (err && err.getAttribute("data-error-text")) ||
+      "Could not send your request. Please try again.";
     document.querySelectorAll("[data-demo-open]").forEach(function (el) {
       el.addEventListener("click", function (e) {
         e.preventDefault();
@@ -73,7 +78,7 @@
         })
         .then(function (result) {
           if (!result.ok) {
-            throw new Error((result.data && result.data.error) || "Could not join the list. Try again.");
+            throw new Error(errorText);
           }
           form.hidden = true;
           if (wrap) wrap.hidden = true;
@@ -85,7 +90,7 @@
         .catch(function (error) {
           if (err) {
             err.hidden = false;
-            err.textContent = (error && error.message) || "Could not join the list. Try again.";
+            err.textContent = errorText;
           }
         });
     });

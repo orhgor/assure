@@ -109,7 +109,7 @@ PAGES: list[dict] = [
         "output": "404.html",
         "kind": "landing",
         "suffix": "",
-        "locales": ["en"],  # one 404 page at the dist root
+        # One 404.html per locale dir; the Workers 404-page handler serves the nearest one.
     },
 ]
 

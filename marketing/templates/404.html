@@ -1,13 +1,13 @@
 {% extends "marketing_base.html" %}
-{% block title %}Page not found - Assure{% endblock %}
-{% block og_title %}Page not found - Assure{% endblock %}
-{% block twitter_title %}Page not found - Assure{% endblock %}
+{% block title %}{{ strings.get('error404.title', 'Page not found') }} - Assure{% endblock %}
+{% block og_title %}{{ strings.get('error404.title', 'Page not found') }} - Assure{% endblock %}
+{% block twitter_title %}{{ strings.get('error404.title', 'Page not found') }} - Assure{% endblock %}
 {% block body %}
 <section class="error-shell">
   <div class="error-card">
-    <h1>Page not found</h1>
-    <p>The page you asked for does not exist on this site. It may have moved, or the address may be wrong.</p>
-    <p><a class="btn btn-primary" href="/">Back to the homepage</a></p>
+    <h1 data-i18n="error404.title">{{ strings.get('error404.title', 'Page not found') }}</h1>
+    <p data-i18n="error404.body">{{ strings.get('error404.body', 'The page you asked for does not exist on this site. It may have moved, or the address may be wrong.') }}</p>
+    <p><a class="btn btn-primary" href="{{ locale_path or '/' }}" data-i18n="error404.home">{{ strings.get('error404.home', 'Back to the homepage') }}</a></p>
   </div>
 </section>
 {% endblock %}
