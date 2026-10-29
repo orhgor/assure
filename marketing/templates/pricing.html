@@ -1,19 +1,19 @@
 {% extends "marketing_base.html" %}
-{% block title %}{{ gettext('Pricing') }} · {{ gettext('Assure') }}{% endblock %}
+{% block title %}{{ strings.get('pricing.title', 'Pricing') }} · {{ strings.get('brand.name', 'Assure') }}{% endblock %}
 {% block body %}
   <div class="page">
     <div class="page-hero">
-      <h1 data-i18n="pricing.title">{{ gettext('Pricing') }}</h1>
-      <p class="lede" data-i18n="pricing.lead">{{ gettext('Pricing is tailored to your team. Every plan runs with your keys, and your provider usage is billed directly to you.') }}</p>
+      <h1 data-i18n="pricing.title">{{ strings.get('pricing.title', 'Pricing') }}</h1>
+      <p class="lede" data-i18n="pricing.lead">{{ strings.get('pricing.lead', 'Pricing is tailored to your team. Runs in your own AWS account or on-premises. Your documents never leave your environment.') }}</p>
     </div>
     <div class="price-grid">
       <section class="card">
-        <h2 data-i18n="pricing.pro">{{ gettext('Enterprise') }}</h2>
-        <p class="lede" data-i18n="pricing.price">{{ gettext('Custom pricing') }}</p>
+        <h2 data-i18n="pricing.pro">{{ strings.get('pricing.pro', 'Enterprise') }}</h2>
+        <p class="lede" data-i18n="pricing.price">{{ strings.get('pricing.price', 'Custom pricing') }}</p>
         <ul class="privacy-list">
-          <li data-i18n="pricing.pro.1">{{ gettext('Dedicated deployment and team workspace') }}</li>
-          <li data-i18n="pricing.pro.2">{{ gettext('Audit packages for regulated work') }}</li>
-          <li data-i18n="pricing.pro.3">{{ gettext('Your keys or managed routers') }}</li>
+          <li data-i18n="pricing.pro.1">{{ strings.get('pricing.pro.1', 'Dedicated deployment and team workspace') }}</li>
+          <li data-i18n="pricing.pro.2">{{ strings.get('pricing.pro.2', 'The page behind every finding') }}</li>
+          <li data-i18n="pricing.pro.3">{{ strings.get('pricing.pro.3', 'A person decides') }}</li>
         </ul>
         <p><a class="btn btn-primary" href="/contact-us/" data-i18n="pricing.contact">{{ strings.get('footer.contact_sales', 'Contact sales') }}</a></p>
       </section>

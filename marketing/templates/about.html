@@ -1,18 +1,16 @@
 {% extends "marketing_base.html" %}
-{% block title %}{{ gettext('About') }} · {{ gettext('Assure') }}{% endblock %}
+{% block title %}{{ strings.get('about.title', 'About') }} · {{ strings.get('brand.name', 'Assure') }}{% endblock %}
 {% block body %}
   <div class="page">
     <div class="page-hero">
-      <h1 data-i18n="about.title">{{ gettext('About') }}</h1>
-      <p class="lede" data-i18n="about.lead">{{ gettext('Assure turns your question into one verified answer from the AI you choose.') }}</p>
+      <h1 data-i18n="about.title">{{ strings.get('about.title', 'About') }}</h1>
+      <p class="lede" data-i18n="about.lead">{{ strings.get('about.lead', 'Assure detects fraud and errors in documents by checking them against your rules, your registers and each other.') }}</p>
     </div>
     <section class="card">
-      <h2 data-i18n="about.what">{{ gettext('What it is') }}</h2>
-      <p data-i18n="about.what.body">{{ gettext('You write a question. Assure restructures it for the model you pick, checks the response, and gives you one result.') }}</p>
-      <h2 data-i18n="about.use">{{ gettext('How to use it') }}</h2>
-      <p data-i18n="about.use.body">{{ gettext('You write your question, choose the AI provider, and get one verified answer.') }}</p>
-      <h2 data-i18n="about.engine">{{ gettext('The engine') }}</h2>
-      <p data-i18n="about.engine.body">{{ strings.get('about.engine.body', 'The verification engine runs inside your deployment, in your cloud or on-premises. Your keys, questions, and past work stay in your environment.') }}</p>
+      <h2 data-i18n="about.what">{{ strings.get('about.what', 'What it is') }}</h2>
+      <p data-i18n="about.what.body">{{ strings.get('about.what.body', 'ParSure reads each file. CrossSure checks the facts against your rules, registers and other documents. Every finding shows the page it came from. A person decides.') }}</p>
+      <h2 data-i18n="about.engine">{{ strings.get('about.engine', 'Who it is for') }}</h2>
+      <p data-i18n="about.engine.body">{{ strings.get('about.engine.body', 'Public bodies, insurers and fuel retailers who must check documents before they act on them. Runs in your own AWS account or on-premises. Your documents never leave your environment.') }}</p>
     </section>
   </div>
 {% endblock %}
