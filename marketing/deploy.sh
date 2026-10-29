@@ -27,6 +27,8 @@ Usage: marketing/deploy.sh [options]
 
 Free tier: uploads skip unchanged files; Worker redeploys only when JS/config change.
 Set MARKETING_DEPLOY_FORCE=1 to bypass the cooldown guard.
+Stale objects: after uploads, managed R2 keys not in dist/ are deleted (capped,
+see marketing/sync_r2.py). --dry-run lists them. Set SYNC_R2_PRUNE=0 to skip.
 EOF
 }
 
@@ -89,6 +91,9 @@ if [[ "$DRY_RUN" -eq 0 ]]; then
 fi
 
 SYNC_ARGS=(--dist "$DIST_DIR" --bucket "$BUCKET" --wrangler "$WRANGLER")
+if [[ "${SYNC_R2_PRUNE:-1}" != "0" ]]; then
+  SYNC_ARGS+=(--prune)
+fi
 if [[ "$DRY_RUN" -eq 1 ]]; then
   SYNC_ARGS+=(--dry-run)
 fi
