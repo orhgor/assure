@@ -4,7 +4,7 @@
   <div class="page">
     <div class="page-hero">
       <h1 data-i18n="pricing.title">{{ strings.get('pricing.title', 'Pricing') }}</h1>
-      <p class="lede" data-i18n="pricing.lead">{{ strings.get('pricing.lead', 'Pricing is tailored to your team. Runs in your own AWS account or on-premises. Your documents never leave your environment.') }}</p>
+      <p class="lede" data-i18n="pricing.lead">{{ strings.get('pricing.lead', 'Pricing is tailored to your team. Runs in your own AWS account or on-premises. You choose where the models run.') }}</p>
     </div>
     <div class="price-grid">
       <section class="card">
@@ -18,5 +18,6 @@
         <p><a class="btn btn-primary" href="{{ locale_path }}contact-us/" data-i18n="pricing.contact">{{ strings.get('footer.contact_sales', 'Contact sales') }}</a></p>
       </section>
     </div>
+    <p><a href="{{ locale_path }}security/" data-i18n="sec.link">{{ strings.get('sec.link', 'Security and data') }}</a></p>
   </div>
 {% endblock %}
