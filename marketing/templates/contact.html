@@ -100,6 +100,14 @@
                         <input id="cf-email" name="email" type="email" autocomplete="email" required>
                         <label for="cf-company" data-i18n="contact.f_company">{{ strings.get('contact.f_company', 'Company') }}</label>
                         <input id="cf-company" name="company" type="text" autocomplete="organization">
+                        <label for="cf-workflow" data-i18n="landing.pilot.workflow">{{ strings.get('landing.pilot.workflow', 'Primary document workflow') }}</label>
+                        <select id="cf-workflow" class="demo-input" name="workflow">
+                            <option value="" disabled selected data-i18n="landing.pilot.workflow.select">{{ strings.get('landing.pilot.workflow.select', 'Select a workflow') }}</option>
+                            <option value="Government document checks">{{ strings.get('landing.pilot.workflow.gov', 'Government document checks') }}</option>
+                            <option value="Insurance claims review">{{ strings.get('landing.pilot.workflow.ins', 'Insurance claims review') }}</option>
+                            <option value="Bonus reconciliation">{{ strings.get('landing.pilot.workflow.fuel', 'Bonus reconciliation') }}</option>
+                            <option value="Other">{{ strings.get('landing.pilot.workflow.other', 'Other') }}</option>
+                        </select>
                         <label for="cf-message" data-i18n="contact.f_message">{{ strings.get('contact.f_message', 'What should the demo cover?') }}</label>
                         <textarea id="cf-message" name="message"></textarea>
                         <button type="submit" class="btn-primary" data-i18n="contact.submit">{{ strings.get('contact.submit', 'Send request') }}</button>

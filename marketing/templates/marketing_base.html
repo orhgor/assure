@@ -32,59 +32,15 @@
   {% endfor %}
 </head>
 <body{% if page_class is defined %} class="{{ page_class }}"{% endif %}>
-  <div class="shell">
-    <header class="site-header">
-      <a class="brand-home" href="{{ locale_path }}">
-        <img class="brand-mark" src="{{ url_for('static', filename='assure-logo.png') }}" alt="" width="36" height="36">
-        <span class="brand-copy">
-          <span class="wordmark">Assure</span>
-        </span>
-      </a>
-      <nav class="site-nav" data-i18n-aria="nav.main_aria" aria-label="{{ strings.get('nav.main_aria', 'Main') }}">
-        <a href="{{ locale_path }}"{% if active == 'home' %} class="is-on"{% endif %} data-i18n="landing.nav.docs">{{ strings.get('landing.nav.docs', 'Proof') }}</a>
-        <a href="{{ locale_path }}architecture/"{% if active == 'architecture' %} class="is-on"{% endif %} data-i18n="landing.nav.architecture">{{ strings.get('landing.nav.architecture', 'Why now') }}</a>
-        <a href="{{ locale_path }}pricing/"{% if active == 'pricing' %} class="is-on"{% endif %} data-i18n="nav.pricing">{{ strings.get('nav.pricing', 'Pricing') }}</a>
-        <a href="{{ locale_path }}about/"{% if active == 'about' %} class="is-on"{% endif %} data-i18n="nav.about">{{ strings.get('nav.about', 'About') }}</a>
-      </nav>
-      <div class="header-meta">
-        <label class="lang-wrap" for="lang">
-          <select id="lang" class="form-control select-control" data-i18n-aria="nav.language_aria" aria-label="{{ strings.get('nav.language_aria', 'Language') }}">
-            {% for code, label in languages.items() %}
-            <option value="{{ code }}" {% if locale == code %}selected{% endif %}>{{ label }}</option>
-            {% endfor %}
-          </select>
-        </label>
-      </div>
-    </header>
+  {% set nav_current = active|default('home') %}
+  {% include 'includes/landing_header.html' %}
+
+  <main id="main-content">
     {% block hero %}{% endblock %}
     {% block body %}{% endblock %}
-  </div>
-  <footer class="site-footer">
-    <p class="footer-lock privacy-badge"><span aria-hidden="true">🔒</span> {{ strings.get('footer.copy', 'Runs in your cloud or on-premises, with your own keys.') }}</p>
-    <p class="footer-meta">
-      <strong>Assure</strong>.
-      <span data-i18n="landing.footer.owner">{{ strings.get('landing.footer.owner', '© 2026 Assure. All rights reserved.') }}</span>
-      <a href="{{ locale_path }}about/" data-i18n="nav.about">{{ strings.get('nav.about', 'About') }}</a>
-      <a href="{{ locale_path }}privacy/" data-i18n="nav.privacy">{{ strings.get('nav.privacy', 'Privacy') }}</a>
-      <a href="{{ locale_path }}terms/" data-i18n="nav.terms">{{ strings.get('nav.terms', 'Terms') }}</a>
-      <a href="{{ locale_path }}pricing/" data-i18n="nav.pricing">{{ strings.get('nav.pricing', 'Pricing') }}</a>
-      <a href="{{ locale_path }}contact-us/" data-i18n="footer.contact_sales">{{ strings.get('footer.contact_sales', 'Contact sales') }}</a>
-    </p>
-  </footer>
-  <script>
-    (function () {
-      var lang = document.getElementById("lang");
-      if (lang) {
-        lang.addEventListener("change", function () {
-          try { localStorage.setItem("assure_locale", lang.value); } catch (_) {}
-          var paths = {{ locale_paths|tojson }};
-          var suffix = {{ page_suffix|tojson }};
-          var target = (lang.value === "en") ? ("/" + suffix) : (paths[lang.value] + suffix);
-          location.href = target + location.search + location.hash;
-        });
-      }
-    })();
-  </script>
+  </main>
+
+  {% include 'includes/landing_footer.html' %}
   {% block scripts %}{% endblock %}
 </body>
 </html>

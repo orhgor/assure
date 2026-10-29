@@ -299,8 +299,7 @@ def _render_page(app, page: dict, locale: str) -> str:
             full = string_catalog(locale)
             page_title = full.get(f"meta.{meta_prefix}.title") if meta_prefix else None
             if not page_title:
-                page_title = full.get("brand.page_title", "Assure AI")
-            page_title = f"{page_title} · Assure AI"
+                page_title = full.get("brand.page_title", "Assure")
             page_description = (
                 full.get(f"meta.{meta_prefix}.description") if meta_prefix else None
             ) or full.get("brand.meta_description", "")
@@ -316,7 +315,7 @@ def _render_page(app, page: dict, locale: str) -> str:
                     {
                         "@context": "https://schema.org",
                         "@type": "Organization",
-                        "name": "Assure AI",
+                        "name": "Assure",
                         "url": "https://getassureai.com",
                         "logo": "https://getassureai.com/static/assure-logo.png",
                         "inLanguage": locale,
@@ -326,7 +325,7 @@ def _render_page(app, page: dict, locale: str) -> str:
                     {
                         "@context": "https://schema.org",
                         "@type": "WebSite",
-                        "name": "Assure AI",
+                        "name": "Assure",
                         "url": "https://getassureai.com/",
                         "inLanguage": locale,
                     }

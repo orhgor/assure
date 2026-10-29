@@ -20,6 +20,7 @@
     <meta property="og:image" content="{{ og_image }}">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
+    <meta name="robots" content="noindex">
     <link rel="icon" href="{{ url_for('static', filename='assure-logo.png') }}" type="image/png">
     <link rel="apple-touch-icon" href="{{ url_for('static', filename='assure-logo.png') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -46,8 +47,10 @@
             </div>
         </section>
 
-        {% set flow_line1 = strings.get('flow.gov.1.line', "Checks the applicant's file") %}
-        {% set flow_line3 = strings.get('flow.gov.3.line', 'Tells the applicant exactly what is missing') %}
+        {% set flow_line1 = strings.get('flow.1.line', '') %}
+        {% set flow_line2 = strings.get('flow.2.line', '') %}
+        {% set flow_line3 = strings.get('flow.3.line', '') %}
+        {% set flow_line4 = strings.get('flow.4.line', '') %}
         {% include 'includes/flow.html' %}
         {% set band_class = 'logos-band-inline' %}{% include 'includes/logos_band.html' %}
 

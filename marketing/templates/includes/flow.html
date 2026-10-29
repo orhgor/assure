@@ -1,32 +1,36 @@
-{#- One story, one component: ParSure -> CrossSure -> (human approval) -> Assure.
-    Optional context overrides: flow_id, flow_line1, flow_line2, flow_line3 (already-resolved strings). -#}
+{#- One story, one component: Upload -> ParSure -> CrossSure -> A person decides.
+    Optional context overrides: flow_id, flow_line1, flow_line2, flow_line3, flow_line4 (already-resolved strings). -#}
 <section id="{{ flow_id|default('steps') }}" class="flow-section">
     <div class="container">
-        <ol class="flow" aria-label="{{ strings.get('flow.aria', 'From file to clear response') }}">
+        <ol class="flow" aria-label="{{ strings.get('flow.aria', 'From upload to a person\'s decision') }}">
             <li class="flow-card">
                 <svg class="flow-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="m9 15 2 2 4-4"/></svg>
-                <h3 class="flow-name" data-i18n="flow.1.name">{{ strings.get('flow.1.name', 'ParSure') }}</h3>
-                <p class="flow-line">{{ flow_line1|default(strings.get('flow.1.line', 'Checks the file')) }}</p>
+                <h3 class="flow-name" data-i18n="flow.1.name">{{ strings.get('flow.1.name', 'Upload') }}</h3>
+                <p class="flow-line">{{ flow_line1|default(strings.get('flow.1.line', 'Upload documents.')) }}</p>
+            </li>
+            <li class="flow-arrow" aria-hidden="true">
+                <svg class="flow-arrow-icon" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+            </li>
+            <li class="flow-card">
+                <svg class="flow-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="m9 15 2 2 4-4"/></svg>
+                <h3 class="flow-name" data-i18n="flow.2.name">{{ strings.get('flow.2.name', 'ParSure') }}</h3>
+                <p class="flow-line">{{ flow_line2|default(strings.get('flow.2.line', 'ParSure reads each file.')) }}</p>
             </li>
             <li class="flow-arrow" aria-hidden="true">
                 <svg class="flow-arrow-icon" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
             </li>
             <li class="flow-card">
                 <svg class="flow-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M13 6h3a2 2 0 0 1 2 2v7"/><path d="M11 18H8a2 2 0 0 1-2-2V9"/></svg>
-                <h3 class="flow-name" data-i18n="flow.2.name">{{ strings.get('flow.2.name', 'CrossSure') }}</h3>
-                <p class="flow-line">{{ flow_line2|default(strings.get('flow.2.line', 'Cross-checks the facts')) }}</p>
+                <h3 class="flow-name" data-i18n="flow.3.name">{{ strings.get('flow.3.name', 'CrossSure') }}</h3>
+                <p class="flow-line">{{ flow_line3|default(strings.get('flow.3.line', 'CrossSure checks the facts against your rules, registers and other documents.')) }}</p>
             </li>
-            <li class="flow-arrow flow-arrow-approval">
-                <span class="flow-badge">
-                    <svg class="flow-badge-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m16 11 2 2 4-4"/><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
-                    <span data-i18n="flow.badge">{{ strings.get('flow.badge', 'Human approval') }}</span>
-                </span>
-                <svg class="flow-arrow-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+            <li class="flow-arrow" aria-hidden="true">
+                <svg class="flow-arrow-icon" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
             </li>
             <li class="flow-card">
                 <svg class="flow-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M22 13V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v12c0 1.1.9 2 2 2h8"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/><path d="m16 19 2 2 4-4"/></svg>
-                <h3 class="flow-name" data-i18n="flow.3.name">{{ strings.get('flow.3.name', 'Assure') }}</h3>
-                <p class="flow-line">{{ flow_line3|default(strings.get('flow.3.line', 'Sends one clear response')) }}</p>
+                <h3 class="flow-name" data-i18n="flow.4.name">{{ strings.get('flow.4.name', 'A person decides') }}</h3>
+                <p class="flow-line">{{ flow_line4|default(strings.get('flow.4.line', 'A person decides.')) }}</p>
             </li>
         </ol>
         <p class="flow-source" data-i18n="flow.source">{{ strings.get('flow.source', 'Every finding links to its source page.') }}</p>
