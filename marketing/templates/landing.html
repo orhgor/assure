@@ -52,7 +52,7 @@
                     <button type="button" class="btn-primary" data-demo-open data-i18n="landing.hero.cta_primary">{{ strings.get('landing.hero.cta_primary', 'Book a demo') }}</button>
                 </div>
                 <p class="hero-deployment" data-i18n="landing.hero.deployment">{{ strings.get('landing.hero.deployment', 'Runs in your AWS account or on-prem. You pick where the models run.') }}</p>
-                </div>
+                {% set band_class = 'logos-band-hero' %}{% include 'includes/logos_band.html' %}
             </div>
         </section>
 
