@@ -3882,3 +3882,159 @@ html[dir="rtl"] .flow-arrow-approval .flow-badge { left: auto; right: 50%; trans
     .uc3-cmp-pair { grid-template-columns: 1fr; }
     .uc3-ne { display: none; }
 }
+
+/* ==========================================================================
+   Home page new components (use-case-cards, hero-deployment, closing-section)
+   ========================================================================== */
+
+.use-case-cards {
+    padding: var(--space-8, 4rem) 0 var(--space-12, 96px);
+}
+
+.use-case-cards .section-title {
+    text-align: center;
+    margin-bottom: var(--space-5);
+}
+
+.uc-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-4, 32px);
+    max-width: 72rem;
+    margin: 0 auto;
+}
+
+.uc-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: var(--space-4, 32px);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2, 16px);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.uc-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+}
+
+.uc-card h3 {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--text-main);
+}
+
+.uc-card p {
+    margin: 0;
+    color: var(--text-muted);
+    line-height: 1.6;
+    flex: 1;
+}
+
+.uc-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 600;
+    color: var(--trust-blue);
+    text-decoration: none;
+    margin-top: auto;
+    padding-top: var(--space-1, 8px);
+    border-top: 1px solid var(--border-color);
+    transition: color 0.2s;
+}
+
+.uc-link:hover {
+    color: var(--accent-green);
+}
+
+@media (max-width: 900px) {
+    .uc-grid {
+        grid-template-columns: 1fr;
+        gap: var(--space-3, 24px);
+    }
+}
+
+/* Hero deployment line */
+.hero-deployment {
+    margin-top: var(--space-3, 24px);
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    text-align: center;
+    padding-top: var(--space-2, 16px);
+    border-top: 1px solid var(--border-color);
+}
+
+/* Closing section */
+.closing-section {
+    padding: var(--space-8, 4rem) 0 var(--space-12, 96px);
+    border-top: 1px solid var(--border-color);
+}
+
+.closing-line {
+    font-size: 1.25rem;
+    font-weight: 500;
+    color: var(--text-main);
+    margin-bottom: var(--space-4, 32px);
+    text-wrap: balance;
+}
+
+.closing-section .btn-primary {
+    min-width: 14rem;
+}
+
+/* text-small for demo modal */
+.text-small {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+    margin-bottom: var(--space-3, 24px);
+}
+
+/* Hero CTA group - ensure secondary button has same height as primary */
+@media (min-width: 640px) {
+    .hero-cta-group .btn-primary,
+    .hero-cta-group .btn-secondary {
+        min-height: 3.25rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        white-space: nowrap;
+    }
+}
+
+@media (max-width: 640px) {
+    .hero-cta-group {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .hero-cta-group .btn-primary,
+    .hero-cta-group .btn-secondary {
+        width: 100%;
+        max-width: 20rem;
+        margin: 0 auto;
+        text-align: center;
+        min-height: 3.25rem;
+    }
+}
+
+/* ==========================================================================
+   Footer: single copyright line
+   ========================================================================== */
+.site-footer .footer-engineer,
+.site-footer .footer-deployment {
+    margin: var(--space-1, 8px) 0;
+}
+
+.site-footer .footer-links {
+    margin: var(--space-2, 16px) 0;
+}
+
+@media (max-width: 640px) {
+    .site-footer .footer-owner {
+        font-size: 0.8rem;
+    }
+}
+

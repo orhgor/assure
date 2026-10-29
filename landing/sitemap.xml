@@ -11,26 +11,6 @@
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/architecture/</loc>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://getassureai.com/ar/architecture/</loc>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://getassureai.com/government/</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://getassureai.com/ar/government/</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
     <loc>https://getassureai.com/use-cases/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>

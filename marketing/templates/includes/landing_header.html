@@ -2,7 +2,7 @@
 <a class="skip-link" href="#main-content" data-i18n="landing.skip">{{ strings.get('landing.skip', 'Skip to content') }}</a>
 <header class="site-header">
     <div class="container nav-container">
-        <a href="/" class="logo logo-brand">
+        <a href="{{ locale_path }}" class="logo logo-brand">
             <img class="brand-mark" src="{{ url_for('static', filename='assure-logo.png') }}" alt="" width="28" height="28">
             <span class="logo-copy">
                 <span class="logo-name">{{ brand.name }}</span>
@@ -10,10 +10,10 @@
         </a>
         <nav class="nav-links is-collapsed" id="landing-nav-links" data-i18n-aria="landing.nav.aria" aria-label="Primary">
             <button type="button" class="nav-menu-toggle" id="nav-menu-toggle" aria-expanded="false" aria-controls="landing-nav-links" data-i18n="landing.nav.menu">{{ strings.get('landing.nav.menu', 'Menu') }}</button>
-            <a href="/use-cases/" data-i18n="landing.nav.usecases">{{ strings.get('landing.nav.usecases', 'Use cases') }}</a>
-            <a href="/about/" data-i18n="landing.nav.about">{{ strings.get('landing.nav.about', 'About') }}</a>
-            <a href="/pricing/" data-i18n="landing.nav.pricing">{{ strings.get('landing.nav.pricing', 'Pricing') }}</a>
-            <a href="/privacy" data-i18n="landing.nav.privacy">{{ strings.get('landing.nav.privacy', 'Privacy') }}</a>
+            <a href="{{ locale_path }}use-cases/" data-i18n="landing.nav.usecases">{{ strings.get('landing.nav.usecases', 'Use cases') }}</a>
+            <a href="{{ locale_path }}about/" data-i18n="landing.nav.about">{{ strings.get('landing.nav.about', 'About') }}</a>
+            <a href="{{ locale_path }}pricing/" data-i18n="landing.nav.pricing">{{ strings.get('landing.nav.pricing', 'Pricing') }}</a>
+            <a href="{{ locale_path }}privacy" data-i18n="landing.nav.privacy">{{ strings.get('landing.nav.privacy', 'Privacy') }}</a>
             <label class="landing-lang-wrap" for="landing-lang">
                 <span class="landing-lang-label" data-i18n="landing.lang">{{ strings.get('landing.lang', 'Language') }}</span>
                 <select id="landing-lang" class="landing-lang-select" data-i18n-aria="landing.lang" aria-label="{{ strings.get('landing.lang', 'Language') }}">

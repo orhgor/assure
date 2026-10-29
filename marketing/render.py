@@ -300,7 +300,6 @@ def _render_page(app, page: dict, locale: str) -> str:
             page_title = full.get(f"meta.{meta_prefix}.title") if meta_prefix else None
             if not page_title:
                 page_title = full.get("brand.page_title", "Assure")
-            page_title = f"{page_title} · Assure"
             page_description = (
                 full.get(f"meta.{meta_prefix}.description") if meta_prefix else None
             ) or full.get("brand.meta_description", "")
