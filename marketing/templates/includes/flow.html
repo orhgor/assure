@@ -1,7 +1,8 @@
 {#- One story, one component: Upload -> ParSure -> CrossSure -> A person decides.
     Optional context overrides: flow_id, flow_line1, flow_line2, flow_line3, flow_line4 (already-resolved strings). -#}
 <section id="{{ flow_id|default('steps') }}" class="flow-section">
-    <div class="container">
+    <div class="container">{% if flow_title %}
+        <h2 class="section-title">{{ flow_title }}</h2>{% endif %}
         <ol class="flow" aria-label="{{ strings.get('flow.aria', 'From upload to a person\'s decision') }}">
             <li class="flow-card">
                 <svg class="flow-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="m9 15 2 2 4-4"/></svg>
@@ -32,7 +33,17 @@
                 <h3 class="flow-name" data-i18n="flow.4.name">{{ strings.get('flow.4.name', 'Review') }}</h3>
                 <p class="flow-line">{{ flow_line4|default(strings.get('flow.4.line', 'A person decides.')) }}</p>
             </li>
-        </ol>
-        <p class="flow-source" data-i18n="flow.source">{{ strings.get('flow.source', 'Every finding links to its source page.') }}</p>
+{% if flow_line5 %}
+            <li class="flow-arrow" aria-hidden="true">
+                <svg class="flow-arrow-icon" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+            </li>
+            <li class="flow-card">
+                <svg class="flow-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                <h3 class="flow-name">{{ flow_name5 }}</h3>
+                <p class="flow-line">{{ flow_line5 }}</p>
+            </li>
+{% endif %}        </ol>
+        <p class="flow-source" data-i18n="flow.source">{{ strings.get('flow.source', 'Every finding links to its source page.') }}</p>{% if flow_more %}
+        <p class="home-more"><a href="{{ flow_more_href }}">{{ flow_more }}</a> <span aria-hidden="true">→</span></p>{% endif %}
     </div>
 </section>
