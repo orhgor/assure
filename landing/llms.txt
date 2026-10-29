@@ -1,31 +1,33 @@
-# Assure AI
+# Assure
 
-Assure AI is the deterministic truth engine for high-stakes documents. It verifies every claim, number, and citation in AI-generated business documents against the source files, producing an audit-ready trail of provenance.
+Assure is the document verification layer for teams that must check documents before they act. It reads every file, links the facts across documents and checks each fact against your rules, your registers and the other documents. Every finding shows the page it came from, and a person approves or rejects it.
 
-## Product
+## How it works
 
-- Deterministic math verification with formal logic (Z3)
-- Page-level provenance: every output points to its exact source page
-- Adversarial audit that flags contradictions and unsupported claims before export
-- Audit-ready export with cryptographic locks and reviewer sign-offs
-- Works with the user's own model keys; documents processed on Assure servers, never used for training
+- Upload: scans, PDFs, forms and SAP exports.
+- ParSure reads every file, including handwritten and scanned reports.
+- CrossSure checks each fact against your rules, registers and the other documents.
+- Review: a person approves or rejects each finding, with its source page.
+- Draft: DraftSure drafts only from facts the reviewer approved.
 
 ## Who it is for
 
-Investment bankers and analysts (CIMs, financial models), clinical and grant researchers (abstracts vs raw tables), legal counsel and compliance (contract review, regulatory submissions), technical architects (spec documentation), journalists and fact-checkers (source-grounded quotes).
+Public bodies and government services, insurers, fuel retailers and distributors, industrial and manufacturing groups, and aviation and engineering maintenance teams.
+
+## Deployment
+
+Runs in your own AWS account or on-premises. You choose where the models run, including your own GPU servers. Access is set per project, and actions and decisions are recorded in an activity log.
 
 ## Key pages
 
 - Home: https://getassureai.com/
-- Architecture: https://getassureai.com/architecture/
-- Government services: https://getassureai.com/government/
 - Use cases: https://getassureai.com/use-cases/
+- Government use case: https://getassureai.com/use-cases/government/
+- Insurance use case: https://getassureai.com/use-cases/insurance/
+- Fuel retail use case: https://getassureai.com/use-cases/fuel-retail/
+- About: https://getassureai.com/about/
+- Security and data: https://getassureai.com/security/
 - Pricing: https://getassureai.com/pricing/
+- Contact: https://getassureai.com/contact-us/
 - Privacy: https://getassureai.com/privacy/
 - Terms: https://getassureai.com/terms/
-- About: https://getassureai.com/about/
-- Contact sales: https://getassureai.com/contact-us/
-
-## Positioning
-
-Most enterprise AI tools extract, draft, or search documents. Assure is built to prove that every output is grounded in the source. The output is a document; the product is verification.
