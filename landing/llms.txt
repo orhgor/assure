@@ -1,4 +1,4 @@
-# Assure
+# Assure: The document verification layer for enterprises
 
 Assure is the document verification layer for teams that must check documents before they act. It reads every file, links the facts across documents and checks each fact against your rules, your registers and the other documents. Every finding shows the page it came from, and a person approves or rejects it.
 
