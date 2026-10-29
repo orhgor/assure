@@ -28,7 +28,7 @@
     {% if locale|default('en') == 'ar' %}
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
     {% endif %}
-    <link rel="stylesheet" href="{{ url_for('static', filename='landing.css') }}?v={{ landing_css_version|default('87') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='landing.css') }}?v={{ landing_css_version|default('88') }}">
     {% for item in json_ld %}
     <script type="application/ld+json">{{ item|tojson }}</script>
     {% endfor %}
@@ -38,54 +38,100 @@
     {% include 'includes/landing_header.html' %}
 
     <main id="main-content">
-{% set uc_cases = [
-  {'id':'gov','title':strings.get('uc.gov.title',''),'sub':strings.get('uc.gov.sub',''),'f1':strings.get('uc.gov.flow.1',''),'f2':strings.get('uc.gov.flow.2',''),'f3':strings.get('uc.gov.flow.3',''),'slug':'government','finding':strings.get('uc.gov.sample.finding','The name on the ID does not match the name on the application form.'),'src':strings.get('uc.gov.sample.source','ID, page 2 · Application form, page 1')},
-  {'id':'ins','title':strings.get('uc.ins.title',''),'sub':strings.get('uc.ins.sub',''),'f1':strings.get('uc.ins.flow.1',''),'f2':strings.get('uc.ins.flow.2',''),'f3':strings.get('uc.ins.flow.3',''),'slug':'insurance','finding':strings.get('uc.ins.sample.finding','The invoice total is different from the amount on the claim form.'),'src':strings.get('uc.ins.sample.source','Invoice, page 1 · Claim form, page 3')},
-  {'id':'fuel','title':strings.get('uc.fuel.title',''),'sub':strings.get('uc.fuel.sub',''),'f1':strings.get('uc.fuel.flow.1',''),'f2':strings.get('uc.fuel.flow.2',''),'f3':strings.get('uc.fuel.flow.3',''),'slug':'fuel-retail','finding':strings.get('uc.fuel.sample.finding','The bonus rate on the statement is different from the rate in the agreement.'),'src':strings.get('uc.fuel.sample.source','Statement, page 4 · Agreement, clause 6')}
-] %}
         <section class="hero-section gov-hero uc2-hero">
             <div class="container">
                 <h1 class="hero-title" data-i18n="uc.index.title">{{ strings.get('uc.index.title', 'Use cases') }}</h1>
-                <p class="hero-sub" data-i18n="uc.index.sub">{{ strings.get('uc.index.sub', 'Three ways teams use Assure to check documents against rules, registers and each other.') }}</p>
+                <p class="hero-sub" data-i18n="uc.index.sub">{{ strings.get('uc.index.sub', '') }}</p>
+            </div>
+        </section>
+        <section class="uc3-how" aria-labelledby="uc3-how-title">
+            <div class="container">
+                <h2 class="uc2-label" id="uc3-how-title" data-i18n="uc3.how.label">{{ strings.get('uc3.how.label', '') }}</h2>
+                <ol class="uc3-how-steps">
+                    <li><span class="uc3-how-n">1</span><strong>{{ strings.get('flow.1.name', 'ParSure') }}</strong><span data-i18n="uc3.how.1.text">{{ strings.get('uc3.how.1.text', '') }}</span></li>
+                    <li><span class="uc3-how-n">2</span><strong>{{ strings.get('flow.2.name', 'CrossSure') }}</strong><span data-i18n="uc3.how.2.text">{{ strings.get('uc3.how.2.text', '') }}</span></li>
+                    <li><span class="uc3-how-n">3</span><strong data-i18n="uc3.how.3.name">{{ strings.get('uc3.how.3.name', '') }}</strong><span data-i18n="uc3.how.3.text">{{ strings.get('uc3.how.3.text', '') }}</span></li>
+                    <li><span class="uc3-how-n">4</span><strong data-i18n="uc3.how.4.name">{{ strings.get('uc3.how.4.name', '') }}</strong><span data-i18n="uc3.how.4.text">{{ strings.get('uc3.how.4.text', '') }}</span></li>
+                </ol>
             </div>
         </section>
         <section class="uc2-list">
             <div class="container">
-                {% for c in uc_cases %}
-                <article class="uc2-case" id="{{ c.slug }}">
-                    <div class="uc2-intro">
-                        <span class="uc2-num">0{{ loop.index }}</span>
-                        <h2 class="uc2-title" data-i18n="uc.{{ c.id }}.title">{{ c.title }}</h2>
-                        <p class="uc2-sub">{{ c.sub }}</p>
-                        <a class="uc2-more" href="{{ locale_path }}use-cases/{{ c.slug }}/">{{ strings.get('uc.more', 'See how it works') }} <span aria-hidden="true" class="uc2-arrow">→</span></a>
+                <!-- 01 Government: ID card beside form, findings as a checklist -->
+                <article class="uc3-case uc3-gov" id="government">
+                    <div class="uc3-intro">
+                        <span class="uc2-num">01</span>
+                        <h2 class="uc2-title" data-i18n="uc.gov.title">{{ strings.get('uc.gov.title', '') }}</h2>
+                        <p class="uc2-sub">{{ strings.get('uc.gov.sub', '') }}</p>
+                        <h3 class="uc2-label">{{ strings.get('uc3.label.docs', '') }}</h3>
+                        <ul class="uc3-docs">
+                            <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg><span data-i18n="uc3.gov.doc.1">{{ strings.get('uc3.gov.doc.1', '') }}</span></li><li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg><span data-i18n="uc3.gov.doc.2">{{ strings.get('uc3.gov.doc.2', '') }}</span></li><li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg><span data-i18n="uc3.gov.doc.3">{{ strings.get('uc3.gov.doc.3', '') }}</span></li>
+                        </ul>
+                        <a class="uc2-more" href="{{ locale_path }}use-cases/government/">{{ strings.get('uc.more', 'See how it works') }} <span aria-hidden="true" class="uc2-arrow">→</span></a>
                     </div>
-                    <div class="uc2-col">
-                        <h3 class="uc2-label">{{ strings.get('uc.label.checks', 'What Assure checks') }}</h3>
-                        <ol class="uc2-steps">
-                            <li><span class="uc2-step-name">{{ strings.get('flow.1.name', 'ParSure') }}</span><span>{{ c.f1 }}</span></li>
-                            <li><span class="uc2-step-name">{{ strings.get('flow.2.name', 'CrossSure') }}</span><span>{{ c.f2 }}</span></li>
-                            <li><span class="uc2-step-name">{{ strings.get('flow.3.name', 'Assure') }}</span><span>{{ c.f3 }}</span></li>
-                        </ol>
-                    </div>
-                    <div class="uc2-col">
-                        <h3 class="uc2-label">{{ strings.get('uc.label.sees', 'What the reviewer sees') }}</h3>
-                        <div class="uc2-sketch" aria-hidden="true">
-                            <span class="uc2-sketch-label">{{ strings.get('uc.label.before', 'What you send') }}</span>
-                            <div class="uc2-sketch-pages">
-                                <div class="uc2-sheet"><i></i><i class="uc2-hl"></i><i></i><i class="short"></i></div>
-                                <div class="uc2-sheet"><i></i><i></i><i class="uc2-hl"></i><i class="short"></i></div>
-                            </div>
+                    <div class="uc3-body">
+                        <div class="uc3-sketch" aria-hidden="true">
+                            <figure class="uc3-idcard"><div class="uc3-photo"></div><div class="uc3-lines"><i class="uc2-hl"></i><i></i><i class="uc3-warn"></i><i class="short"></i></div><figcaption>{{ strings.get('uc3.gov.sk.1', '') }}</figcaption></figure>
+                            <figure class="uc3-form"><div class="uc3-field"><b></b><i class="uc2-hl"></i></div><div class="uc3-field"><b></b><i></i></div><div class="uc3-field"><b></b><i></i></div><div class="uc3-attach"><span></span><span></span><span class="uc3-missing"></span></div><figcaption>{{ strings.get('uc3.gov.sk.2', '') }}</figcaption></figure>
                         </div>
-                        <div class="uc2-finding">
-                            <span class="uc2-finding-tag">{{ strings.get('uc.sample.label', 'Sample finding') }}</span>
-                            <p class="uc2-finding-text">{{ c.finding }}</p>
-                            <p class="uc2-finding-src"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg>{{ c.src }}</p>
-                            <p class="uc2-finding-approve"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m16 11 2 2 4-4"/><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg><span data-i18n="flow.badge">{{ strings.get('flow.badge', 'Human approval') }}</span></p>
-                        </div>
+                        <h3 class="uc2-label">{{ strings.get('uc3.label.findings', '') }}</h3>
+                        <ul class="uc3-checklist">
+                            <li><span class="uc3-x" aria-hidden="true">✕</span><div><p data-i18n="uc3.gov.f.1">{{ strings.get('uc3.gov.f.1', '') }}</p><p class="uc3-src"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg>{{ strings.get('uc3.gov.s.1', '') }}</p></div></li><li><span class="uc3-x" aria-hidden="true">✕</span><div><p data-i18n="uc3.gov.f.2">{{ strings.get('uc3.gov.f.2', '') }}</p><p class="uc3-src"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg>{{ strings.get('uc3.gov.s.2', '') }}</p></div></li><li><span class="uc3-x" aria-hidden="true">✕</span><div><p data-i18n="uc3.gov.f.3">{{ strings.get('uc3.gov.f.3', '') }}</p><p class="uc3-src"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg>{{ strings.get('uc3.gov.s.3', '') }}</p></div></li>
+                        </ul>
+                        <p class="uc3-outcome"><span class="uc3-outcome-label">{{ strings.get('uc3.label.outcome', '') }}</span><span data-i18n="uc3.gov.outcome">{{ strings.get('uc3.gov.outcome', '') }}</span></p>
                     </div>
                 </article>
-                {% endfor %}
-                <p class="flow-source" data-i18n="flow.source">{{ strings.get('flow.source', 'Every finding links to its source page.') }}</p>
+                <!-- 02 Insurance: invoice beside claim form, findings as a table -->
+                <article class="uc3-case uc3-ins uc3-flip" id="insurance">
+                    <div class="uc3-intro">
+                        <span class="uc2-num">02</span>
+                        <h2 class="uc2-title" data-i18n="uc.ins.title">{{ strings.get('uc.ins.title', '') }}</h2>
+                        <p class="uc2-sub">{{ strings.get('uc.ins.sub', '') }}</p>
+                        <h3 class="uc2-label">{{ strings.get('uc3.label.docs', '') }}</h3>
+                        <ul class="uc3-docs">
+                            <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg><span data-i18n="uc3.ins.doc.1">{{ strings.get('uc3.ins.doc.1', '') }}</span></li><li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg><span data-i18n="uc3.ins.doc.2">{{ strings.get('uc3.ins.doc.2', '') }}</span></li><li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg><span data-i18n="uc3.ins.doc.3">{{ strings.get('uc3.ins.doc.3', '') }}</span></li>
+                        </ul>
+                        <a class="uc2-more" href="{{ locale_path }}use-cases/insurance/">{{ strings.get('uc.more', 'See how it works') }} <span aria-hidden="true" class="uc2-arrow">→</span></a>
+                    </div>
+                    <div class="uc3-body">
+                        <div class="uc3-sketch" aria-hidden="true">
+                            <figure class="uc3-invoice"><div class="uc3-inv-head"><b></b><b class="short"></b></div><div class="uc3-inv-row"><i></i><i class="num"></i></div><div class="uc3-inv-row"><i></i><i class="num"></i></div><div class="uc3-inv-row"><i></i><i class="num"></i></div><div class="uc3-inv-total"><i></i><i class="num uc2-hl"></i></div><figcaption>{{ strings.get('uc3.ins.sk.1', '') }}</figcaption></figure>
+                            <figure class="uc3-form"><div class="uc3-field"><b></b><i></i></div><div class="uc3-field"><b></b><i class="uc3-warn"></i></div><div class="uc3-field"><b></b><i class="uc2-hl"></i></div><div class="uc3-field"><b></b><i></i></div><figcaption>{{ strings.get('uc3.ins.sk.2', '') }}</figcaption></figure>
+                        </div>
+                        <h3 class="uc2-label">{{ strings.get('uc3.label.findings', '') }}</h3>
+                        <table class="uc3-table">
+                            <thead><tr><th>{{ strings.get('uc3.col.finding', '') }}</th><th>{{ strings.get('uc3.col.source', '') }}</th></tr></thead>
+                            <tbody>
+                            <tr><td data-i18n="uc3.ins.f.1">{{ strings.get('uc3.ins.f.1', '') }}</td><td class="uc3-src">{{ strings.get('uc3.ins.s.1', '') }}</td></tr><tr><td data-i18n="uc3.ins.f.2">{{ strings.get('uc3.ins.f.2', '') }}</td><td class="uc3-src">{{ strings.get('uc3.ins.s.2', '') }}</td></tr><tr><td data-i18n="uc3.ins.f.3">{{ strings.get('uc3.ins.f.3', '') }}</td><td class="uc3-src">{{ strings.get('uc3.ins.s.3', '') }}</td></tr>
+                            </tbody>
+                        </table>
+                        <p class="uc3-outcome"><span class="uc3-outcome-label">{{ strings.get('uc3.label.outcome', '') }}</span><span data-i18n="uc3.ins.outcome">{{ strings.get('uc3.ins.outcome', '') }}</span></p>
+                    </div>
+                </article>
+                <!-- 03 Fuel retail: statement table beside agreement clause, findings as side-by-side comparisons -->
+                <article class="uc3-case uc3-fuel" id="fuel-retail">
+                    <div class="uc3-intro">
+                        <span class="uc2-num">03</span>
+                        <h2 class="uc2-title" data-i18n="uc.fuel.title">{{ strings.get('uc.fuel.title', '') }}</h2>
+                        <p class="uc2-sub">{{ strings.get('uc.fuel.sub', '') }}</p>
+                        <h3 class="uc2-label">{{ strings.get('uc3.label.docs', '') }}</h3>
+                        <ul class="uc3-docs">
+                            <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg><span data-i18n="uc3.fuel.doc.1">{{ strings.get('uc3.fuel.doc.1', '') }}</span></li><li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg><span data-i18n="uc3.fuel.doc.2">{{ strings.get('uc3.fuel.doc.2', '') }}</span></li><li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg><span data-i18n="uc3.fuel.doc.3">{{ strings.get('uc3.fuel.doc.3', '') }}</span></li>
+                        </ul>
+                        <a class="uc2-more" href="{{ locale_path }}use-cases/fuel-retail/">{{ strings.get('uc.more', 'See how it works') }} <span aria-hidden="true" class="uc2-arrow">→</span></a>
+                    </div>
+                    <div class="uc3-body">
+                        <div class="uc3-sketch" aria-hidden="true">
+                            <figure class="uc3-stmt"><div class="uc3-grid"><i></i><i></i><i></i><i></i><i class="uc3-warn"></i><i></i><i></i><i></i><i class="uc2-hl"></i><i></i><i></i><i></i></div><figcaption>{{ strings.get('uc3.fuel.sk.1', '') }}</figcaption></figure>
+                            <figure class="uc3-clause"><span class="uc3-sec">§ 6</span><div class="uc3-lines"><i></i><i class="uc2-hl"></i><i></i><i class="short"></i></div><span class="uc3-sec">§ 7</span><div class="uc3-lines"><i class="uc3-warn"></i><i class="short"></i></div><figcaption>{{ strings.get('uc3.fuel.sk.2', '') }}</figcaption></figure>
+                        </div>
+                        <h3 class="uc2-label">{{ strings.get('uc3.label.findings', '') }}</h3>
+                        <div class="uc3-compare">
+                            <div class="uc3-cmp"><p class="uc3-cmp-text" data-i18n="uc3.fuel.f.1">{{ strings.get('uc3.fuel.f.1', '') }}</p><div class="uc3-cmp-pair"><span><em>{{ strings.get('uc3.col.statement', '') }}</em>{{ strings.get('uc3.fuel.a.1', '') }}</span><span class="uc3-ne" aria-hidden="true">≠</span><span><em>{{ strings.get('uc3.col.against', '') }}</em>{{ strings.get('uc3.fuel.b.1', '') }}</span></div></div><div class="uc3-cmp"><p class="uc3-cmp-text" data-i18n="uc3.fuel.f.2">{{ strings.get('uc3.fuel.f.2', '') }}</p><div class="uc3-cmp-pair"><span><em>{{ strings.get('uc3.col.statement', '') }}</em>{{ strings.get('uc3.fuel.a.2', '') }}</span><span class="uc3-ne" aria-hidden="true">≠</span><span><em>{{ strings.get('uc3.col.against', '') }}</em>{{ strings.get('uc3.fuel.b.2', '') }}</span></div></div><div class="uc3-cmp"><p class="uc3-cmp-text" data-i18n="uc3.fuel.f.3">{{ strings.get('uc3.fuel.f.3', '') }}</p><div class="uc3-cmp-pair"><span><em>{{ strings.get('uc3.col.statement', '') }}</em>{{ strings.get('uc3.fuel.a.3', '') }}</span><span class="uc3-ne" aria-hidden="true">≠</span><span><em>{{ strings.get('uc3.col.against', '') }}</em>{{ strings.get('uc3.fuel.b.3', '') }}</span></div></div>
+                        </div>
+                        <p class="uc3-outcome"><span class="uc3-outcome-label">{{ strings.get('uc3.label.outcome', '') }}</span><span data-i18n="uc3.fuel.outcome">{{ strings.get('uc3.fuel.outcome', '') }}</span></p>
+                    </div>
+                </article>
             </div>
         </section>
         {% include 'includes/demo_cta.html' %}
