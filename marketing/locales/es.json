@@ -534,7 +534,7 @@
   "landing.hero.cta_secondary": "Ver hallazgos de ejemplo",
   "landing.hero.deployment": "Se ejecuta en su propia cuenta AWS o en sus propios servidores. Sus documentos nunca salen de su entorno.",
   "flow.4.name": "Una persona decide",
-  "flow.4.line": "Una persona decide.",
+  "flow.4.line": "Una persona revisa cada hallazgo y decide.",
   "landing.usecases.title": "Hallazgos de ejemplo",
   "landing.usecase.gov": "Documentos gubernamentales",
   "landing.usecase.gov.desc": "Verifique archivos de solicitantes por documentos faltantes, incorrectos y nombres no coincidentes, luego cruce con reglas de elegibilidad antes de que una persona decida.",

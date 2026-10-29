@@ -537,7 +537,7 @@
   "landing.hero.cta_secondary": "查看示例发现",
   "landing.hero.deployment": "运行在您自己的 AWS 账户或自有服务器上。您的文档永不离开您的环境。",
   "flow.4.name": "由人工决定",
-  "flow.4.line": "由人工决定。",
+  "flow.4.line": "人工复核每条发现并做决定。",
   "landing.usecases.title": "示例发现",
   "landing.usecase.gov": "政府文档",
   "landing.usecase.gov.desc": "检查申请人档案的缺失文档、错误文档和姓名不匹配，再按资格规则交叉核对，最后由人工决定。",

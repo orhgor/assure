@@ -534,7 +534,7 @@
   "landing.hero.cta_secondary": "Beispielfunde ansehen",
   "landing.hero.deployment": "Läuft in Ihrem eigenen AWS-Konto oder auf Ihren eigenen Servern. Ihre Dokumente verlassen Ihre Umgebung nie.",
   "flow.4.name": "Ein Mensch entscheidet",
-  "flow.4.line": "Ein Mensch entscheidet.",
+  "flow.4.line": "Ein Mensch prüft jeden Fund und entscheidet.",
   "landing.usecases.title": "Beispielfunde",
   "landing.usecase.gov": "Behördliche Dokumente",
   "landing.usecase.gov.desc": "Prüfen Sie Antragsunterlagen auf fehlende, falsche Dokumente und Namensabweichungen, dann gleichen Sie mit Berechtigungsregeln ab, bevor ein Mensch entscheidet.",

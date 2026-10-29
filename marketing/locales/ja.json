@@ -534,7 +534,7 @@
   "landing.hero.cta_secondary": "検出例を見る",
   "landing.hero.deployment": "お客様自身のAWSアカウントまたはオンプレミスで稼働。文書がお客様の環境から出ることはありません。",
   "flow.4.name": "人が判断",
-  "flow.4.line": "人が判断。",
+  "flow.4.line": "人が各検出結果を確認し、判断します。",
   "landing.usecases.title": "検出例",
   "landing.usecase.gov": "行政文書",
   "landing.usecase.gov.desc": "申請者のファイルから不足書類、誤った書類、氏名の不一致をチェックし、適格ルールと照合した上で、人が判断します。",

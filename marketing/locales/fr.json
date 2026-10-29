@@ -534,7 +534,7 @@
   "landing.hero.cta_secondary": "Voir des découvertes d'exemple",
   "landing.hero.deployment": "S'exécute dans votre propre compte AWS ou sur vos propres serveurs. Vos documents ne quittent jamais votre environnement.",
   "flow.4.name": "Une personne décide",
-  "flow.4.line": "Une personne décide.",
+  "flow.4.line": "Une personne examine chaque découverte et décide.",
   "landing.usecases.title": "Découvertes d'exemple",
   "landing.usecase.gov": "Documents gouvernementaux",
   "landing.usecase.gov.desc": "Vérifiez les dossiers des demandeurs pour documents manquants, incorrects et noms non correspondants, puis croisez avec les règles d'éligibilité avant qu'une personne ne décide.",
