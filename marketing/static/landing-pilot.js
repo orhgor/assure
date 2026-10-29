@@ -1,20 +1,66 @@
 (function () {
   "use strict";
 
-  function openDemo() {
+  var demoTrigger = null;
+  var FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+  function demoFocusables(modal) {
+    return Array.prototype.filter.call(modal.querySelectorAll(FOCUSABLE), function (el) {
+      return el.getClientRects().length > 0;
+    });
+  }
+
+  function demoKeys(e) {
     var modal = document.getElementById("download-modal");
-    if (!modal) return;
+    if (!modal || modal.hidden) return;
+    if (e.key === "Escape") {
+      e.preventDefault();
+      closeDemo();
+      return;
+    }
+    if (e.key !== "Tab") return;
+    var f = demoFocusables(modal);
+    if (!f.length) {
+      e.preventDefault();
+      return;
+    }
+    var first = f[0];
+    var last = f[f.length - 1];
+    var active = document.activeElement;
+    if (e.shiftKey && (active === first || !modal.contains(active))) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && (active === last || !modal.contains(active))) {
+      e.preventDefault();
+      first.focus();
+    }
+  }
+
+  function openDemo(trigger) {
+    var modal = document.getElementById("download-modal");
+    if (!modal || !modal.hidden) return;
+    demoTrigger = trigger || document.activeElement;
     modal.hidden = false;
     document.body.classList.add("demo-open");
+    document.addEventListener("keydown", demoKeys);
     var email = document.getElementById("demo-email");
-    if (email) email.focus();
+    if (email && email.getClientRects().length) {
+      email.focus();
+    } else {
+      var f = demoFocusables(modal);
+      if (f.length) f[0].focus();
+    }
   }
 
   function closeDemo() {
     var modal = document.getElementById("download-modal");
     if (!modal) return;
+    var wasOpen = !modal.hidden;
     modal.hidden = true;
     document.body.classList.remove("demo-open");
+    document.removeEventListener("keydown", demoKeys);
+    if (wasOpen && demoTrigger && typeof demoTrigger.focus === "function") demoTrigger.focus();
+    demoTrigger = null;
     var wrap = document.getElementById("pilot-form-wrap");
     var form = document.getElementById("demo-form");
     var done = document.getElementById("demo-done");
@@ -40,15 +86,12 @@
     document.querySelectorAll("[data-demo-open]").forEach(function (el) {
       el.addEventListener("click", function (e) {
         e.preventDefault();
-        openDemo();
+        openDemo(el);
       });
     });
     if (!modal) return;
     modal.querySelectorAll("[data-demo-close]").forEach(function (el) {
       el.addEventListener("click", closeDemo);
-    });
-    document.addEventListener("keydown", function (e) {
-      if (e.key === "Escape" && !modal.hidden) closeDemo();
     });
     if (!form) return;
     form.addEventListener("submit", function (e) {
