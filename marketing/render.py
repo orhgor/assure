@@ -338,6 +338,30 @@ def _render_page(app, page: dict, locale: str) -> str:
                         "inLanguage": locale,
                     }
                 )
+                json_ld.append(
+                    {
+                        "@context": "https://schema.org",
+                        "@type": "SoftwareApplication",
+                        "name": "Assure",
+                        "applicationCategory": "BusinessApplication",
+                        "description": page_description,
+                        "url": page_url,
+                        "inLanguage": locale,
+                    }
+                )
+                faq = [(full.get(f"home.faq.{i}.q"), full.get(f"home.faq.{i}.a")) for i in range(1, 5)]
+                if all(q and a for q, a in faq):
+                    json_ld.append(
+                        {
+                            "@context": "https://schema.org",
+                            "@type": "FAQPage",
+                            "inLanguage": locale,
+                            "mainEntity": [
+                                {"@type": "Question", "name": q, "acceptedAnswer": {"@type": "Answer", "text": a}}
+                                for q, a in faq
+                            ],
+                        }
+                    )
             else:
                 home_name = full.get("meta.home.name", "Home")
                 json_ld.append(

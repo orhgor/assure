@@ -44,12 +44,18 @@
                 <p class="hero-sub" data-i18n="uc.index.sub">{{ strings.get('uc.index.sub', '') }}</p>
             </div>
         </section>
+        <section id="problem" class="home-section home-pain">
+            <div class="container">
+                <h2 class="section-title" data-i18n="home.pain.title">{{ strings.get('home.pain.title', 'Your decisions run on documents.') }}</h2>
+                <p class="section-sub" data-i18n="home.pain.body">{{ strings.get('home.pain.body', 'Most of them, including handwritten and signed-off reports, are never fully read, checked against each other or connected to your risk review.') }}</p>
+            </div>
+        </section>
         <section class="uc3-how" aria-labelledby="uc3-how-title">
             <div class="container">
                 <h2 class="uc2-label" id="uc3-how-title" data-i18n="uc3.how.label">{{ strings.get('uc3.how.label', '') }}</h2>
                 <ol class="uc3-how-steps">
-                    <li><span class="uc3-how-n">1</span><strong>{{ strings.get('flow.1.name', 'ParSure') }}</strong><span data-i18n="uc3.how.1.text">{{ strings.get('uc3.how.1.text', '') }}</span></li>
-                    <li><span class="uc3-how-n">2</span><strong>{{ strings.get('flow.2.name', 'CrossSure') }}</strong><span data-i18n="uc3.how.2.text">{{ strings.get('uc3.how.2.text', '') }}</span></li>
+                    <li><span class="uc3-how-n">1</span><strong>{{ strings.get('flow.2.name', 'ParSure') }}</strong><span data-i18n="uc3.how.1.text">{{ strings.get('uc3.how.1.text', '') }}</span></li>
+                    <li><span class="uc3-how-n">2</span><strong>{{ strings.get('flow.3.name', 'CrossSure') }}</strong><span data-i18n="uc3.how.2.text">{{ strings.get('uc3.how.2.text', '') }}</span></li>
                     <li><span class="uc3-how-n">3</span><strong data-i18n="uc3.how.3.name">{{ strings.get('uc3.how.3.name', '') }}</strong><span data-i18n="uc3.how.3.text">{{ strings.get('uc3.how.3.text', '') }}</span></li>
                     <li><span class="uc3-how-n">4</span><strong data-i18n="uc3.how.4.name">{{ strings.get('uc3.how.4.name', '') }}</strong><span data-i18n="uc3.how.4.text">{{ strings.get('uc3.how.4.text', '') }}</span></li>
                 </ol>
@@ -132,6 +138,22 @@
                         <p class="uc3-outcome"><span class="uc3-outcome-label">{{ strings.get('uc3.label.outcome', '') }}</span><span data-i18n="uc3.fuel.outcome">{{ strings.get('uc3.fuel.outcome', '') }}</span></p>
                     </div>
                 </article>
+            </div>
+        </section>
+        <section id="workflows" class="home-section">
+            <div class="container">
+                <h2 class="section-title" data-i18n="home.uses.title">{{ strings.get('home.uses.title', 'The same checks, across your document work.') }}</h2>
+                <p class="section-sub" data-i18n="home.uses.sub">{{ strings.get('home.uses.sub', 'Wherever a decision depends on documents, the layer can check them first.') }}</p>
+                <ul class="home-list home-list-two">
+                        <li class="home-item"><h3 data-i18n="home.uses.1.name">{{ strings.get('home.uses.1.name', 'Onboarding and KYC files.') }}</h3><p data-i18n="home.uses.1.text">{{ strings.get('home.uses.1.text', 'IDs, certificates and forms checked against each other and your registers.') }}</p></li>
+                        <li class="home-item"><h3 data-i18n="home.uses.2.name">{{ strings.get('home.uses.2.name', 'Claims and payouts.') }}</h3><p data-i18n="home.uses.2.text">{{ strings.get('home.uses.2.text', 'Claim files checked against policies and supporting documents.') }}</p></li>
+                        <li class="home-item"><h3 data-i18n="home.uses.3.name">{{ strings.get('home.uses.3.name', 'Supplier invoices and contracts.') }}</h3><p data-i18n="home.uses.3.text">{{ strings.get('home.uses.3.text', 'Invoices checked against agreed prices, terms and delivery records.') }}</p></li>
+                        <li class="home-item"><h3 data-i18n="home.uses.4.name">{{ strings.get('home.uses.4.name', 'Tenders and procurement.') }}</h3><p data-i18n="home.uses.4.text">{{ strings.get('home.uses.4.text', 'Bids checked against the required documents and criteria.') }}</p></li>
+                        <li class="home-item"><h3 data-i18n="home.uses.5.name">{{ strings.get('home.uses.5.name', 'Grants and subsidies.') }}</h3><p data-i18n="home.uses.5.text">{{ strings.get('home.uses.5.text', 'Applications checked against eligibility rules.') }}</p></li>
+                        <li class="home-item"><h3 data-i18n="home.uses.6.name">{{ strings.get('home.uses.6.name', 'Compliance and audit evidence.') }}</h3><p data-i18n="home.uses.6.text">{{ strings.get('home.uses.6.text', 'Evidence files checked against the controls they must support.') }}</p></li>
+                        <li class="home-item"><h3 data-i18n="home.uses.7.name">{{ strings.get('home.uses.7.name', 'Reconciliations.') }}</h3><p data-i18n="home.uses.7.text">{{ strings.get('home.uses.7.text', 'Statements checked against agreements and sales records.') }}</p></li>
+                        <li class="home-item"><h3 data-i18n="home.uses.8.name">{{ strings.get('home.uses.8.name', 'Certificates and shipping files.') }}</h3><p data-i18n="home.uses.8.text">{{ strings.get('home.uses.8.text', 'Quality and origin certificates checked against the shipment and its customs documents.') }}</p></li>
+                </ul>
             </div>
         </section>
         {% include 'includes/demo_cta.html' %}

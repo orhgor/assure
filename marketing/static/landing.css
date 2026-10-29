@@ -4129,3 +4129,41 @@ html[dir="rtl"] .flow-arrow-approval .flow-badge { left: auto; right: 50%; trans
 @media (prefers-reduced-motion: reduce) {
     .hd *, .hero-title .rw, .fx .hero-sub, .fx .home-edge { animation: none !important; transition: none !important; }
 }
+
+/* home lean: hero card solo, how it works, who, faq, about sections */
+.home-edge-solo { grid-template-columns: 1fr; max-width: 34rem; border-top: 0; padding-top: 0; }
+#how { padding-top: var(--space-6, 48px); }
+#how .section-title { margin: 0 0 var(--space-4, 32px); }
+#how .flow { max-width: 74rem; }
+#how .flow-card:last-child { background: #fff; border-color: #e2e8f0; border-top-color: #0a0a0a; }
+#how .flow-card:last-child .flow-name, #how .flow-card:last-child .flow-icon { color: #0a0a0a; }
+#how .flow-card:last-child .flow-line { color: #475569; }
+#how .flow-card:nth-last-child(3) { background: #0a0a0a; border-color: #0a0a0a; border-top-color: var(--accent-green); }
+#how .flow-card:nth-last-child(3) .flow-name, #how .flow-card:nth-last-child(3) .flow-icon { color: #fff; }
+#how .flow-card:nth-last-child(3) .flow-line { color: #cbd5e1; }
+.home-who { list-style: none; margin: 0 auto; padding: 0; max-width: 60rem; display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px 32px; text-align: start; }
+.home-who-item h3 { font-size: 1rem; margin: 0 0 4px; color: #0a0a0a; }
+.home-who-item h3 a { color: #0a0a0a; text-decoration: underline; text-underline-offset: 3px; }
+.home-who-item p { margin: 0; color: #334155; font-size: 0.95rem; line-height: 1.55; }
+.home-wf { max-width: 60rem; margin: var(--space-4, 32px) auto 0; display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; align-items: center; }
+.home-wf-label { color: #475569; font-weight: 500; }
+.home-chips { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+.home-chip { border: 1px solid #e2e8f0; border-radius: 9999px; padding: 3px 10px; font-size: 0.85rem; color: #334155; background: #fff; }
+#who .home-more, #different .home-more, #how .home-more { text-align: center; }
+.home-list-three { grid-template-columns: repeat(3, 1fr); }
+.home-faq { max-width: 60rem; margin: 0 auto; display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px 32px; text-align: start; }
+.home-faq h3 { font-size: 1rem; margin: 0 0 6px; color: #0a0a0a; }
+.home-faq p { margin: 0; color: #334155; line-height: 1.6; font-size: 0.95rem; }
+.about-sec { margin-top: var(--space-4, 32px); }
+.about-sec .section-title { text-align: start; }
+.about-sec .section-sub, .about-sec .home-inputs { text-align: start; margin-inline: 0; }
+.about-sec .home-list { grid-template-columns: 1fr 1fr; }
+.about-sec .section-title, .about-sec .section-sub, .about-sec .home-inputs, .about-sec .home-item h3, .about-sec .home-item strong { color: inherit; }
+.about-sec .home-item p { color: inherit; opacity: 0.8; }
+.about-sec .home-item { border-top-color: rgba(148, 163, 184, 0.25); }
+@media (max-width: 760px) {
+    .home-who, .home-faq, .home-list-three, .about-sec .home-list { grid-template-columns: 1fr; }
+}
+
+.home-example { padding-top: 0; }
+.home-example .home-edge-solo { margin-top: 0; }

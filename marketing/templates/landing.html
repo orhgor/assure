@@ -44,23 +44,23 @@
     <main id="main-content">
         <section class="hero-section">
             <div class="container">
-                <h1 class="hero-title" data-i18n-html="brand.hero_title_html">{{ strings.get('brand.hero_title_html', 'The document verification layer for enterprises.')|safe }}</h1>
-                <p class="hero-sub" data-i18n="landing.hero.lead">{{ strings.get('landing.hero.lead', 'Turn scattered documents into checked facts your teams can work with.') }}</p>
-                <p class="home-hero-body" data-i18n="landing.hero.subtitle">{{ strings.get('landing.hero.subtitle', 'Assure reads every file, links the facts across documents and checks them against your rules and registers. Every finding shows its page, and a person decides.') }}</p>
+                <h1 class="hero-title" data-i18n-html="brand.hero_title_html">{{ strings.get('brand.hero_title_html', 'Documents in. Checked findings out.')|safe }}</h1>
+                <p class="hero-sub" data-i18n="landing.hero.lead">{{ strings.get('landing.hero.lead', 'Assure reads your files, cross-checks every fact and flags each mismatch with its page.') }}</p>
+                <p class="home-hero-body" data-i18n="landing.hero.subtitle">{{ strings.get('landing.hero.subtitle', 'You make the call.') }}</p>
                 <div class="hero-cta-group">
                     <a href="{{ locale_path }}use-cases/" class="btn-secondary" data-i18n="landing.hero.cta_secondary">{{ strings.get('landing.hero.cta_secondary', 'See example findings') }}</a>
                     <button type="button" class="btn-primary" data-demo-open data-i18n="landing.hero.cta_primary">{{ strings.get('landing.hero.cta_primary', 'Book a demo') }}</button>
                 </div>
-                <p class="hero-deployment" data-i18n="landing.hero.deployment">{{ strings.get('landing.hero.deployment', 'Runs in your own AWS account or on-premises. You choose where the models run.') }}</p>
-                <div class="home-edge">
-                    <div class="home-edge-copy">
-                        <h2 class="home-edge-lead" data-i18n="home.edge.lead">{{ strings.get('home.edge.lead', 'Other tools read documents. This layer checks them.') }}</h2>
-                        <ul class="home-edge-points">
-                            <li data-i18n="home.edge.1">{{ strings.get('home.edge.1', 'Every fact checked against your rules, registers and the other documents.') }}</li>
-                            <li data-i18n="home.edge.2">{{ strings.get('home.edge.2', 'Every finding linked to its source page.') }}</li>
-                            <li data-i18n="home.edge.3">{{ strings.get('home.edge.3', 'Drafts built only from approved facts, and a person decides.') }}</li>
-                        </ul>
-                    </div>
+                <p class="hero-deployment" data-i18n="landing.hero.deployment">{{ strings.get('landing.hero.deployment', 'Runs in your AWS account or on-prem. You pick where the models run.') }}</p>
+                </div>
+            </div>
+        </section>
+
+                {% set flow_id = 'how' %}{% set flow_title = strings.get('home.how.title', 'How it works') %}{% set flow_line1 = strings.get('home.how.1', 'Scans, PDFs, forms and SAP exports.') %}{% set flow_line2 = strings.get('home.how.2', 'ParSure reads every file, including handwritten and scanned reports.') %}{% set flow_line3 = strings.get('home.how.3', 'CrossSure checks each fact against your rules, registers and the other documents.') %}{% set flow_line4 = strings.get('home.how.4', 'A person approves or rejects each finding.') %}{% set flow_line5 = strings.get('home.how.5', 'DraftSure drafts only from approved facts.') %}{% set flow_name5 = strings.get('home.how.5.name', 'Draft') %}{% set flow_more = strings.get('home.how.more', 'See each step in detail') %}{% set flow_more_href = locale_path ~ 'about/#how' %}{% include 'includes/flow.html' %}
+
+        <section id="example" class="home-section home-example">
+            <div class="container">
+                <div class="home-edge home-edge-solo">
                     <div class="uc2-finding home-edge-card hd" data-hd role="group" aria-label="{{ strings.get('home.demo.aria', 'Example of one finding, from documents to a reviewer\'s decision') }}">
                         <span class="uc2-finding-tag" data-i18n="home.sample.tag">{{ strings.get('home.sample.tag', 'Example finding') }}</span>
                         <div class="hd-docs"><span class="hd-chip" data-i18n="home.demo.doc.1">{{ strings.get('home.demo.doc.1', 'Invoice') }}</span><span class="hd-chip" data-i18n="home.demo.doc.2">{{ strings.get('home.demo.doc.2', 'Contract') }}</span><span class="hd-chip" data-i18n="home.demo.doc.3">{{ strings.get('home.demo.doc.3', 'Delivery note') }}</span></div>
@@ -76,129 +76,64 @@
                         <div class="hd-review"><span data-i18n="home.demo.reviewer">{{ strings.get('home.demo.reviewer', 'Reviewer decides') }}</span><span class="hd-btn hd-ok" data-i18n="home.demo.approve">{{ strings.get('home.demo.approve', 'Approve') }}</span><span class="hd-btn" data-i18n="home.demo.reject">{{ strings.get('home.demo.reject', 'Reject') }}</span></div>
                         <p class="hd-draft" data-i18n="home.demo.draft">{{ strings.get('home.demo.draft', 'DraftSure: draft built from approved facts') }}</p>
                     </div>
-                </div>
             </div>
         </section>
 
-        <section id="problem" class="home-section home-pain">
+        <section id="who" class="use-case-cards">
             <div class="container">
-                <h2 class="section-title" data-i18n="home.pain.title">{{ strings.get('home.pain.title', 'Your decisions run on documents.') }}</h2>
-                <p class="section-sub" data-i18n="home.pain.body">{{ strings.get('home.pain.body', 'Most of them, including handwritten and signed-off reports, are never fully read, checked against each other or connected to your risk review.') }}</p>
-            </div>
-        </section>
-
-        <section id="fit" class="home-section">
-            <div class="container">
-                <h2 class="section-title" data-i18n="home.fit.title">{{ strings.get('home.fit.title', 'From a pile of files to a file your team can work.') }}</h2>
-                <p class="section-sub" data-i18n="home.fit.sub">{{ strings.get('home.fit.sub', 'Keep your forms, portals and case systems. The layer sits underneath and makes the documents usable.') }}</p>
-                <p class="home-inputs" data-i18n="home.fit.inputs">{{ strings.get('home.fit.inputs', 'Works with your SAP exports alongside contracts, invoices and receipts.') }}</p>
-                <ol class="home-list home-list-steps">
-                        <li class="home-item"><h3 data-i18n="home.fit.1.name">{{ strings.get('home.fit.1.name', 'Read.') }}</h3><p data-i18n="home.fit.1.text">{{ strings.get('home.fit.1.text', 'Every scan, PDF and form becomes clear facts: names, amounts, dates, terms.') }}</p></li>
-                        <li class="home-item"><h3 data-i18n="home.fit.2.name">{{ strings.get('home.fit.2.name', 'Link.') }}</h3><p data-i18n="home.fit.2.text">{{ strings.get('home.fit.2.text', 'Facts from different documents are joined into one case file.') }}</p></li>
-                        <li class="home-item"><h3 data-i18n="home.fit.3.name">{{ strings.get('home.fit.3.name', 'Check.') }}</h3><p data-i18n="home.fit.3.text">{{ strings.get('home.fit.3.text', 'Each fact is tested against your rules, your registers and the other documents.') }}</p></li>
-                        <li class="home-item"><h3 data-i18n="home.fit.4.name">{{ strings.get('home.fit.4.name', 'Trace.') }}</h3><p data-i18n="home.fit.4.text">{{ strings.get('home.fit.4.text', 'Every fact and finding points to the page it came from.') }}</p></li>
-                        <li class="home-item"><h3 data-i18n="home.fit.5.name">{{ strings.get('home.fit.5.name', 'Decide.') }}</h3><p data-i18n="home.fit.5.text">{{ strings.get('home.fit.5.text', 'Your reviewer works one clear list and approves or rejects each finding.') }}</p></li>
-                        <li class="home-item"><h3 data-i18n="home.fit.6.name">{{ strings.get('home.fit.6.name', 'Draft.') }}</h3><p data-i18n="home.fit.6.text">{{ strings.get('home.fit.6.text', 'DraftSure builds the response, report or letter only from the facts your reviewer approved.') }}</p></li>
-                </ol>
-            </div>
-        </section>
-
-        <section id="uses" class="home-section">
-            <div class="container">
-                <h2 class="section-title" data-i18n="home.uses.title">{{ strings.get('home.uses.title', 'The same checks, across your document work.') }}</h2>
-                <p class="section-sub" data-i18n="home.uses.sub">{{ strings.get('home.uses.sub', 'Wherever a decision depends on documents, the layer can check them first.') }}</p>
-                <ul class="home-list home-list-two">
-                        <li class="home-item"><h3 data-i18n="home.uses.1.name">{{ strings.get('home.uses.1.name', 'Onboarding and KYC files.') }}</h3><p data-i18n="home.uses.1.text">{{ strings.get('home.uses.1.text', 'IDs, certificates and forms checked against each other and your registers.') }}</p></li>
-                        <li class="home-item"><h3 data-i18n="home.uses.2.name">{{ strings.get('home.uses.2.name', 'Claims and payouts.') }}</h3><p data-i18n="home.uses.2.text">{{ strings.get('home.uses.2.text', 'Claim files checked against policies and supporting documents.') }}</p></li>
-                        <li class="home-item"><h3 data-i18n="home.uses.3.name">{{ strings.get('home.uses.3.name', 'Supplier invoices and contracts.') }}</h3><p data-i18n="home.uses.3.text">{{ strings.get('home.uses.3.text', 'Invoices checked against agreed prices, terms and delivery records.') }}</p></li>
-                        <li class="home-item"><h3 data-i18n="home.uses.4.name">{{ strings.get('home.uses.4.name', 'Tenders and procurement.') }}</h3><p data-i18n="home.uses.4.text">{{ strings.get('home.uses.4.text', 'Bids checked against the required documents and criteria.') }}</p></li>
-                        <li class="home-item"><h3 data-i18n="home.uses.5.name">{{ strings.get('home.uses.5.name', 'Grants and subsidies.') }}</h3><p data-i18n="home.uses.5.text">{{ strings.get('home.uses.5.text', 'Applications checked against eligibility rules.') }}</p></li>
-                        <li class="home-item"><h3 data-i18n="home.uses.6.name">{{ strings.get('home.uses.6.name', 'Compliance and audit evidence.') }}</h3><p data-i18n="home.uses.6.text">{{ strings.get('home.uses.6.text', 'Evidence files checked against the controls they must support.') }}</p></li>
-                        <li class="home-item"><h3 data-i18n="home.uses.7.name">{{ strings.get('home.uses.7.name', 'Reconciliations.') }}</h3><p data-i18n="home.uses.7.text">{{ strings.get('home.uses.7.text', 'Statements checked against agreements and sales records.') }}</p></li>
-                        <li class="home-item"><h3 data-i18n="home.uses.8.name">{{ strings.get('home.uses.8.name', 'Certificates and shipping files.') }}</h3><p data-i18n="home.uses.8.text">{{ strings.get('home.uses.8.text', 'Quality and origin certificates checked against the shipment and its customs documents.') }}</p></li>
-                </ul>
-                <p class="home-more"><span data-i18n="home.uses.more">{{ strings.get('home.uses.more', 'See the worked examples:') }}</span> <a href="{{ locale_path }}use-cases/government/" data-i18n="home.uses.link.gov">{{ strings.get('home.uses.link.gov', 'Government') }}</a> · <a href="{{ locale_path }}use-cases/insurance/" data-i18n="home.uses.link.ins">{{ strings.get('home.uses.link.ins', 'Insurance') }}</a> · <a href="{{ locale_path }}use-cases/fuel-retail/" data-i18n="home.uses.link.fuel">{{ strings.get('home.uses.link.fuel', 'Fuel retail') }}</a></p>
-            </div>
-        </section>
-
-        <section id="proof" class="use-case-cards">
-            <div class="container">
-                <h2 class="section-title" data-i18n="home.icp.title">{{ strings.get('home.icp.title', 'Built for teams that must check before they act.') }}</h2>
+                <h2 class="section-title" data-i18n="home.icp.title">{{ strings.get('home.icp.title', 'For teams that check before they act.') }}</h2>
                 <p class="section-sub home-proof" data-i18n="home.proof">{{ strings.get('home.proof', 'Already working with teams in government, insurance and fuel retail.') }}</p>
-                <div class="uc-grid home-icp-grid">
-                    <article class="uc-card">
-                        <h3 data-i18n="home.icp.gov.name">{{ strings.get('home.icp.gov.name', 'Public bodies and government services') }}</h3>
-                        <p data-i18n="home.icp.gov.text">{{ strings.get('home.icp.gov.text', 'Applicant files checked against eligibility rules and registers, catching a missing certificate or a name that does not match the ID. A case officer decides.') }}</p>
-                        <a href="{{ locale_path }}use-cases/government/" class="uc-link" data-i18n="uc.more">{{ strings.get('uc.more', 'See how it works') }} <span aria-hidden="true">→</span></a>
-                    </article>
-                    <article class="uc-card">
-                        <h3 data-i18n="home.icp.ins.name">{{ strings.get('home.icp.ins.name', 'Insurers') }}</h3>
-                        <p data-i18n="home.icp.ins.text">{{ strings.get('home.icp.ins.text', 'Claim files checked against the policy and supporting documents, catching a treatment date outside cover or the same invoice sent twice. The adjuster decides.') }}</p>
-                        <a href="{{ locale_path }}use-cases/insurance/" class="uc-link" data-i18n="uc.more">{{ strings.get('uc.more', 'See how it works') }} <span aria-hidden="true">→</span></a>
-                    </article>
-                    <article class="uc-card">
-                        <h3 data-i18n="home.icp.fuel.name">{{ strings.get('home.icp.fuel.name', 'Fuel retailers and distributors') }}</h3>
-                        <p data-i18n="home.icp.fuel.text">{{ strings.get('home.icp.fuel.text', 'Bonus statements checked against supplier agreements and sales records, catching a wrong rate or a volume that does not match. The finance team decides.') }}</p>
-                        <a href="{{ locale_path }}use-cases/fuel-retail/" class="uc-link" data-i18n="uc.more">{{ strings.get('uc.more', 'See how it works') }} <span aria-hidden="true">→</span></a>
-                    </article>
-                    <article class="uc-card">
-                        <h3 data-i18n="home.icp.ind.name">{{ strings.get('home.icp.ind.name', 'Industrial and manufacturing groups') }}</h3>
-                        <p data-i18n="home.icp.ind.text">{{ strings.get('home.icp.ind.text', 'Supplier invoices checked against contracts, purchase orders and delivery notes, and certificates checked against shipping and customs documents across group companies, catching a price above the agreed rate or a certificate that does not match the shipment. The procurement or finance team decides.') }}</p>
-                    </article>
-                    <article class="uc-card">
-                        <h3 data-i18n="home.icp.mro.name">{{ strings.get('home.icp.mro.name', 'Aviation and engineering maintenance') }}</h3>
-                        <p data-i18n="home.icp.mro.text">{{ strings.get('home.icp.mro.text', 'Part release certificates checked against work orders, maintenance records and supplier documents, catching a part serial number that does not match its certificate. The engineer decides.') }}</p>
-                    </article>
-                </div>
-            </div>
-        </section>
-
-        <section id="capabilities" class="home-section">
-            <div class="container">
-                <h2 class="section-title" data-i18n="home.caps.title">{{ strings.get('home.caps.title', 'Everything a team needs to work a document file.') }}</h2>
-                <ul class="home-list">
-                        <li class="home-item"><h3 data-i18n="home.caps.1.name">{{ strings.get('home.caps.1.name', 'Reads every file.') }}</h3><p data-i18n="home.caps.1.text">{{ strings.get('home.caps.1.text', 'ParSure reads handwritten and scanned reports, PDFs and forms, and pulls out the facts that matter.') }}</p></li>
-                        <li class="home-item"><h3 data-i18n="home.caps.2.name">{{ strings.get('home.caps.2.name', 'Links facts across documents.') }}</h3><p data-i18n="home.caps.2.text">{{ strings.get('home.caps.2.text', 'One case file holds the facts from every document in it.') }}</p></li>
-                        <li class="home-item"><h3 data-i18n="home.caps.3.name">{{ strings.get('home.caps.3.name', 'Checks rules and documents.') }}</h3><p data-i18n="home.caps.3.text">{{ strings.get('home.caps.3.text', 'CrossSure tests the facts against your rules and against each other: an invoice against the claim form, a statement against the agreement.') }}</p></li>
-                        <li class="home-item"><h3 data-i18n="home.caps.4.name">{{ strings.get('home.caps.4.name', 'Checks your registers.') }}</h3><p data-i18n="home.caps.4.text">{{ strings.get('home.caps.4.text', 'Names, numbers and dates are compared with your own records.') }}</p></li>
-                        <li class="home-item"><h3 data-i18n="home.caps.5.name">{{ strings.get('home.caps.5.name', 'Shows the source page.') }}</h3><p data-i18n="home.caps.5.text">{{ strings.get('home.caps.5.text', 'Every finding links to the exact page behind it and feeds your existing risk review.') }}</p></li>
-                        <li class="home-item"><h3 data-i18n="home.caps.6.name">{{ strings.get('home.caps.6.name', 'Drafts from approved facts.') }}</h3><p data-i18n="home.caps.6.text">{{ strings.get('home.caps.6.text', 'DraftSure writes the response, report or letter using only approved facts, each linked to its page.') }}</p></li>
+                <ul class="home-who">
+                    <li class="home-who-item"><h3><a href="{{ locale_path }}use-cases/government/" data-i18n="home.icp.gov.name">{{ strings.get('home.icp.gov.name', 'Public bodies and government services') }}</a></h3><p data-i18n="home.who.gov">{{ strings.get('home.who.gov', 'Applicant files: a missing certificate. A case officer decides.') }}</p></li>
+                    <li class="home-who-item"><h3><a href="{{ locale_path }}use-cases/insurance/" data-i18n="home.icp.ins.name">{{ strings.get('home.icp.ins.name', 'Insurers') }}</a></h3><p data-i18n="home.who.ins">{{ strings.get('home.who.ins', 'Claim files: a treatment date outside cover. The adjuster decides.') }}</p></li>
+                    <li class="home-who-item"><h3><a href="{{ locale_path }}use-cases/fuel-retail/" data-i18n="home.icp.fuel.name">{{ strings.get('home.icp.fuel.name', 'Fuel retailers and distributors') }}</a></h3><p data-i18n="home.who.fuel">{{ strings.get('home.who.fuel', 'Bonus statements: a rate that does not match the agreement. The finance team decides.') }}</p></li>
+                    <li class="home-who-item"><h3><span data-i18n="home.icp.ind.name">{{ strings.get('home.icp.ind.name', 'Industrial and manufacturing groups') }}</span></h3><p data-i18n="home.who.ind">{{ strings.get('home.who.ind', 'Supplier invoices: a price above the agreed rate. Procurement decides.') }}</p></li>
+                    <li class="home-who-item"><h3><span data-i18n="home.icp.mro.name">{{ strings.get('home.icp.mro.name', 'Aviation and engineering maintenance') }}</span></h3><p data-i18n="home.who.mro">{{ strings.get('home.who.mro', 'Release certificates: a serial number that does not match. The engineer decides.') }}</p></li>
                 </ul>
+                <div class="home-wf"><span class="home-wf-label" data-i18n="home.wf.label">{{ strings.get('home.wf.label', 'Also used for:') }}</span><ul class="home-chips"><li class="home-chip" data-i18n="home.wf.1">{{ strings.get('home.wf.1', 'Onboarding and KYC files') }}</li><li class="home-chip" data-i18n="home.wf.2">{{ strings.get('home.wf.2', 'Claims and payouts') }}</li><li class="home-chip" data-i18n="home.wf.3">{{ strings.get('home.wf.3', 'Supplier invoices and contracts') }}</li><li class="home-chip" data-i18n="home.wf.4">{{ strings.get('home.wf.4', 'Tenders and procurement') }}</li><li class="home-chip" data-i18n="home.wf.5">{{ strings.get('home.wf.5', 'Grants and subsidies') }}</li><li class="home-chip" data-i18n="home.wf.6">{{ strings.get('home.wf.6', 'Compliance and audit evidence') }}</li><li class="home-chip" data-i18n="home.wf.7">{{ strings.get('home.wf.7', 'Reconciliations') }}</li><li class="home-chip" data-i18n="home.wf.8">{{ strings.get('home.wf.8', 'Certificates and shipping files') }}</li></ul></div>
+                <p class="home-more"><a href="{{ locale_path }}use-cases/#workflows" data-i18n="home.wf.more">{{ strings.get('home.wf.more', 'See all use cases') }}</a> <span aria-hidden="true">→</span></p>
             </div>
         </section>
 
         <section id="different" class="home-section">
             <div class="container">
-                <h2 class="section-title" data-i18n="home.diff.title">{{ strings.get('home.diff.title', 'Reading a document is not the same as checking it.') }}</h2>
-                <ul class="home-list home-list-compare">
+                <h2 class="section-title" data-i18n="home.edge.lead">{{ strings.get('home.edge.lead', 'Other tools read documents. We check them.') }}</h2>
+                <ul class="home-list home-list-three">
                         <li class="home-item"><p><strong data-i18n="home.diff.1.name">{{ strings.get('home.diff.1.name', 'Document extraction tools') }}</strong> <span data-i18n="home.diff.1.text">{{ strings.get('home.diff.1.text', 'read the data but do not check whether it is right.') }}</span></p></li>
                         <li class="home-item"><p><strong data-i18n="home.diff.2.name">{{ strings.get('home.diff.2.name', 'AI chat assistants') }}</strong> <span data-i18n="home.diff.2.text">{{ strings.get('home.diff.2.text', 'answer questions but do not give a reviewer findings to check page by page.') }}</span></p></li>
                         <li class="home-item"><p><strong data-i18n="home.diff.3.name">{{ strings.get('home.diff.3.name', 'Manual review') }}</strong> <span data-i18n="home.diff.3.text">{{ strings.get('home.diff.3.text', 'is careful but slow, so most files are only sampled.') }}</span></p></li>
-                        <li class="home-item"><p><strong data-i18n="home.diff.4.name">{{ strings.get('home.diff.4.name', 'A verification layer') }}</strong> <span data-i18n="home.diff.4.text">{{ strings.get('home.diff.4.text', 'checks every document and shows where each finding came from.') }}</span></p></li>
                 </ul>
+                <p class="home-more"><a href="{{ locale_path }}about/#different" data-i18n="home.diff.more">{{ strings.get('home.diff.more', 'How it differs, in detail') }}</a> <span aria-hidden="true">→</span></p>
             </div>
         </section>
 
         <section id="trust" class="home-section">
             <div class="container">
-                <h2 class="section-title" data-i18n="home.trust.title">{{ strings.get('home.trust.title', 'Runs where your documents already are.') }}</h2>
+                <h2 class="section-title" data-i18n="home.trust.title">{{ strings.get('home.trust.title', 'Your infrastructure, your rules.') }}</h2>
                 <ul class="home-list home-list-two">
-                        <li class="home-item"><h3 data-i18n="home.trust.1.name">{{ strings.get('home.trust.1.name', 'Your infrastructure.') }}</h3><p data-i18n="home.trust.1.text">{{ strings.get('home.trust.1.text', 'Deploy in your own AWS account or on-premises.') }}</p></li>
-                        <li class="home-item"><h3 data-i18n="home.trust.2.name">{{ strings.get('home.trust.2.name', 'Your choice of models.') }}</h3><p data-i18n="home.trust.2.text">{{ strings.get('home.trust.2.text', 'You choose where the models run. Can run on your own GPU servers, so the models stay on your hardware.') }}</p></li>
-                        <li class="home-item"><h3 data-i18n="home.trust.3.name">{{ strings.get('home.trust.3.name', 'Access by project.') }}</h3><p data-i18n="home.trust.3.text">{{ strings.get('home.trust.3.text', 'Every user signs in, and each project is visible only to its owner and the people they add.') }}</p></li>
-                        <li class="home-item"><h3 data-i18n="home.trust.4.name">{{ strings.get('home.trust.4.name', 'Activity log.') }}</h3><p data-i18n="home.trust.4.text">{{ strings.get('home.trust.4.text', 'Actions and decisions are recorded with who made them and when.') }}</p></li>
+                        <li class="home-item"><p><strong data-i18n="home.trust.3.name">{{ strings.get('home.trust.3.name', 'Access by project.') }}</strong> <span data-i18n="home.trust.3.text">{{ strings.get('home.trust.3.text', 'Each project is visible only to the people you add.') }}</span></p></li>
+                        <li class="home-item"><p><strong data-i18n="home.trust.4.name">{{ strings.get('home.trust.4.name', 'Activity log.') }}</strong> <span data-i18n="home.trust.4.text">{{ strings.get('home.trust.4.text', 'Actions and decisions are recorded with who made them and when.') }}</span></p></li>
                 </ul>
                 <p class="home-more"><a href="{{ locale_path }}security/" data-i18n="home.trust.link">{{ strings.get('home.trust.link', 'Security and data') }}</a> <span aria-hidden="true">→</span></p>
             </div>
         </section>
 
-                {% set flow_line1 = strings.get('flow.1.line', '') %}{% set flow_line2 = strings.get('flow.2.line', '') %}{% set flow_line3 = strings.get('flow.3.line', '') %}{% set flow_line4 = strings.get('flow.4.line', '') %}{% include 'includes/flow.html' %}
+        <section id="faq" class="home-section">
+            <div class="container">
+                <h2 class="section-title" data-i18n="home.faq.title">{{ strings.get('home.faq.title', 'Questions') }}</h2>
+                <dl class="home-faq">
+                    <div class="home-faq-item"><dt data-i18n="home.faq.1.q">{{ strings.get('home.faq.1.q', 'What exactly does it do?') }}</dt><dd data-i18n="home.faq.1.a">{{ strings.get('home.faq.1.a', 'It reads your files, links the facts across them and checks each one against your rules and registers.') }}</dd></div>
+                    <div class="home-faq-item"><dt data-i18n="home.faq.2.q">{{ strings.get('home.faq.2.q', 'What documents can it check?') }}</dt><dd data-i18n="home.faq.2.a">{{ strings.get('home.faq.2.a', 'Scans, PDFs, forms, contracts, invoices, receipts and certificates, including handwritten and scanned reports, alongside your SAP exports.') }}</dd></div>
+                    <div class="home-faq-item"><dt data-i18n="home.faq.3.q">{{ strings.get('home.faq.3.q', 'Where does it run?') }}</dt><dd data-i18n="home.faq.3.a">{{ strings.get('home.faq.3.a', 'In your own AWS account or on-premises. You choose where the models run, including your own GPU servers.') }}</dd></div>
+                    <div class="home-faq-item"><dt data-i18n="home.faq.4.q">{{ strings.get('home.faq.4.q', 'Who makes the decision?') }}</dt><dd data-i18n="home.faq.4.a">{{ strings.get('home.faq.4.a', 'A person. The layer shows each finding with its source page, and your reviewer approves or rejects it.') }}</dd></div>
+                </dl>
+            </div>
+        </section>
 
         <section id="closing" class="closing-section">
             <div class="container center">
-                <h2 class="section-title" data-i18n="home.start.title">{{ strings.get('home.start.title', 'Start with your own documents.') }}</h2>
-                <p class="section-sub" data-i18n="home.start.body">{{ strings.get('home.start.body', 'Bring a real document set. We run it with your team and show the findings, page by page.') }}</p>
-                <p class="closing-line" data-i18n="landing.closing.line">{{ strings.get('landing.closing.line', 'Find what does not match before you act.') }}</p>
+                <h2 class="section-title" data-i18n="home.start.title">{{ strings.get('home.start.title', 'Try it on your own files.') }}</h2>
+                <p class="section-sub" data-i18n="home.start.body">{{ strings.get('home.start.body', 'Bring a real document set. We run it with your team and walk you through the findings.') }}</p>
                 <button type="button" class="btn-primary" data-demo-open data-i18n="landing.closing.cta">{{ strings.get('landing.closing.cta', 'Book a demo') }}</button>
             </div>
         </section>
@@ -240,7 +175,7 @@
     {% include 'includes/landing_footer.html' %}
     <script src="{{ url_for('static', filename='landing-pilot.js') }}?v={{ landing_js_version|default('42') }}"></script>
     <script>(function(){var d=document;if(matchMedia('(prefers-reduced-motion: reduce)').matches)return;
-var h=d.querySelector('.hero-title');if(h){var t=h.textContent.trim(),j=/[\u3040-\u30ff\u3400-\u9fff]/.test(t),p=j?Array.from(t):t.split(/(\s+)/),o=d.createElement('span'),i=0;o.setAttribute('aria-hidden','true');p.forEach(function(x){if(!x)return;if(/^\s+$/.test(x)){o.appendChild(d.createTextNode(' '));return}var s=d.createElement('span');s.className='rw';s.textContent=x;s.style.animationDelay=(i++*(j?45:80))+'ms';o.appendChild(s)});var v=d.createElement('span');v.className='visually-hidden';v.textContent=t;h.textContent='';h.appendChild(v);h.appendChild(o);h.classList.add('rise')}
+var h=d.querySelector('.hero-title');if(h){h.removeAttribute('data-i18n-html');var t=h.textContent.trim(),j=/[\u3040-\u30ff\u3400-\u9fff]/.test(t),p=j?Array.from(t):t.split(/(\s+)/),o=d.createElement('span'),i=0;o.setAttribute('aria-hidden','true');p.forEach(function(x){if(!x)return;if(/^\s+$/.test(x)){o.appendChild(d.createTextNode(' '));return}var s=d.createElement('span');s.className='rw';s.textContent=x;s.style.animationDelay=(i++*(j?45:80))+'ms';o.appendChild(s)});var v=d.createElement('span');v.className='visually-hidden';v.textContent=t;h.textContent='';h.appendChild(v);h.appendChild(o);h.classList.add('rise')}
 var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target)}})},{rootMargin:'0px 0px -8% 0px'});
 d.querySelectorAll('#main-content > section:not(.hero-section)').forEach(function(s){s.classList.add('fu');io.observe(s)});
 var c=d.querySelector('[data-hd]');if(!c)return;var T=[300,1300,2900,3900,5000,6000],tm=[],on=0,vis=0;
