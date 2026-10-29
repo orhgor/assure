@@ -35,12 +35,6 @@ from marketing.app import (  # noqa: E402
 PAGES: list[dict] = [
     {"template": "landing.html", "output": "index.html", "kind": "landing", "suffix": ""},
     {
-        "template": "architecture.html",
-        "output": "architecture/index.html",
-        "kind": "landing",
-        "suffix": "architecture/",
-    },
-    {
         "template": "government.html",
         "output": "government/index.html",
         "kind": "landing",
@@ -129,7 +123,6 @@ TEMPLATES_DIR = ROOT / "marketing" / "templates"
 
 TEMPLATE_TO_META = {
     "landing.html": "landing",
-    "architecture.html": "architecture",
     "government.html": "government",
     "use_cases_index.html": "use_cases_index",
     "use_case_government.html": "use_case_government",
