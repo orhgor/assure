@@ -3939,8 +3939,8 @@ html[dir="rtl"] .flow-arrow-approval .flow-badge { left: auto; right: 50%; trans
     align-items: center;
     gap: 0.5rem;
     font-weight: 600;
-    color: var(--trust-blue);
-    text-decoration: none;
+    color: #93c5fd;
+    text-decoration: underline;
     margin-top: auto;
     padding-top: var(--space-1, 8px);
     border-top: 1px solid var(--border-color);
@@ -3948,7 +3948,7 @@ html[dir="rtl"] .flow-arrow-approval .flow-badge { left: auto; right: 50%; trans
 }
 
 .uc-link:hover {
-    color: var(--accent-green);
+    color: #bfdbfe;
 }
 
 @media (max-width: 900px) {
@@ -3962,7 +3962,7 @@ html[dir="rtl"] .flow-arrow-approval .flow-badge { left: auto; right: 50%; trans
 .hero-deployment {
     margin-top: var(--space-3, 24px);
     font-size: 0.9rem;
-    color: var(--text-muted);
+    color: #475569;
     text-align: center;
     padding-top: var(--space-2, 16px);
     border-top: 1px solid var(--border-color);
@@ -3977,7 +3977,7 @@ html[dir="rtl"] .flow-arrow-approval .flow-badge { left: auto; right: 50%; trans
 .closing-line {
     font-size: 1.25rem;
     font-weight: 500;
-    color: var(--text-main);
+    color: #0a0a0a;
     margin-bottom: var(--space-4, 32px);
     text-wrap: balance;
 }
