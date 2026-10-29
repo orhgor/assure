@@ -4171,3 +4171,16 @@ html[dir="rtl"] .flow-arrow-approval .flow-badge { left: auto; right: 50%; trans
 /* pr-j contrast: AA fixes */
 body:not([class]) main a:not([class]) { color: #cbd5e1; text-decoration: underline; text-underline-offset: 2px; }
 body:not([class]) main a:not([class]):hover { color: #f0f2f5; }
+
+/* pr-l: hero deployment logos + footer centering */
+.logos-band.logos-band-hero { padding: var(--space-2, 16px) 0 0; }
+.logos-band-hero .trust-logos img { height: 28px; }
+.logos-band-hero .trust-logos img[alt="Amazon S3"], .logos-band-hero .trust-logos img.trust-logo-onprem { height: 24px; }
+.fx .logos-band-hero { animation: hd-rise 0.9s cubic-bezier(.19, 1, .22, 1) 0.8s both; }
+@media (max-width: 760px) {
+    .logos-band-hero .trust-logos { gap: 20px; }
+    .logos-band-hero .trust-logos img { height: 22px; }
+    .logos-band-hero .trust-logos img[alt="Amazon S3"], .logos-band-hero .trust-logos img.trust-logo-onprem { height: 20px; }
+}
+.site-footer .footer-owner,
+.site-footer .footer-engineer { margin-left: auto; margin-right: auto; text-align: center; }
