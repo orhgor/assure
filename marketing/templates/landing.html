@@ -56,7 +56,7 @@
             </div>
         </section>
 
-                {% set flow_id = 'how' %}{% set flow_title = strings.get('home.how.title', 'How it works') %}{% set flow_line1 = strings.get('home.how.1', 'Scans, PDFs, forms and SAP exports.') %}{% set flow_line2 = strings.get('home.how.2', 'ParSure reads every file, including handwritten and scanned reports.') %}{% set flow_line3 = strings.get('home.how.3', 'CrossSure checks each fact against your rules, registers and the other documents.') %}{% set flow_line4 = strings.get('home.how.4', 'A person approves or rejects each finding.') %}{% set flow_line5 = strings.get('home.how.5', 'DraftSure drafts only from approved facts.') %}{% set flow_name5 = strings.get('home.how.5.name', 'Draft') %}{% set flow_more = strings.get('home.how.more', 'See each step in detail') %}{% set flow_more_href = locale_path ~ 'about/#how' %}{% include 'includes/flow.html' %}
+                {% set flow_id = 'how' %}{% set flow_title = strings.get('home.how.title', 'How it works') %}{% set flow_line1 = strings.get('home.how.1', 'The file comes in.') %}{% set flow_line2 = strings.get('home.how.2', 'Reads the file.') %}{% set flow_line3 = strings.get('home.how.3', 'Checks each fact against your rules and the other documents.') %}{% set flow_line4 = strings.get('home.how.4', 'A person decides.') %}{% set flow_line5 = strings.get('home.how.5', 'Writes only from facts a person approved.') %}{% set flow_name5 = strings.get('home.how.5.name', 'Draft') %}{% set flow_more = strings.get('home.how.more', 'See each step in detail') %}{% set flow_more_href = locale_path ~ 'about/#how' %}{% include 'includes/flow.html' %}
 
         <section id="example" class="home-section home-example">
             <div class="container">
@@ -83,36 +83,14 @@
             <div class="container">
                 <h2 class="section-title" data-i18n="home.icp.title">{{ strings.get('home.icp.title', 'For teams that check before they act.') }}</h2>
                 <ul class="home-who">
-                    <li class="home-who-item"><h3><a href="{{ locale_path }}use-cases/government/" data-i18n="home.icp.gov.name">{{ strings.get('home.icp.gov.name', 'Public bodies and government services') }}</a></h3><p data-i18n="home.who.gov">{{ strings.get('home.who.gov', 'Applicant files: a missing certificate. A case officer decides.') }}</p></li>
-                    <li class="home-who-item"><h3><a href="{{ locale_path }}use-cases/insurance/" data-i18n="home.icp.ins.name">{{ strings.get('home.icp.ins.name', 'Insurers') }}</a></h3><p data-i18n="home.who.ins">{{ strings.get('home.who.ins', 'Claim files: a treatment date outside cover. The adjuster decides.') }}</p></li>
-                    <li class="home-who-item"><h3><a href="{{ locale_path }}use-cases/fuel-retail/" data-i18n="home.icp.fuel.name">{{ strings.get('home.icp.fuel.name', 'Fuel retailers and distributors') }}</a></h3><p data-i18n="home.who.fuel">{{ strings.get('home.who.fuel', 'Bonus statements: a rate that does not match the agreement. The finance team decides.') }}</p></li>
-                    <li class="home-who-item"><h3><span data-i18n="home.icp.ind.name">{{ strings.get('home.icp.ind.name', 'Industrial and manufacturing groups') }}</span></h3><p data-i18n="home.who.ind">{{ strings.get('home.who.ind', 'Supplier invoices: a price above the agreed rate. Procurement decides.') }}</p></li>
-                    <li class="home-who-item"><h3><span data-i18n="home.icp.mro.name">{{ strings.get('home.icp.mro.name', 'Aviation and engineering maintenance') }}</span></h3><p data-i18n="home.who.mro">{{ strings.get('home.who.mro', 'Release certificates: a serial number that does not match. The engineer decides.') }}</p></li>
+                    <li class="home-who-item"><h3><a href="{{ locale_path }}use-cases/government/" data-i18n="home.icp.gov.name">{{ strings.get('home.icp.gov.name', 'Public bodies and government services') }}</a></h3><p data-i18n="home.who.gov">{{ strings.get('home.who.gov', 'A missing certificate in an applicant file. A case officer decides.') }}</p></li>
+                    <li class="home-who-item"><h3><a href="{{ locale_path }}use-cases/insurance/" data-i18n="home.icp.ins.name">{{ strings.get('home.icp.ins.name', 'Insurers') }}</a></h3><p data-i18n="home.who.ins">{{ strings.get('home.who.ins', 'A treatment date outside the policy. The adjuster decides.') }}</p></li>
+                    <li class="home-who-item"><h3><a href="{{ locale_path }}use-cases/fuel-retail/" data-i18n="home.icp.fuel.name">{{ strings.get('home.icp.fuel.name', 'Fuel retailers and distributors') }}</a></h3><p data-i18n="home.who.fuel">{{ strings.get('home.who.fuel', 'A bonus rate that does not match the agreement. Finance decides.') }}</p></li>
+                    <li class="home-who-item"><h3><span data-i18n="home.icp.ind.name">{{ strings.get('home.icp.ind.name', 'Industrial and manufacturing groups') }}</span></h3><p data-i18n="home.who.ind">{{ strings.get('home.who.ind', 'A supplier price above the agreed rate. Procurement decides.') }}</p></li>
+                    <li class="home-who-item"><h3><span data-i18n="home.icp.mro.name">{{ strings.get('home.icp.mro.name', 'Aviation and engineering maintenance') }}</span></h3><p data-i18n="home.who.mro">{{ strings.get('home.who.mro', 'A serial number that does not match its certificate. The engineer decides.') }}</p></li>
                 </ul>
-                <div class="home-wf"><span class="home-wf-label" data-i18n="home.wf.label">{{ strings.get('home.wf.label', 'Also used for:') }}</span><ul class="home-chips"><li class="home-chip" data-i18n="home.wf.1">{{ strings.get('home.wf.1', 'Onboarding and KYC files') }}</li><li class="home-chip" data-i18n="home.wf.2">{{ strings.get('home.wf.2', 'Claims and payouts') }}</li><li class="home-chip" data-i18n="home.wf.3">{{ strings.get('home.wf.3', 'Supplier invoices and contracts') }}</li><li class="home-chip" data-i18n="home.wf.4">{{ strings.get('home.wf.4', 'Tenders and procurement') }}</li><li class="home-chip" data-i18n="home.wf.5">{{ strings.get('home.wf.5', 'Grants and subsidies') }}</li><li class="home-chip" data-i18n="home.wf.6">{{ strings.get('home.wf.6', 'Compliance and audit evidence') }}</li><li class="home-chip" data-i18n="home.wf.7">{{ strings.get('home.wf.7', 'Reconciliations') }}</li><li class="home-chip" data-i18n="home.wf.8">{{ strings.get('home.wf.8', 'Certificates and shipping files') }}</li></ul></div>
+                <p class="home-wf-line" data-i18n="home.wf.line">{{ strings.get('home.wf.line', 'Also used for onboarding, claims, invoices, tenders, grants, audit files, reconciliations, and shipping files.') }}</p>
                 <p class="home-more"><a href="{{ locale_path }}use-cases/#workflows" data-i18n="home.wf.more">{{ strings.get('home.wf.more', 'See all use cases') }}</a></p>
-            </div>
-        </section>
-
-        <section id="different" class="home-section">
-            <div class="container">
-                <h2 class="section-title" data-i18n="home.edge.lead">{{ strings.get('home.edge.lead', 'Other tools read documents. We check them.') }}</h2>
-                <ul class="home-list home-list-three">
-                        <li class="home-item"><p><strong data-i18n="home.diff.1.name">{{ strings.get('home.diff.1.name', 'Document extraction tools') }}</strong> <span data-i18n="home.diff.1.text">{{ strings.get('home.diff.1.text', 'read the data but do not check whether it is right.') }}</span></p></li>
-                        <li class="home-item"><p><strong data-i18n="home.diff.2.name">{{ strings.get('home.diff.2.name', 'AI chat assistants') }}</strong> <span data-i18n="home.diff.2.text">{{ strings.get('home.diff.2.text', 'answer questions but do not give a reviewer findings to check page by page.') }}</span></p></li>
-                </ul>
-                <p class="home-more"><a href="{{ locale_path }}about/#different" data-i18n="home.diff.more">{{ strings.get('home.diff.more', 'How it differs, in detail') }}</a></p>
-            </div>
-        </section>
-
-        <section id="trust" class="home-section">
-            <div class="container">
-                <h2 class="section-title" data-i18n="home.trust.title">{{ strings.get('home.trust.title', 'Your infrastructure, your rules.') }}</h2>
-                <ul class="home-list home-list-two">
-                        <li class="home-item"><p><strong data-i18n="home.trust.3.name">{{ strings.get('home.trust.3.name', 'Access by project.') }}</strong> <span data-i18n="home.trust.3.text">{{ strings.get('home.trust.3.text', 'Each project is visible only to the people you add.') }}</span></p></li>
-                        <li class="home-item"><p><strong data-i18n="home.trust.4.name">{{ strings.get('home.trust.4.name', 'Activity log.') }}</strong> <span data-i18n="home.trust.4.text">{{ strings.get('home.trust.4.text', 'Actions and decisions are recorded with who made them and when.') }}</span></p></li>
-                </ul>
-                <p class="home-more"><a href="{{ locale_path }}security/" data-i18n="home.trust.link">{{ strings.get('home.trust.link', 'Security and data') }}</a></p>
             </div>
         </section>
 
