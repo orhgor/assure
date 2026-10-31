@@ -4254,3 +4254,72 @@ body:not([class]) main a:not([class]):hover { color: #f0f2f5; }
     content: counter(fit) ". ";
     color: var(--assure-trust-blue);
 }
+
+/* Lean pages: one column, no decorative rules, no filled step cards */
+.enterprise-landing .page .section-title::after { display: none; }
+.enterprise-landing .page .home-list,
+.enterprise-landing .page .home-list-compare,
+.enterprise-landing .page .about-sec .home-list { grid-template-columns: 1fr; }
+.enterprise-landing .page .about-sec { margin-top: 48px; }
+.enterprise-landing .page .price-grid { margin: 24px 0 0; justify-items: stretch; max-width: none; }
+
+.flow-card:last-child,
+#how .flow-card:nth-last-child(3) {
+    background: #fff;
+    border-color: #e2e8f0;
+    border-top-color: var(--assure-confidence-green);
+}
+.flow-card:last-child .flow-name,
+.flow-card:last-child .flow-icon,
+#how .flow-card:nth-last-child(3) .flow-name,
+#how .flow-card:nth-last-child(3) .flow-icon { color: #0a0a0a; }
+.flow-card:last-child .flow-line,
+#how .flow-card:nth-last-child(3) .flow-line { color: #475569; }
+
+.uc3-how-steps { grid-template-columns: 1fr 1fr; gap: 24px 32px; }
+.uc3-how-steps li {
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    padding: 0;
+}
+.uc3-how-n {
+    width: auto;
+    height: auto;
+    margin: 0;
+    border-radius: 0;
+    background: transparent;
+    color: var(--assure-trust-blue);
+    font-size: 0.8rem;
+}
+.uc3-checklist li {
+    border: 0;
+    border-radius: 0;
+    border-top: 1px solid #e2e8f0;
+    padding: 12px 0;
+    background: transparent;
+}
+.uc3-x { display: none; }
+.uc3-table { border: 0; border-radius: 0; }
+.uc3-table th {
+    background: transparent;
+    color: #64748b;
+    padding: 8px 0;
+    border-bottom: 1px solid #e2e8f0;
+}
+.uc3-table td { padding: 12px 0; border-top: 1px solid #e2e8f0; }
+.uc3-cmp {
+    border: 0;
+    border-radius: 0;
+    border-top: 1px solid #e2e8f0;
+    padding: 12px 0;
+    background: transparent;
+}
+.uc3-outcome {
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    padding: 8px 0 0;
+}
+.uc3-outcome-label { color: #475569; }
+.uc3-ne { color: var(--assure-trust-blue); }
