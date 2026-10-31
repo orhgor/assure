@@ -1,0 +1,23 @@
+                <article class="uc3-case uc3-fuel" id="fuel-retail">
+                    {% if not uc_detail %}<div class="uc3-intro">
+                        <span class="uc2-num">03</span>
+                        <h2 class="uc2-title" data-i18n="uc.fuel.title">{{ strings.get('uc.fuel.title', '') }}</h2>
+                        <p class="uc2-sub">{{ strings.get('uc.fuel.sub', '') }}</p>
+                        <h3 class="uc2-label">{{ strings.get('uc3.label.docs', '') }}</h3>
+                        <ul class="uc3-docs">
+                            <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg><span data-i18n="uc3.fuel.doc.1">{{ strings.get('uc3.fuel.doc.1', '') }}</span></li><li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg><span data-i18n="uc3.fuel.doc.2">{{ strings.get('uc3.fuel.doc.2', '') }}</span></li><li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg><span data-i18n="uc3.fuel.doc.3">{{ strings.get('uc3.fuel.doc.3', '') }}</span></li>
+                        </ul>
+                        {% if not uc_detail %}<a class="uc2-more" href="{{ locale_path }}use-cases/fuel-retail/">{{ strings.get('uc.more', 'See how it works') }} <span aria-hidden="true" class="uc2-arrow">→</span></a>{% endif %}
+                    </div>{% endif %}
+                    <div class="uc3-body">
+                        <div class="uc3-sketch" aria-hidden="true">
+                            <figure class="uc3-stmt"><div class="uc3-grid"><i></i><i></i><i></i><i></i><i class="uc3-warn"></i><i></i><i></i><i></i><i class="uc2-hl"></i><i></i><i></i><i></i></div><figcaption>{{ strings.get('uc3.fuel.sk.1', '') }}</figcaption></figure>
+                            <figure class="uc3-clause"><span class="uc3-sec">§ 6</span><div class="uc3-lines"><i></i><i class="uc2-hl"></i><i></i><i class="short"></i></div><span class="uc3-sec">§ 7</span><div class="uc3-lines"><i class="uc3-warn"></i><i class="short"></i></div><figcaption>{{ strings.get('uc3.fuel.sk.2', '') }}</figcaption></figure>
+                        </div>
+                        <h3 class="uc2-label">{{ strings.get('uc3.label.findings', '') }}</h3>
+                        <div class="uc3-compare">
+                            <div class="uc3-cmp"><p class="uc3-cmp-text" data-i18n="uc3.fuel.f.1">{{ strings.get('uc3.fuel.f.1', '') }}</p><div class="uc3-cmp-pair"><span><em>{{ strings.get('uc3.col.statement', '') }}</em>{{ strings.get('uc3.fuel.a.1', '') }}</span><span class="uc3-ne" aria-hidden="true">≠</span><span><em>{{ strings.get('uc3.col.against', '') }}</em>{{ strings.get('uc3.fuel.b.1', '') }}</span></div></div><div class="uc3-cmp"><p class="uc3-cmp-text" data-i18n="uc3.fuel.f.2">{{ strings.get('uc3.fuel.f.2', '') }}</p><div class="uc3-cmp-pair"><span><em>{{ strings.get('uc3.col.statement', '') }}</em>{{ strings.get('uc3.fuel.a.2', '') }}</span><span class="uc3-ne" aria-hidden="true">≠</span><span><em>{{ strings.get('uc3.col.against', '') }}</em>{{ strings.get('uc3.fuel.b.2', '') }}</span></div></div><div class="uc3-cmp"><p class="uc3-cmp-text" data-i18n="uc3.fuel.f.3">{{ strings.get('uc3.fuel.f.3', '') }}</p><div class="uc3-cmp-pair"><span><em>{{ strings.get('uc3.col.statement', '') }}</em>{{ strings.get('uc3.fuel.a.3', '') }}</span><span class="uc3-ne" aria-hidden="true">≠</span><span><em>{{ strings.get('uc3.col.against', '') }}</em>{{ strings.get('uc3.fuel.b.3', '') }}</span></div></div>
+                        </div>
+                        <p class="uc3-outcome"><span class="uc3-outcome-label">{{ strings.get('uc3.label.outcome', '') }}</span><span data-i18n="uc3.fuel.outcome">{{ strings.get('uc3.fuel.outcome', '') }}</span></p>
+                    </div>
+                </article>

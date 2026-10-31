@@ -31,7 +31,7 @@
   <script type="application/ld+json">{{ item|tojson }}</script>
   {% endfor %}
 </head>
-<body id="top"{% if page_class is defined %} class="{{ page_class }}"{% endif %}>
+<body id="top" class="enterprise-landing{% if page_class is defined %} {{ page_class }}{% endif %}">
   {% set nav_current = active|default('home') %}
   {% include 'includes/landing_header.html' %}
 

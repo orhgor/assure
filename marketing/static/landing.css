@@ -3825,12 +3825,12 @@ html[dir="rtl"] .flow-arrow-approval .flow-badge { left: auto; right: 50%; trans
 /* ---- Use cases index: shared flow strip + distinct case rows (uc3) ---- */
 .uc3-how { padding: 0 0 var(--space-6); }
 .uc3-how-steps { list-style: none; display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; padding: 0; margin: 0; }
-.uc3-how-steps li { display: flex; flex-direction: column; gap: 4px; padding: 16px; border-radius: 8px; background: #0a0a0a; color: #a8b0bd; font-size: 0.9rem; line-height: 1.5; }
-.uc3-how-steps strong { color: #f0f2f5; font-size: 0.95rem; }
+.uc3-how-steps li { display: flex; flex-direction: column; gap: 4px; padding: 16px; border-radius: 8px; background: #fff; color: #334155; font-size: 0.9rem; line-height: 1.5; border: 1px solid #e2e8f0; border-top: 3px solid var(--assure-trust-blue); }
+.uc3-how-steps strong { color: #0a0a0a; font-size: 0.95rem; }
 .uc3-how-n { width: 24px; height: 24px; border-radius: 9999px; background: var(--assure-accent-gold); color: #0a0a0a; font-weight: 700; font-size: 0.75rem; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 6px; }
 .uc3-case { display: grid; grid-template-columns: 1fr 1.6fr; gap: var(--space-6); padding: var(--space-6) 0; border-top: 1px solid #e2e8f0; }
 .uc3-case:last-of-type { border-bottom: 1px solid #e2e8f0; }
-.uc3-flip .uc3-intro { order: 2; }
+.uc3-case:not(:has(.uc3-intro)) { grid-template-columns: 1fr; max-width: 46rem; margin-inline: auto; }
 .uc3-docs { list-style: none; padding: 0; margin: 0 0 var(--space-3); display: flex; flex-wrap: wrap; gap: 8px; }
 .uc3-docs li { display: inline-flex; align-items: center; gap: 6px; font-size: 0.85rem; color: #0a0a0a; background: #f1f5f9; border-radius: 9999px; padding: 4px 12px; }
 .uc3-case svg { width: 14px; height: 14px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
@@ -4199,4 +4199,58 @@ body:not([class]) main a:not([class]):hover { color: #f0f2f5; }
 /* pr-n: mobile hero spacing */
 @media (max-width: 640px) {
     .enterprise-landing .home-hero-body { margin-top: -12px; }
+}
+
+/* Text pages (about, pricing, security, terms) share the light canvas */
+.enterprise-landing .page {
+    max-width: 46rem;
+    margin: 0 auto;
+    padding: 4rem 1.5rem 5rem;
+    color: #0a0a0a;
+}
+.enterprise-landing .page-hero h1 {
+    font-size: clamp(2rem, 4vw, 2.75rem);
+    line-height: 1.15;
+    letter-spacing: -0.03em;
+    margin: 0 0 12px;
+}
+.enterprise-landing .page .lede,
+.enterprise-landing .page .hint {
+    color: #475569;
+    font-size: 1.05rem;
+    line-height: 1.6;
+    margin: 0 0 12px;
+}
+.enterprise-landing .page .card h2 {
+    font-size: 1.25rem;
+    margin: 28px 0 8px;
+    color: #0a0a0a;
+}
+.enterprise-landing .page .card h2:first-child { margin-top: 8px; }
+.enterprise-landing .page .card p,
+.enterprise-landing .page .card li {
+    color: #334155;
+    line-height: 1.6;
+    margin: 0 0 12px;
+}
+.enterprise-landing .page a { color: var(--assure-trust-blue); }
+.enterprise-landing .page .section-title {
+    text-align: start;
+    font-size: 1.65rem;
+    margin-bottom: 12px;
+}
+.enterprise-landing .page .section-title::after {
+    margin: 16px 0 20px;
+}
+.enterprise-landing .page .home-inputs,
+.enterprise-landing .page .section-sub {
+    text-align: start;
+    margin-left: 0;
+    margin-right: 0;
+}
+.home-list-steps { counter-reset: fit; }
+.home-list-steps .home-item h3::before {
+    counter-increment: fit;
+    content: counter(fit) ". ";
+    color: var(--assure-trust-blue);
 }
