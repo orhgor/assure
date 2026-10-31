@@ -4140,6 +4140,12 @@ html[dir="rtl"] .flow-arrow-approval .flow-badge { left: auto; right: 50%; trans
 .home-edge-solo { grid-template-columns: 1fr; max-width: 34rem; border-top: 0; padding-top: 0; }
 #how { padding-top: var(--space-6, 48px); }
 #how .section-title { margin: 0 0 var(--space-4, 32px); }
+#trust .container { max-width: 40rem; }
+#trust .section-title { text-align: start; font-size: 1.65rem; }
+#trust .section-title::after { margin-left: 0; margin-right: auto; }
+#trust .home-list { grid-template-columns: 1fr; }
+#trust .home-item p { font-size: 1.05rem; line-height: 1.6; }
+#trust .home-more { text-align: start; margin-top: 8px; }
 #how .flow { max-width: 74rem; }
 #how .flow-card:last-child { background: #fff; border-color: #e2e8f0; border-top-color: #0a0a0a; }
 #how .flow-card:last-child .flow-name, #how .flow-card:last-child .flow-icon { color: #0a0a0a; }
