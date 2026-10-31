@@ -51,14 +51,11 @@
                     <button type="button" class="btn-primary" data-demo-open data-i18n="landing.hero.cta_primary">{{ strings.get('landing.hero.cta_primary', 'Book a demo') }}</button>
                 </div>
                 {% set band_class = 'logos-band-hero' %}{% include 'includes/logos_band.html' %}
-            </div>
-        </section>
-
-        <section id="example" class="home-section home-example">
-            <div class="container">
-                <p class="home-proof-who" data-i18n="home.proof.who">{{ strings.get('home.proof.who', 'For procurement. A supplier invoice against the contract.') }}</p>
-                <p class="home-proof-line"><span data-i18n="home.sample.text">{{ strings.get('home.sample.text', 'The invoice total does not match the agreed price in the contract.') }}</span> <span data-i18n="home.demo.page">{{ strings.get('home.demo.page', 'p. 3') }}</span></p>
-                <p class="home-proof-src"><span data-i18n="home.demo.f1.src">{{ strings.get('home.demo.f1.src', 'Invoice, p. 1') }}</span> · <span data-i18n="home.demo.f2.src">{{ strings.get('home.demo.f2.src', 'Contract, p. 3') }}</span></p>
+                <article id="example" class="hero-finding">
+                    <p class="home-proof-who" data-i18n="home.proof.who">{{ strings.get('home.proof.who', 'For procurement. A supplier invoice against the contract.') }}</p>
+                    <p class="home-proof-line"><span data-i18n="home.sample.text">{{ strings.get('home.sample.text', 'The invoice total does not match the agreed price in the contract.') }}</span> <span class="home-proof-page" data-i18n="home.demo.page">{{ strings.get('home.demo.page', 'p. 3') }}</span></p>
+                    <p class="home-proof-src"><span data-i18n="home.demo.f1.src">{{ strings.get('home.demo.f1.src', 'Invoice, p. 1') }}</span> · <span data-i18n="home.demo.f2.src">{{ strings.get('home.demo.f2.src', 'Contract, p. 3') }}</span></p>
+                </article>
                 <p class="hero-deployment" data-i18n="landing.hero.deployment">{{ strings.get('landing.hero.deployment', 'Runs in your AWS account or on-prem. You pick where the models run.') }}</p>
                 <p class="home-more"><a href="{{ locale_path }}use-cases/" data-i18n="home.wf.more">{{ strings.get('home.wf.more', 'See all use cases') }}</a></p>
             </div>
