@@ -46,12 +46,12 @@
             </div>
         </section>
 
-        {% set flow_line1 = strings.get('flow.1.line', '') %}
-        {% set flow_line2 = strings.get('flow.2.line', '') %}
-        {% set flow_line3 = strings.get('flow.3.line', '') %}
-        {% set flow_line4 = strings.get('flow.4.line', '') %}
-        {% include 'includes/flow.html' %}
-        {% set band_class = 'logos-band-inline' %}{% include 'includes/logos_band.html' %}
+        <section class="uc2-list">
+            <div class="container">
+                {% set uc_detail = true %}
+                {% include 'includes/uc_government.html' %}
+            </div>
+        </section>
         {% include 'includes/demo_cta.html' %}
     </main>
 

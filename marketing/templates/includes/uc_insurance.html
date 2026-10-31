@@ -1,0 +1,25 @@
+                <article class="uc3-case uc3-ins" id="insurance">
+                    {% if not uc_detail %}<div class="uc3-intro">
+                        <span class="uc2-num">02</span>
+                        <h2 class="uc2-title" data-i18n="uc.ins.title">{{ strings.get('uc.ins.title', '') }}</h2>
+                        <p class="uc2-sub">{{ strings.get('uc.ins.sub', '') }}</p>
+                        <h3 class="uc2-label">{{ strings.get('uc3.label.docs', '') }}</h3>
+                        <ul class="uc3-docs">
+                            <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg><span data-i18n="uc3.ins.doc.1">{{ strings.get('uc3.ins.doc.1', '') }}</span></li><li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg><span data-i18n="uc3.ins.doc.2">{{ strings.get('uc3.ins.doc.2', '') }}</span></li><li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg><span data-i18n="uc3.ins.doc.3">{{ strings.get('uc3.ins.doc.3', '') }}</span></li>
+                        </ul>
+                        {% if not uc_detail %}<a class="uc2-more" href="{{ locale_path }}use-cases/insurance/">{{ strings.get('uc.more', 'See how it works') }} <span aria-hidden="true" class="uc2-arrow">→</span></a>{% endif %}
+                    </div>{% endif %}
+                    <div class="uc3-body">
+<div class="uc3-inv-row"><i></i><i class="num"></i></div><div class="uc3-inv-row"><i></i><i class="num"></i></div><div class="uc3-inv-row"><i></i><i class="num"></i></div><div class="uc3-inv-total"><i></i><i class="num uc2-hl"></i></div><figcaption>{{ strings.get('uc3.ins.sk.1', '') }}</figcaption></figure>
+                            <figure class="uc3-form"><div class="uc3-field"><b></b><i></i></div><div class="uc3-field"><b></b><i class="uc3-warn"></i></div><div class="uc3-field"><b></b><i class="uc2-hl"></i></div><div class="uc3-field"><b></b><i></i></div><figcaption>{{ strings.get('uc3.ins.sk.2', '') }}</figcaption></figure>
+                        </div>
+                        <h3 class="uc2-label">{{ strings.get('uc3.label.findings', '') }}</h3>
+                        <table class="uc3-table">
+                            <thead><tr><th>{{ strings.get('uc3.col.finding', '') }}</th><th>{{ strings.get('uc3.col.source', '') }}</th></tr></thead>
+                            <tbody>
+                            <tr><td data-i18n="uc3.ins.f.1">{{ strings.get('uc3.ins.f.1', '') }}</td><td class="uc3-src">{{ strings.get('uc3.ins.s.1', '') }}</td></tr><tr><td data-i18n="uc3.ins.f.2">{{ strings.get('uc3.ins.f.2', '') }}</td><td class="uc3-src">{{ strings.get('uc3.ins.s.2', '') }}</td></tr><tr><td data-i18n="uc3.ins.f.3">{{ strings.get('uc3.ins.f.3', '') }}</td><td class="uc3-src">{{ strings.get('uc3.ins.s.3', '') }}</td></tr>
+                            </tbody>
+                        </table>
+                        <p class="uc3-outcome"><span class="uc3-outcome-label">{{ strings.get('uc3.label.outcome', '') }}</span><span data-i18n="uc3.ins.outcome">{{ strings.get('uc3.ins.outcome', '') }}</span></p>
+                    </div>
+                </article>

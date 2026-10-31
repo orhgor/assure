@@ -2092,20 +2092,24 @@ body {
     color: #475569;
 }
 
+.enterprise-landing .logo-name {
+    color: var(--assure-trust-blue);
+}
+
 .enterprise-landing .nav-links a:hover {
-    color: #0a0a0a;
+    color: var(--assure-trust-blue);
 }
 
 .enterprise-landing .btn-primary-small,
 .enterprise-landing .btn-primary {
-    background: #0a0a0a;
+    background: var(--assure-trust-blue);
     color: #fff;
     border: 0;
 }
 
 .enterprise-landing .btn-primary-small:hover,
 .enterprise-landing .btn-primary:hover {
-    background: #1e1e1e;
+    background: #153d73;
     color: #fff;
 }
 
@@ -2212,17 +2216,17 @@ body {
     padding: 0.8rem 2.2rem;
     border-radius: 9999px;
     font-weight: 600;
-    color: #0a0a0a;
-    border: 1px solid #0a0a0a;
+    color: var(--assure-trust-blue);
+    border: 1px solid var(--assure-trust-blue);
     background: transparent;
     text-decoration: none;
 }
 
 .enterprise-landing .btn-secondary:hover,
 .enterprise-landing .btn-secondary:active {
-    background: #0a0a0a;
+    background: var(--assure-trust-blue);
     color: #fff;
-    border-color: #0a0a0a;
+    border-color: var(--assure-trust-blue);
 }
 
 .enterprise-landing .section-title {
@@ -3243,14 +3247,16 @@ body.demo-open {
 @media (min-width: 640px) {
     .enterprise-landing .hero-cta-group .btn-primary,
     .enterprise-landing .hero-cta-group .btn-secondary {
-        width: auto;
-        max-width: none;
+        width: 15.5rem;
+        min-width: 15.5rem;
+        max-width: 15.5rem;
         white-space: nowrap;
         min-height: 3.25rem;
-        padding: 0 1.75rem;
+        padding: 0 1.25rem;
         display: inline-flex;
         align-items: center;
         justify-content: center;
+        border-radius: 6px;
     }
 }
 
@@ -3658,7 +3664,7 @@ html[dir="rtl"] .logo-name { direction: ltr; unicode-bidi: isolate; }
     gap: 0.5rem;
     padding: 1.5rem 1.25rem;
     border: 1px solid #e2e8f0;
-    border-top: 3px solid #0a0a0a;
+    border-top: 3px solid var(--assure-trust-blue);
     border-radius: 8px;
     background: #fff;
     text-align: center;
@@ -3666,7 +3672,7 @@ html[dir="rtl"] .logo-name { direction: ltr; unicode-bidi: isolate; }
 }
 
 .flow-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08); }
-.flow-card:last-child { background: #0a0a0a; border-color: #0a0a0a; border-top-color: var(--accent-green); }
+.flow-card:last-child { background: var(--assure-trust-blue); border-color: var(--assure-trust-blue); border-top-color: var(--accent-green); }
 .flow-card:last-child .flow-name,
 .flow-card:last-child .flow-icon { color: #fff; }
 .flow-card:last-child .flow-line { color: #cbd5e1; }
@@ -3795,7 +3801,7 @@ html[dir="rtl"] .flow-arrow-approval .flow-badge { left: auto; right: 50%; trans
 .uc2-steps li { display: flex; flex-direction: column; gap: 2px; padding: 12px 16px; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; border-inline-start: 3px solid #0a0a0a; }
 .uc2-step-name { font-weight: 600; font-size: 0.9rem; color: #0a0a0a; }
 .uc2-steps li span:last-child { color: #475569; font-size: 0.9rem; }
-.uc2-finding { background: #0a0a0a; color: #f0f2f5; border-radius: 8px; padding: var(--space-3); display: flex; flex-direction: column; gap: 12px; }
+.uc2-finding { background: var(--bg-deep); color: #f0f2f5; border-radius: 8px; padding: var(--space-3); display: flex; flex-direction: column; gap: 12px; }
 .uc2-finding-tag { align-self: flex-start; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #0a0a0a; background: var(--assure-accent-gold); border-radius: 9999px; padding: 3px 10px; }
 .uc2-finding-text { font-size: 1rem; line-height: 1.5; font-weight: 500; }
 .uc2-finding-src, .uc2-finding-approve { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: #a8b0bd; }
@@ -3819,12 +3825,12 @@ html[dir="rtl"] .flow-arrow-approval .flow-badge { left: auto; right: 50%; trans
 /* ---- Use cases index: shared flow strip + distinct case rows (uc3) ---- */
 .uc3-how { padding: 0 0 var(--space-6); }
 .uc3-how-steps { list-style: none; display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; padding: 0; margin: 0; }
-.uc3-how-steps li { display: flex; flex-direction: column; gap: 4px; padding: 16px; border-radius: 8px; background: #0a0a0a; color: #a8b0bd; font-size: 0.9rem; line-height: 1.5; }
-.uc3-how-steps strong { color: #f0f2f5; font-size: 0.95rem; }
+.uc3-how-steps li { display: flex; flex-direction: column; gap: 4px; padding: 16px; border-radius: 8px; background: #fff; color: #334155; font-size: 0.9rem; line-height: 1.5; border: 1px solid #e2e8f0; border-top: 3px solid var(--assure-trust-blue); }
+.uc3-how-steps strong { color: #0a0a0a; font-size: 0.95rem; }
 .uc3-how-n { width: 24px; height: 24px; border-radius: 9999px; background: var(--assure-accent-gold); color: #0a0a0a; font-weight: 700; font-size: 0.75rem; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 6px; }
 .uc3-case { display: grid; grid-template-columns: 1fr 1.6fr; gap: var(--space-6); padding: var(--space-6) 0; border-top: 1px solid #e2e8f0; }
 .uc3-case:last-of-type { border-bottom: 1px solid #e2e8f0; }
-.uc3-flip .uc3-intro { order: 2; }
+.uc3-case:not(:has(.uc3-intro)) { grid-template-columns: 1fr; max-width: 46rem; margin-inline: auto; }
 .uc3-docs { list-style: none; padding: 0; margin: 0 0 var(--space-3); display: flex; flex-wrap: wrap; gap: 8px; }
 .uc3-docs li { display: inline-flex; align-items: center; gap: 6px; font-size: 0.85rem; color: #0a0a0a; background: #f1f5f9; border-radius: 9999px; padding: 4px 12px; }
 .uc3-case svg { width: 14px; height: 14px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
@@ -4135,10 +4141,10 @@ html[dir="rtl"] .flow-arrow-approval .flow-badge { left: auto; right: 50%; trans
 #how { padding-top: var(--space-6, 48px); }
 #how .section-title { margin: 0 0 var(--space-4, 32px); }
 #how .flow { max-width: 74rem; }
-#how .flow-card:last-child { background: #fff; border-color: #e2e8f0; border-top-color: #0a0a0a; }
+#how .flow-card:last-child { background: #fff; border-color: #e2e8f0; border-top-color: var(--assure-trust-blue); }
 #how .flow-card:last-child .flow-name, #how .flow-card:last-child .flow-icon { color: #0a0a0a; }
 #how .flow-card:last-child .flow-line { color: #475569; }
-#how .flow-card:nth-last-child(3) { background: #0a0a0a; border-color: #0a0a0a; border-top-color: var(--accent-green); }
+#how .flow-card:nth-last-child(3) { background: var(--assure-trust-blue); border-color: var(--assure-trust-blue); border-top-color: var(--accent-green); }
 #how .flow-card:nth-last-child(3) .flow-name, #how .flow-card:nth-last-child(3) .flow-icon { color: #fff; }
 #how .flow-card:nth-last-child(3) .flow-line { color: #cbd5e1; }
 .home-who { list-style: none; margin: 0 auto; padding: 0; max-width: 60rem; display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px 32px; text-align: start; }
@@ -4194,3 +4200,126 @@ body:not([class]) main a:not([class]):hover { color: #f0f2f5; }
 @media (max-width: 640px) {
     .enterprise-landing .home-hero-body { margin-top: -12px; }
 }
+
+/* Text pages (about, pricing, security, terms) share the light canvas */
+.enterprise-landing .page {
+    max-width: 46rem;
+    margin: 0 auto;
+    padding: 4rem 1.5rem 5rem;
+    color: #0a0a0a;
+}
+.enterprise-landing .page-hero h1 {
+    font-size: clamp(2rem, 4vw, 2.75rem);
+    line-height: 1.15;
+    letter-spacing: -0.03em;
+    margin: 0 0 12px;
+}
+.enterprise-landing .page .lede,
+.enterprise-landing .page .hint {
+    color: #475569;
+    font-size: 1.05rem;
+    line-height: 1.6;
+    margin: 0 0 12px;
+}
+.enterprise-landing .page .card h2 {
+    font-size: 1.25rem;
+    margin: 28px 0 8px;
+    color: #0a0a0a;
+}
+.enterprise-landing .page .card h2:first-child { margin-top: 8px; }
+.enterprise-landing .page .card p,
+.enterprise-landing .page .card li {
+    color: #334155;
+    line-height: 1.6;
+    margin: 0 0 12px;
+}
+.enterprise-landing .page a { color: var(--assure-trust-blue); }
+.enterprise-landing .page .section-title {
+    text-align: start;
+    font-size: 1.65rem;
+    margin-bottom: 12px;
+}
+.enterprise-landing .page .section-title::after {
+    margin: 16px 0 20px;
+}
+.enterprise-landing .page .home-inputs,
+.enterprise-landing .page .section-sub {
+    text-align: start;
+    margin-left: 0;
+    margin-right: 0;
+}
+.home-list-steps { counter-reset: fit; }
+.home-list-steps .home-item h3::before {
+    counter-increment: fit;
+    content: counter(fit) ". ";
+    color: var(--assure-trust-blue);
+}
+
+/* Lean pages: one column, no decorative rules, no filled step cards */
+.enterprise-landing .page .section-title::after { display: none; }
+.enterprise-landing .page .home-list,
+.enterprise-landing .page .home-list-compare,
+.enterprise-landing .page .about-sec .home-list { grid-template-columns: 1fr; }
+.enterprise-landing .page .about-sec { margin-top: 48px; }
+.enterprise-landing .page .price-grid { margin: 24px 0 0; justify-items: stretch; max-width: none; }
+
+.flow-card:last-child,
+#how .flow-card:nth-last-child(3) {
+    background: #fff;
+    border-color: #e2e8f0;
+    border-top-color: var(--assure-confidence-green);
+}
+.flow-card:last-child .flow-name,
+.flow-card:last-child .flow-icon,
+#how .flow-card:nth-last-child(3) .flow-name,
+#how .flow-card:nth-last-child(3) .flow-icon { color: #0a0a0a; }
+.flow-card:last-child .flow-line,
+#how .flow-card:nth-last-child(3) .flow-line { color: #475569; }
+
+.uc3-how-steps { grid-template-columns: 1fr 1fr; gap: 24px 32px; }
+.uc3-how-steps li {
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    padding: 0;
+}
+.uc3-how-n {
+    width: auto;
+    height: auto;
+    margin: 0;
+    border-radius: 0;
+    background: transparent;
+    color: var(--assure-trust-blue);
+    font-size: 0.8rem;
+}
+.uc3-checklist li {
+    border: 0;
+    border-radius: 0;
+    border-top: 1px solid #e2e8f0;
+    padding: 12px 0;
+    background: transparent;
+}
+.uc3-x { display: none; }
+.uc3-table { border: 0; border-radius: 0; }
+.uc3-table th {
+    background: transparent;
+    color: #64748b;
+    padding: 8px 0;
+    border-bottom: 1px solid #e2e8f0;
+}
+.uc3-table td { padding: 12px 0; border-top: 1px solid #e2e8f0; }
+.uc3-cmp {
+    border: 0;
+    border-radius: 0;
+    border-top: 1px solid #e2e8f0;
+    padding: 12px 0;
+    background: transparent;
+}
+.uc3-outcome {
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    padding: 8px 0 0;
+}
+.uc3-outcome-label { color: #475569; }
+.uc3-ne { color: var(--assure-trust-blue); }
