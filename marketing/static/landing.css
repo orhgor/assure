@@ -4215,6 +4215,7 @@ html[dir="rtl"] .flow-arrow-approval .flow-badge { left: auto; right: 50%; trans
 .home-who-item h3 { font-size: 1rem; margin: 0 0 6px; color: #0a0a0a; font-weight: 600; }
 .home-who-item h3 a { color: #0a0a0a; text-decoration: underline; text-underline-offset: 3px; }
 .home-who-item p { margin: 0; color: #334155; font-size: 0.95rem; line-height: 1.55; }
+.home-wf-line { max-width: 40rem; margin: 28px auto 0; text-align: center; color: #475569; font-size: 0.95rem; line-height: 1.55; }
 .home-wf { max-width: 68rem; margin: 28px auto 0; display: flex; flex-wrap: wrap; gap: 8px 16px; justify-content: center; align-items: baseline; }
 .home-wf-label { color: #475569; font-weight: 500; font-size: 0.95rem; }
 .home-chips { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px 16px; justify-content: center; }
