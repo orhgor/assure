@@ -4403,3 +4403,28 @@ body:not([class]) main a:not([class]):hover { color: #f0f2f5; }
 }
 .uc3-outcome-label { color: #475569; }
 .uc3-ne { color: #0a0a0a; }
+
+/* Use cases: one container, columns that start on the same line */
+.uc-landing .home-pain .section-title,
+.uc-landing .home-pain .section-sub,
+.uc-landing #workflows .section-title,
+.uc-landing #workflows .section-sub {
+    text-align: start;
+    margin-left: 0;
+    margin-right: 0;
+    max-width: none;
+}
+.uc-landing .uc3-how-steps {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    align-items: start;
+}
+.uc-landing .uc3-case,
+.uc-landing .uc3-case:not(:has(.uc3-intro)) {
+    align-items: start;
+}
+.uc-landing .uc3-case:not(:has(.uc3-intro)) {
+    grid-template-columns: 1fr;
+    max-width: 46rem;
+    margin-inline: auto;
+}
+.uc-landing .home-list-two { grid-template-columns: 1fr 1fr; }
