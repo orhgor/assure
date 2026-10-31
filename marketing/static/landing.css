@@ -4193,7 +4193,7 @@ body:not([class]) main a:not([class]):hover { color: #f0f2f5; }
 
 /* pr-m: current page in nav */
 .nav-links a[aria-current="page"],
-.enterprise-landing .nav-links a[aria-current="page"] { font-weight: 500; box-shadow: inset 0 -2px 0 #D4A843; }
+.enterprise-landing .nav-links a[aria-current="page"] { font-weight: 500; box-shadow: inset 0 -2px 0 #0a0a0a; }
 .enterprise-landing .nav-links a[aria-current="page"] { color: #0a0a0a; }
 
 /* pr-n: mobile hero spacing */
