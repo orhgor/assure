@@ -48,16 +48,62 @@
                 <p class="hero-sub" data-i18n="landing.hero.lead">{{ strings.get('landing.hero.lead', 'Assure shows every fact that does not match your rules or your other documents, with the page.') }}</p>
                 <p class="home-hero-body" data-i18n="landing.hero.subtitle">{{ strings.get('landing.hero.subtitle', 'A person decides.') }}</p>
                 <div class="hero-cta-group">
+                    <a href="{{ locale_path }}use-cases/" class="btn-secondary" data-i18n="landing.hero.cta_secondary">{{ strings.get('landing.hero.cta_secondary', 'See example findings') }}</a>
                     <button type="button" class="btn-primary" data-demo-open data-i18n="landing.hero.cta_primary">{{ strings.get('landing.hero.cta_primary', 'Book a demo') }}</button>
                 </div>
-                {% set band_class = 'logos-band-hero' %}{% include 'includes/logos_band.html' %}
-                <article id="example" class="hero-finding">
-                    <p class="home-proof-who" data-i18n="home.proof.who">{{ strings.get('home.proof.who', 'For procurement. A supplier invoice against the contract.') }}</p>
-                    <p class="home-proof-line"><span data-i18n="home.sample.text">{{ strings.get('home.sample.text', 'The invoice total does not match the agreed price in the contract.') }}</span> <span class="home-proof-page" data-i18n="home.demo.page">{{ strings.get('home.demo.page', 'p. 3') }}</span></p>
-                    <p class="home-proof-src"><span data-i18n="home.demo.f1.src">{{ strings.get('home.demo.f1.src', 'Invoice, p. 1') }}</span> · <span data-i18n="home.demo.f2.src">{{ strings.get('home.demo.f2.src', 'Contract, p. 3') }}</span></p>
-                </article>
                 <p class="hero-deployment" data-i18n="landing.hero.deployment">{{ strings.get('landing.hero.deployment', 'Runs in your AWS account or on-prem. You pick where the models run.') }}</p>
-                <p class="home-more"><a href="{{ locale_path }}use-cases/" data-i18n="home.wf.more">{{ strings.get('home.wf.more', 'See all use cases') }}</a></p>
+                {% set band_class = 'logos-band-hero' %}{% include 'includes/logos_band.html' %}
+            </div>
+        </section>
+
+                {% set flow_id = 'how' %}{% set flow_title = strings.get('home.how.title', 'How it works') %}{% set flow_line1 = strings.get('home.how.1', 'Scans, PDFs, forms and SAP exports.') %}{% set flow_line2 = strings.get('home.how.2', 'ParSure reads every file, including handwritten and scanned reports.') %}{% set flow_line3 = strings.get('home.how.3', 'CrossSure checks each fact against your rules, registers and the other documents.') %}{% set flow_line4 = strings.get('home.how.4', 'A person approves or rejects each finding.') %}{% set flow_line5 = strings.get('home.how.5', 'DraftSure drafts only from approved facts.') %}{% set flow_name5 = strings.get('home.how.5.name', 'Draft') %}{% set flow_more = strings.get('home.how.more', 'See each step in detail') %}{% set flow_more_href = locale_path ~ 'about/#how' %}{% include 'includes/flow.html' %}
+
+        <section id="example" class="home-section home-example">
+            <div class="container">
+                <div class="home-edge home-edge-solo">
+                    <div class="uc2-finding home-edge-card hd" data-hd role="group" aria-label="{{ strings.get('home.demo.aria', 'Example of one finding, from documents to a reviewer\'s decision') }}">
+                        <span class="uc2-finding-tag" data-i18n="home.sample.tag">{{ strings.get('home.sample.tag', 'Example finding') }}</span>
+                        <div class="hd-docs"><span class="hd-chip" data-i18n="home.demo.doc.1">{{ strings.get('home.demo.doc.1', 'Invoice') }}</span><span class="hd-chip" data-i18n="home.demo.doc.2">{{ strings.get('home.demo.doc.2', 'Contract') }}</span><span class="hd-chip" data-i18n="home.demo.doc.3">{{ strings.get('home.demo.doc.3', 'Delivery note') }}</span></div>
+                        <div class="hd-facts">
+                            <ul class="hd-list">
+                                <li class="hd-fact hd-f1"><span class="hd-src" data-i18n="home.demo.f1.src">{{ strings.get('home.demo.f1.src', 'Invoice, p. 1') }}</span><span class="hd-val" data-i18n="home.demo.f1.val">{{ strings.get('home.demo.f1.val', 'Total as billed') }}</span></li>
+                                <li class="hd-fact hd-f2"><span class="hd-src" data-i18n="home.demo.f2.src">{{ strings.get('home.demo.f2.src', 'Contract, p. 3') }}</span><span class="hd-val" data-i18n="home.demo.f2.val">{{ strings.get('home.demo.f2.val', 'Agreed price') }}</span></li>
+                                <li class="hd-fact hd-f3"><span class="hd-src" data-i18n="home.demo.f3.src">{{ strings.get('home.demo.f3.src', 'Delivery note, p. 2') }}</span><span class="hd-val" data-i18n="home.demo.f3.val">{{ strings.get('home.demo.f3.val', 'Quantity delivered') }}</span></li>
+                            </ul>
+                            <svg class="hd-link" viewBox="0 0 24 92" aria-hidden="true"><path pathLength="1" d="M2 14 C 22 14, 22 46, 2 46"/></svg>
+                        </div>
+                        <div class="hd-mismatch"><p class="uc2-finding-text" data-i18n="home.sample.text">{{ strings.get('home.sample.text', 'The invoice total does not match the agreed price in the contract.') }}</p><span class="hd-page" data-i18n="home.demo.page">{{ strings.get('home.demo.page', 'p. 3') }}</span></div>
+                        <div class="hd-review"><span data-i18n="home.demo.reviewer">{{ strings.get('home.demo.reviewer', 'Reviewer decides') }}</span><span class="hd-btn hd-ok" data-i18n="home.demo.approve">{{ strings.get('home.demo.approve', 'Approve') }}</span><span class="hd-btn" data-i18n="home.demo.reject">{{ strings.get('home.demo.reject', 'Reject') }}</span></div>
+                        <p class="hd-draft" data-i18n="home.demo.draft">{{ strings.get('home.demo.draft', 'DraftSure: draft built from approved facts') }}</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="who" class="use-case-cards">
+            <div class="container">
+                <h2 class="section-title" data-i18n="home.icp.title">{{ strings.get('home.icp.title', 'For teams that check before they act.') }}</h2>
+                <ul class="home-who">
+                    <li class="home-who-item"><h3><a href="{{ locale_path }}use-cases/government/" data-i18n="home.icp.gov.name">{{ strings.get('home.icp.gov.name', 'Public bodies and government services') }}</a></h3><p data-i18n="home.who.gov">{{ strings.get('home.who.gov', 'Applicant files: a missing certificate. A case officer decides.') }}</p></li>
+                    <li class="home-who-item"><h3><a href="{{ locale_path }}use-cases/insurance/" data-i18n="home.icp.ins.name">{{ strings.get('home.icp.ins.name', 'Insurers') }}</a></h3><p data-i18n="home.who.ins">{{ strings.get('home.who.ins', 'Claim files: a treatment date outside cover. The adjuster decides.') }}</p></li>
+                    <li class="home-who-item"><h3><a href="{{ locale_path }}use-cases/fuel-retail/" data-i18n="home.icp.fuel.name">{{ strings.get('home.icp.fuel.name', 'Fuel retailers and distributors') }}</a></h3><p data-i18n="home.who.fuel">{{ strings.get('home.who.fuel', 'Bonus statements: a rate that does not match the agreement. The finance team decides.') }}</p></li>
+                    <li class="home-who-item"><h3><span data-i18n="home.icp.ind.name">{{ strings.get('home.icp.ind.name', 'Industrial and manufacturing groups') }}</span></h3><p data-i18n="home.who.ind">{{ strings.get('home.who.ind', 'Supplier invoices: a price above the agreed rate. Procurement decides.') }}</p></li>
+                    <li class="home-who-item"><h3><span data-i18n="home.icp.mro.name">{{ strings.get('home.icp.mro.name', 'Aviation and engineering maintenance') }}</span></h3><p data-i18n="home.who.mro">{{ strings.get('home.who.mro', 'Release certificates: a serial number that does not match. The engineer decides.') }}</p></li>
+                </ul>
+                <div class="home-wf"><span class="home-wf-label" data-i18n="home.wf.label">{{ strings.get('home.wf.label', 'Also used for:') }}</span><ul class="home-chips"><li class="home-chip" data-i18n="home.wf.1">{{ strings.get('home.wf.1', 'Onboarding and KYC files') }}</li><li class="home-chip" data-i18n="home.wf.2">{{ strings.get('home.wf.2', 'Claims and payouts') }}</li><li class="home-chip" data-i18n="home.wf.3">{{ strings.get('home.wf.3', 'Supplier invoices and contracts') }}</li><li class="home-chip" data-i18n="home.wf.4">{{ strings.get('home.wf.4', 'Tenders and procurement') }}</li><li class="home-chip" data-i18n="home.wf.5">{{ strings.get('home.wf.5', 'Grants and subsidies') }}</li><li class="home-chip" data-i18n="home.wf.6">{{ strings.get('home.wf.6', 'Compliance and audit evidence') }}</li><li class="home-chip" data-i18n="home.wf.7">{{ strings.get('home.wf.7', 'Reconciliations') }}</li><li class="home-chip" data-i18n="home.wf.8">{{ strings.get('home.wf.8', 'Certificates and shipping files') }}</li></ul></div>
+                <p class="home-more"><a href="{{ locale_path }}use-cases/#workflows" data-i18n="home.wf.more">{{ strings.get('home.wf.more', 'See all use cases') }}</a> <span aria-hidden="true">→</span></p>
+            </div>
+        </section>
+
+        <section id="faq" class="home-section">
+            <div class="container">
+                <h2 class="section-title" data-i18n="home.faq.title">{{ strings.get('home.faq.title', 'Questions') }}</h2>
+                <dl class="home-faq">
+                    <div class="home-faq-item"><dt data-i18n="home.faq.1.q">{{ strings.get('home.faq.1.q', 'What exactly does it do?') }}</dt><dd data-i18n="home.faq.1.a">{{ strings.get('home.faq.1.a', 'It reads your files, links the facts across them and checks each one against your rules and registers.') }}</dd></div>
+                    <div class="home-faq-item"><dt data-i18n="home.faq.2.q">{{ strings.get('home.faq.2.q', 'What documents can it check?') }}</dt><dd data-i18n="home.faq.2.a">{{ strings.get('home.faq.2.a', 'Scans, PDFs, forms, contracts, invoices, receipts and certificates, including handwritten and scanned reports, alongside your SAP exports.') }}</dd></div>
+                    <div class="home-faq-item"><dt data-i18n="home.faq.3.q">{{ strings.get('home.faq.3.q', 'Where does it run?') }}</dt><dd data-i18n="home.faq.3.a">{{ strings.get('home.faq.3.a', 'In your own AWS account or on-premises. You choose where the models run, including your own GPU servers.') }}</dd></div>
+                    <div class="home-faq-item"><dt data-i18n="home.faq.4.q">{{ strings.get('home.faq.4.q', 'Who makes the decision?') }}</dt><dd data-i18n="home.faq.4.a">{{ strings.get('home.faq.4.a', 'A person. The layer shows each finding with its source page, and your reviewer approves or rejects it.') }}</dd></div>
+                </dl>
             </div>
         </section>
 
@@ -105,5 +151,14 @@
 
     {% include 'includes/landing_footer.html' %}
     <script src="{{ url_for('static', filename='landing-pilot.js') }}?v={{ landing_js_version|default('42') }}"></script>
+    <script>(function(){var d=document;if(matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target)}})},{rootMargin:'0px 0px -8% 0px'});
+d.querySelectorAll('#main-content > section:not(.hero-section)').forEach(function(s){s.classList.add('fu');io.observe(s)});
+var c=d.querySelector('[data-hd]');if(!c)return;var T=[300,1300,2900,3900,5000,6000],tm=[],on=0,vis=0;
+function S(a){for(var k=1;k<7;k++)c.classList[a?'add':'remove']('s'+k)}
+function clr(){tm.forEach(clearTimeout);tm=[]}
+function run(){clr();c.classList.add('rst');S(0);void c.offsetWidth;c.classList.remove('rst');T.forEach(function(t,k){tm.push(setTimeout(function(){c.classList.add('s'+(k+1))},t))});tm.push(setTimeout(run,8800))}
+function up(){var g=vis&&!d.hidden;if(g&&!on){on=1;c.classList.add('run');run()}else if(!g&&on){on=0;clr();S(1)}}
+new IntersectionObserver(function(es){vis=es[0].isIntersecting;up()}).observe(c);d.addEventListener('visibilitychange',up)})();</script>
 </body>
 </html>

@@ -4251,7 +4251,7 @@ html[dir="rtl"] .flow-arrow-approval .flow-badge { left: auto; right: 50%; trans
 .home-proof-line { margin: 0 auto 8px; color: #0a0a0a; font-size: 1.15rem; line-height: 1.5; }
 .home-proof-src { margin: 0 auto 16px; color: #475569; font-size: 0.95rem; }
 .home-example .hero-deployment { border-top: 0; padding-top: 0; margin-top: 8px; }
-.home-example { padding-top: 0; }
+.home-example { padding-top: var(--space-8, 4rem); }
 .home-example .home-edge-solo { margin-top: 0; }
 
 /* pr-j contrast: AA fixes */
