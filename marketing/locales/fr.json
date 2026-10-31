@@ -637,5 +637,6 @@
   "home.wf.6": "Preuves de conformité et d'audit",
   "home.wf.7": "Rapprochements",
   "home.wf.8": "Certificats et documents d'expédition",
-  "home.wf.line": "Également utilisé pour l'intégration, les réclamations, les factures, les appels d'offres, les subventions, les dossiers d'audit, les rapprochements et les dossiers d'expédition."
+  "home.wf.line": "Également utilisé pour l'intégration, les réclamations, les factures, les appels d'offres, les subventions, les dossiers d'audit, les rapprochements et les dossiers d'expédition.",
+  "home.proof.who": "Pour les achats. Une facture fournisseur par rapport au contrat."
 }

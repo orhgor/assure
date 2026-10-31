@@ -636,5 +636,6 @@
   "home.wf.6": "Compliance and audit evidence",
   "home.wf.7": "Reconciliations",
   "home.wf.8": "Certificates and shipping files",
-  "home.wf.line": "Also used for onboarding, claims, invoices, tenders, grants, audit files, reconciliations, and shipping files."
+  "home.wf.line": "Also used for onboarding, claims, invoices, tenders, grants, audit files, reconciliations, and shipping files.",
+  "home.proof.who": "For procurement. A supplier invoice against the contract."
 }
