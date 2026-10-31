@@ -637,5 +637,6 @@
   "home.wf.6": "Uyum ve denetim kanıtları",
   "home.wf.7": "Mutabakatlar",
   "home.wf.8": "Sertifikalar ve sevkiyat dosyaları",
-  "home.wf.line": "Ayrıca işe alım, talepler, faturalar, ihaleler, hibeler, denetim dosyaları, mutabakatlar ve nakliye dosyaları için de kullanılır."
+  "home.wf.line": "Ayrıca işe alım, talepler, faturalar, ihaleler, hibeler, denetim dosyaları, mutabakatlar ve nakliye dosyaları için de kullanılır.",
+  "home.proof.who": "Tedarik departmanı için. Sözleşmeye dayalı bir tedarikçi faturası."
 }

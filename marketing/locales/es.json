@@ -637,5 +637,6 @@
   "home.wf.6": "Evidencias de cumplimiento y auditoría",
   "home.wf.7": "Conciliaciones",
   "home.wf.8": "Certificados y documentos de envío",
-  "home.wf.line": "También se utiliza para incorporaciones, reclamaciones, facturas, licitaciones, subvenciones, archivos de auditoría, conciliaciones y archivos de envío."
+  "home.wf.line": "También se utiliza para incorporaciones, reclamaciones, facturas, licitaciones, subvenciones, archivos de auditoría, conciliaciones y archivos de envío.",
+  "home.proof.who": "Para adquisiciones. Una factura de proveedor cotejada con el contrato."
 }
