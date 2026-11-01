@@ -87,7 +87,7 @@ def test_shared_shell():
     pages = _pages()
     for name, html in pages.items():
         assert "How it works" in html, name
-        assert "Launch App" in html, name
+        assert "Launch App" not in html, name
         assert "Book a review" in html, name
         assert 'class="lang-switch"' in html, name
         assert "Archeon Cloud" in html, name
