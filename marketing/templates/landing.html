@@ -50,7 +50,6 @@
                     <p class="rev-cta"><a class="btn-primary" href="{{ locale_path }}contact-us/">Book a review</a> <a class="rev-text-link" href="#how-it-works">See how it works</a></p>
                 </div>
                 <figure class="rev-shot">
-                    <figcaption class="rev-shot-label">[CONFIRM D4: replace this figure with hero-product.png]</figcaption>
                     <div class="rev-shot-frame">
                         <p class="rev-shot-kicker">Sample case</p>
                         <p>Section 1.2 states a reserve of $1,420,000.</p>
@@ -58,7 +57,7 @@
                         <p class="rev-blocked">Export blocked: the reserve in Section 1.2 differs from the claim form (p. 14).</p>
                     </div>
                     <figcaption>Sample case. Export blocked: the reserve in Section 1.2 differs from the claim form (p. 14).</figcaption>
-                    <p class="rev-note">Sample data. Not a customer file.</p>
+                    <p class="rev-note">Sample data. Not a customer file. [CONFIRM D4: replace this figure with hero-product.png]</p>
                 </figure>
             </div>
         </section>
@@ -78,7 +77,6 @@
                     <li>
                         <h3>Extract</h3>
                         <p>Reads PDFs, scans, tables and system exports. Every fact keeps its page, cell or row reference.</p>
-                        <p>[CONFIRM: scan-quality and extraction-confidence scoring is shipped; if not, the scoring sentence stays deleted.]</p>
                     </li>
                     <li>
                         <h3>Verify</h3>
@@ -89,6 +87,7 @@
                         <p>An adversarial review looks for unsupported statements and policy gaps. Export unlocks only when checks pass and open findings are resolved. An audit record ships with the document.</p>
                     </li>
                 </ol>
+                <p class="rev-note">[CONFIRM: scan-quality and extraction-confidence scoring is shipped; if not, the scoring sentence stays deleted.]</p>
             </div>
         </section>
 
@@ -115,8 +114,8 @@
         </section>
 
         <section class="rev-section">
-            <div class="container rev-narrow">
-                <h2>{% if deployment.multiple_modes_confirmed %}You decide where it runs.{% else %}Where your data goes.{% endif %}</h2>
+            <div class="container">
+                <h2 class="rev-narrow">{% if deployment.multiple_modes_confirmed %}You decide where it runs.{% else %}Where your data goes.{% endif %}</h2>
                 {% include 'includes/deployment_table.html' %}
                 {% if deployment.model_access_confirmed %}
                 <p>{{ deployment.model_access }}</p>

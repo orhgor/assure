@@ -80,18 +80,15 @@
         }
     </style>
 </head>
-<body id="top" class="enterprise-landing contact-landing">
+<body id="top" class="enterprise-landing contact-landing rev">
     {% set nav_current = 'contact' %}
     {% include 'includes/landing_header.html' %}
 
     <main class="contact-main">
-        <div class="container" style="text-align: center;">
+        <div class="container rev-form">
             <h1 class="section-title">Book a review.</h1>
             <p class="contact-lead">What happens next, and the expected response time: {{ deployment.review_response_time }}</p>
-
-            <div class="contact-grid">
-                <div class="contact-card">
-                    <h2 data-i18n="contact.form_title">{{ strings.get('contact.form_title', 'Request form') }}</h2>
+            <div class="contact-card">
                     <form class="contact-form" id="contact-form" novalidate>
                         <input type="text" name="company_website" id="cf-website" tabindex="-1" autocomplete="off" hidden aria-hidden="true">
                         <label for="cf-name" data-i18n="contact.f_name">{{ strings.get('contact.f_name', 'Name') }}</label>
@@ -109,15 +106,7 @@
                         <p class="contact-error" id="contact-error" hidden></p>
                     </form>
                     <p id="contact-done" data-i18n="contact.done" hidden>{{ strings.get('contact.done', 'Thanks, we will be in touch.') }}</p>
-                    <p class="contact-alt">{{ strings.get('contact.alt', 'Prefer email?') }} <a class="contact-email" href="mailto:sales@getassureai.com">sales@getassureai.com</a></p>
                 </div>
-
-                <div class="contact-card">
-                    <h2 data-i18n="contact.direct_title">{{ strings.get('contact.direct_title', 'Direct') }}</h2>
-                    <p data-i18n="contact.direct_body">{{ strings.get('contact.direct_body', 'Write to us directly and include your use case, document volume, and timeline. Attachments are fine.') }}</p>
-                    <a class="contact-email" href="mailto:sales@getassureai.com?subject=Enterprise%20demo%20request">sales@getassureai.com</a>
-                </div>
-            </div>
         </div>
     </main>
 
