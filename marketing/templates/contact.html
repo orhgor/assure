@@ -97,11 +97,17 @@
                         <input id="cf-email" name="email" type="email" autocomplete="email" required>
                         <label for="cf-company">Organization</label>
                         <input id="cf-company" name="company" type="text" autocomplete="organization">
-                        <label for="cf-role">Role</label>
-                        <input id="cf-role" name="role" type="text" autocomplete="organization-title">
-                        <label for="cf-message">What you want to verify</label>
+                        <label for="cf-vertical">Primary vertical</label>
+                        <select id="cf-vertical" name="vertical">
+                            <option value="Insurance and claims">Insurance and claims</option>
+                            <option value="Institutional finance and deal advisory">Institutional finance and deal advisory</option>
+                            <option value="Public sector and regulated procurement">Public sector and regulated procurement</option>
+                            <option value="Clinical, pharma and industrial QA">Clinical, pharma and industrial QA</option>
+                        </select>
+                        <label for="cf-message">What documents do you want to verify?</label>
                         <textarea id="cf-message" name="message"></textarea>
                         <button type="submit" class="btn-primary">Book a review</button>
+                        <p class="contact-alt"><a href="{{ deployment.self_serve_url }}">Evaluating on your own? Launch App</a></p>
                         <p class="contact-error" id="contact-error" hidden></p>
                     </form>
                     <p id="contact-done" data-i18n="contact.done" hidden>{{ strings.get('contact.done', 'Thanks, we will be in touch.') }}</p>
@@ -146,6 +152,7 @@
                         name: name,
                         email: email,
                         company: company,
+                        vertical: get("cf-vertical"),
                         message: message,
                         company_website: get("cf-website"),
                     }),

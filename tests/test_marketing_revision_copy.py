@@ -22,18 +22,17 @@ PAGES = {
 }
 
 BANNED = re.compile(
-    r"\b(on this machine|on this computer|filter, not a guarantee|solo|journalist|"
-    r"Z3 SMT ENGINE|v4\.12|JDF v2|PEM engine|openrouter)\b",
+    r"on this machine|on this computer|stays on your computer|keys never leave your machine|"
+    r"filter, not a guarantee|No contradiction survives|Z3 SMT ENGINE|v4\.12|JDF v2|"
+    r"PEM engine|openrouter|The Deterministic Truth Engine|Paste a paragraph on the landing page|"
+    r"Solo High-Stakes Creators|Journalists & Fact-Checkers",
     re.I,
 )
-BRANDS = re.compile(
-    r"\b(Parsure|ParSure|CrossSure|DraftSure|Substrate Vault|Truth Ledger|Red-Hat|Laya|JDF)\b",
-    re.I,
-)
-EMOJI = re.compile(
-    "[\U0001F300-\U0001FAFF\u2600-\u27BF]"
-)
-EXAMPLE = ("$1,420,000", "$1,450,000", "Section 1.2", "p. 14")
+BAD_CASE = re.compile(r"Parsure|Par Sure|Cross Sure|Draft Sure|Crosssure|Draftsure")
+LEAKS = ("substrate_vault", "jdf_revisions", "user_activity_log", "audit_log", "groundrails", "start_char", "end_char", "node_id")
+EMOJI = re.compile("[\U0001F300-\U0001FAFF\u2600-\u27BF]")
+EXAMPLE = ("$1,420,000", "$1,450,000", "$30,000", "p. 14", "row 212", "Section 1.2")
+LOGOS = ("onprem-icon.svg", "aws-startups.svg", "s3-icon.svg")
 
 
 def _pages():
@@ -45,13 +44,12 @@ def _pages():
 
 def test_banned_strings_absent():
     for name, html in _pages().items():
-        assert not BANNED.search(html), name
+        assert not BANNED.search(html), (name, BANNED.search(html).group(0) if BANNED.search(html) else "")
 
 
-def test_sub_brand_names_only_on_architecture():
+def test_product_casing():
     for name, html in _pages().items():
-        if BRANDS.search(html) and name != "/architecture":
-            raise AssertionError(name)
+        assert not BAD_CASE.search(html), name
 
 
 def test_no_emoji_in_rendered_text():
@@ -62,20 +60,49 @@ def test_no_emoji_in_rendered_text():
         assert not EMOJI.search(text), name
 
 
-def test_canonical_example_and_no_table_4():
+def test_canonical_example_and_no_leaks():
     pages = _pages()
     for name in ("/", "/solutions"):
         html = pages[name]
         for bit in EXAMPLE:
             assert bit in html, (name, bit)
-        assert "Table 4" not in html
-    for html in pages.values():
-        assert "Table 4" not in html
-        assert "start_char" not in html
-        assert "end_char" not in html
-        assert "node_id" not in html
+    for name, html in pages.items():
+        for leak in LEAKS:
+            assert leak not in html, (name, leak)
 
 
 def test_no_unresolved_confirm_markers():
     for name, html in _pages().items():
         assert "[CONFIRM]" not in html, name
+
+
+def test_deployment_facts_come_from_shared_render():
+    pages = _pages()
+    for name in ("/", "/security", "/privacy", "/terms"):
+        assert "Managed Cloud Workspace" in pages[name], name
+        assert "AWS EC2" not in pages[name], name
+
+
+def test_shared_shell():
+    pages = _pages()
+    for name, html in pages.items():
+        assert "How it works" in html, name
+        assert "Launch App" in html, name
+        assert "Book a review" in html, name
+        assert 'class="lang-switch"' in html, name
+        assert "Archeon Cloud" in html, name
+
+
+def test_infrastructure_logos():
+    pages = _pages()
+    for name in ("/", "/security"):
+        html = pages[name]
+        for logo in LOGOS:
+            assert html.count(logo) == 1, (name, logo)
+        assert 'alt="On-prem"' in html or "On-prem" in html
+        assert 'alt="AWS"' in html
+        assert 'alt="Amazon S3"' in html
+    for name in ("/about", "/architecture", "/privacy", "/terms", "/solutions", "/contact-us"):
+        html = pages[name]
+        for logo in LOGOS:
+            assert logo not in html, (name, logo)

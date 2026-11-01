@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Solutions | Assure AI</title>
-    <meta name="description" content="Assure checks claim files, procurement files, deal documents, and regulated quality files before export.">
+    <meta name="description" content="Insurance, finance, procurement, and regulated QA checks before export.">
     <link rel="canonical" href="{{ page_url }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='landing.css') }}?v={{ landing_css_version|default('88') }}">
     <link rel="icon" href="{{ url_for('static', filename='assure-logo.png') }}" type="image/png">
@@ -16,32 +16,27 @@
         <h1>Solutions</h1>
         <section>
             <h2>Insurance and claims</h2>
-            <p>A coverage opinion can repeat a reserve that the claim form and the register do not support.</p>
             <p>Section 1.2 states $1,420,000. The claim form (p. 14) and row 212 state $1,450,000. The difference is $30,000. Export stays locked until that is resolved.</p>
             <p><a href="{{ locale_path }}contact-us/">Book a review</a></p>
         </section>
         <section>
-            <h2>Enterprise cross-check</h2>
-            <p>A supplier invoice can carry a total the contract does not support.</p>
-            <p>The invoice (p. 1) does not match the agreed price in the contract (p. 3). Export stays locked until that is resolved.</p>
+            <h2>Institutional finance and deal advisory</h2>
+            <p>Locks export when adjusted EBITDA in the executive summary contradicts the sensitivity table on page 38.</p>
             <p><a href="{{ locale_path }}contact-us/">Book a review</a></p>
         </section>
         <section>
             <h2>Public sector and regulated procurement</h2>
-            <p>A tender pack can carry a price or a certificate that does not match the other documents in the file.</p>
-            <p>Example check: the awarded price in the decision note does not match the priced schedule.</p>
-            <p><a href="{{ locale_path }}contact-us/">Book a review</a></p>
-        </section>
-        <section>
-            <h2>Institutional finance and deal advisory</h2>
-            <p>A deal memo can keep a figure after the source schedule has changed.</p>
-            <p>Example check: the consideration in the memo does not match the schedule.</p>
+            <p>Locks export when line-item bill-of-materials pricing fails to sum to the contract ceiling or omits a mandatory statutory clause.</p>
             <p><a href="{{ locale_path }}contact-us/">Book a review</a></p>
         </section>
         <section>
             <h2>Clinical, pharma and industrial QA</h2>
-            <p>A quality file can state a result the batch record does not support.</p>
-            <p>Example check: the released result does not match the batch record.</p>
+            <p>Locks export when patient cohort counts or SAP invoice quantities diverge from the underlying source tables.</p>
+            <p><a href="{{ locale_path }}contact-us/">Book a review</a></p>
+        </section>
+        <section>
+            <h2>SAP and ERP reconciliation</h2>
+            <p>An invoice total is checked against the register row and the contract price. Export stays locked when the figures do not match.</p>
             <p><a href="{{ locale_path }}contact-us/">Book a review</a></p>
         </section>
         <p class="rev-close"><a class="btn-primary" href="{{ locale_path }}contact-us/">Book a review</a></p>

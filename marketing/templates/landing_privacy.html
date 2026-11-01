@@ -63,6 +63,7 @@
         </header>
 
         <div class="privacy-body">
+            {% include 'includes/deployment_table.html' %}
             {{ strings.get('privacy.enterprise.body_html', '')|safe }}
         </div>
     </main>

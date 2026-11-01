@@ -1,4 +1,4 @@
-{# nav_current: "landing" | "about" | "pricing" | "use-cases" #}
+{# nav_current: landing | solutions | architecture | security | about | contact #}
 <a class="skip-link" href="#main-content" data-i18n="landing.skip">{{ strings.get('landing.skip', 'Skip to content') }}</a>
 <header class="site-header">
     <div class="container nav-container">
@@ -12,8 +12,18 @@
             <button type="button" class="nav-menu-toggle" id="nav-menu-toggle" aria-expanded="false" aria-controls="landing-nav-links" data-i18n="landing.nav.menu">{{ strings.get('landing.nav.menu', 'Menu') }}</button>
             <a href="{{ locale_path }}#how-it-works">How it works</a>
             <a href="{{ locale_path }}solutions/"{% if nav_current == 'solutions' %} aria-current="page"{% endif %}>Solutions</a>
+            <a href="{{ locale_path }}architecture/"{% if nav_current == 'architecture' %} aria-current="page"{% endif %}>Architecture</a>
             <a href="{{ locale_path }}security/"{% if nav_current == 'security' %} aria-current="page"{% endif %}>Security</a>
             <a href="{{ locale_path }}about/"{% if nav_current == 'about' %} aria-current="page"{% endif %}>About</a>
+            <details class="lang-switch">
+                <summary>{{ languages.get(locale, 'English') }}</summary>
+                <ul>
+                    {% for code, path in locale_paths.items() %}
+                    <li><a href="{{ path }}{{ page_suffix|default('') }}" hreflang="{{ code }}"{% if code == locale %} aria-current="true"{% endif %}>{{ languages.get(code, code) }}</a></li>
+                    {% endfor %}
+                </ul>
+            </details>
+            <a class="btn-secondary nav-launch" href="{{ deployment.self_serve_url }}">Launch App</a>
             <a class="btn-primary nav-cta" href="{{ locale_path }}contact-us/">Book a review</a>
         </nav>
     </div>
