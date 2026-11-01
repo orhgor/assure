@@ -4165,6 +4165,18 @@ html[dir="rtl"] .flow-arrow-approval .flow-badge { left: auto; right: 50%; trans
     .home-who, .home-faq, .home-list-three, .about-sec .home-list { grid-template-columns: 1fr; }
 }
 
+.home-stages, .home-proof { list-style: none; display: grid; gap: 20px 32px; margin: 28px auto 0; padding: 0; max-width: 60rem; text-align: start; }
+.home-stages { grid-template-columns: repeat(4, 1fr); }
+.home-proof { grid-template-columns: repeat(3, 1fr); }
+.home-stages li, .home-proof > div { border-top: 1px solid #e2e8f0; padding-top: 16px; }
+.home-stages span { display: block; font-size: 0.75rem; letter-spacing: 0.06em; color: #64748b; margin-bottom: 8px; }
+.home-stages h3, .home-proof h3 { font-size: 1rem; margin: 0 0 8px; color: #0a0a0a; }
+.home-stages p, .home-proof p { margin: 0 0 8px; color: #334155; font-size: 0.95rem; line-height: 1.55; }
+.home-locked { font-weight: 700; color: #0a0a0a; letter-spacing: 0.04em; }
+@media (max-width: 900px) {
+    .home-stages, .home-proof { grid-template-columns: 1fr; }
+}
+
 .home-example { padding-top: 0; }
 .home-example .home-edge-solo { margin-top: 0; }
 
