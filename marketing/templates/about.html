@@ -1,15 +1,49 @@
 {% extends "marketing_base.html" %}
-{% block title %}About | Assure AI{% endblock %}
+{% block title %}{{ strings.get('about.title', 'About') }} · {{ strings.get('brand.name', 'Assure') }}{% endblock %}
 {% block body %}
-  <div class="page rev">
+  <div class="page">
     <div class="page-hero">
-      <h1>About</h1>
+      <h1 data-i18n="about.title">{{ strings.get('about.title', 'About') }}</h1>
+      <p class="lede" data-i18n="about.lead">{{ strings.get('about.lead', 'Assure checks documents against your rules, your registers and each other, and shows the page behind every finding.') }}</p>
     </div>
     <section class="card">
-      <p>The output is a document. The product is verification.</p>
-      <p>Assure compiles claim files, contracts, and registers into finished documents. ParSure anchors each figure. CrossSure checks the constraints. Red-Hat stress-tests the draft. DraftSure holds export until the conflicts are resolved.</p>
-      <p>Assure is made by {{ deployment.company_legal_name }}.</p>
+      <h2 data-i18n="about.what">{{ strings.get('about.what', 'What it is') }}</h2>
+      <p data-i18n="about.what.body">{{ strings.get('about.what.body', 'ParSure reads each file. CrossSure checks the facts against your rules, registers and other documents. Every finding shows the page it came from. A person decides.') }}</p>
+      <h2 data-i18n="about.engine">{{ strings.get('about.engine', 'Who it is for') }}</h2>
+      <p data-i18n="about.engine.body">{{ strings.get('about.engine.body', 'Public bodies, insurers and fuel retailers who must check documents before they act on them. Runs in your own AWS account or on-premises. You choose where the models run.') }}</p>
+      <p><a href="{{ locale_path }}security/" data-i18n="sec.link">{{ strings.get('sec.link', 'Security and data') }}</a></p>
     </section>
-    <p class="rev-close"><a class="btn-primary" href="{{ locale_path }}contact-us/">Book a review</a></p>
+        <section id="how" class="card about-sec">
+                <h2 class="section-title" data-i18n="home.fit.title">{{ strings.get('home.fit.title', 'From a pile of files to a file your team can work.') }}</h2>
+                <p class="section-sub" data-i18n="home.fit.sub">{{ strings.get('home.fit.sub', 'Keep your forms, portals and case systems. The layer sits underneath and makes the documents usable.') }}</p>
+                <p class="home-inputs" data-i18n="home.fit.inputs">{{ strings.get('home.fit.inputs', 'Works with your SAP exports alongside contracts, invoices and receipts.') }}</p>
+                <ol class="home-list home-list-steps">
+                        <li class="home-item"><h3 data-i18n="home.fit.1.name">{{ strings.get('home.fit.1.name', 'Read.') }}</h3><p data-i18n="home.fit.1.text">{{ strings.get('home.fit.1.text', 'Every scan, PDF and form becomes clear facts: names, amounts, dates, terms.') }}</p></li>
+                        <li class="home-item"><h3 data-i18n="home.fit.2.name">{{ strings.get('home.fit.2.name', 'Link.') }}</h3><p data-i18n="home.fit.2.text">{{ strings.get('home.fit.2.text', 'Facts from different documents are joined into one case file.') }}</p></li>
+                        <li class="home-item"><h3 data-i18n="home.fit.3.name">{{ strings.get('home.fit.3.name', 'Check.') }}</h3><p data-i18n="home.fit.3.text">{{ strings.get('home.fit.3.text', 'Each fact is tested against your rules, your registers and the other documents.') }}</p></li>
+                        <li class="home-item"><h3 data-i18n="home.fit.4.name">{{ strings.get('home.fit.4.name', 'Trace.') }}</h3><p data-i18n="home.fit.4.text">{{ strings.get('home.fit.4.text', 'Every fact and finding points to the page it came from.') }}</p></li>
+                        <li class="home-item"><h3 data-i18n="home.fit.5.name">{{ strings.get('home.fit.5.name', 'Decide.') }}</h3><p data-i18n="home.fit.5.text">{{ strings.get('home.fit.5.text', 'Your reviewer works one clear list and approves or rejects each finding.') }}</p></li>
+                        <li class="home-item"><h3 data-i18n="home.fit.6.name">{{ strings.get('home.fit.6.name', 'Draft.') }}</h3><p data-i18n="home.fit.6.text">{{ strings.get('home.fit.6.text', 'DraftSure builds the response, report or letter only from the facts your reviewer approved.') }}</p></li>
+                </ol>
+        </section>
+        <section id="capabilities" class="card about-sec">
+                <h2 class="section-title" data-i18n="home.caps.title">{{ strings.get('home.caps.title', 'Everything a team needs to work a document file.') }}</h2>
+                <ul class="home-list">
+                        <li class="home-item"><h3 data-i18n="home.caps.1.name">{{ strings.get('home.caps.1.name', 'Reads every file.') }}</h3><p data-i18n="home.caps.1.text">{{ strings.get('home.caps.1.text', 'ParSure reads handwritten and scanned reports, PDFs and forms, and pulls out the facts that matter.') }}</p></li>
+                        <li class="home-item"><h3 data-i18n="home.caps.2.name">{{ strings.get('home.caps.2.name', 'Links facts across documents.') }}</h3><p data-i18n="home.caps.2.text">{{ strings.get('home.caps.2.text', 'One case file holds the facts from every document in it.') }}</p></li>
+                        <li class="home-item"><h3 data-i18n="home.caps.3.name">{{ strings.get('home.caps.3.name', 'Checks rules and documents.') }}</h3><p data-i18n="home.caps.3.text">{{ strings.get('home.caps.3.text', 'CrossSure tests the facts against your rules and against each other: an invoice against the claim form, a statement against the agreement.') }}</p></li>
+                        <li class="home-item"><h3 data-i18n="home.caps.4.name">{{ strings.get('home.caps.4.name', 'Checks your registers.') }}</h3><p data-i18n="home.caps.4.text">{{ strings.get('home.caps.4.text', 'Names, numbers and dates are compared with your own records.') }}</p></li>
+                        <li class="home-item"><h3 data-i18n="home.caps.5.name">{{ strings.get('home.caps.5.name', 'Shows the source page.') }}</h3><p data-i18n="home.caps.5.text">{{ strings.get('home.caps.5.text', 'Every finding links to the exact page behind it.') }}</p></li>
+                        <li class="home-item"><h3 data-i18n="home.caps.6.name">{{ strings.get('home.caps.6.name', 'Drafts from approved facts.') }}</h3><p data-i18n="home.caps.6.text">{{ strings.get('home.caps.6.text', 'DraftSure writes the response, report or letter using only approved facts, each linked to its page.') }}</p></li>
+                </ul>
+        </section>
+        <section id="different" class="card about-sec">
+                <h2 class="section-title" data-i18n="home.diff.title">{{ strings.get('home.diff.title', 'Reading a document is not the same as checking it.') }}</h2>
+                <ul class="home-list home-list-compare">
+                        <li class="home-item"><p><strong data-i18n="home.diff.1.name">{{ strings.get('home.diff.1.name', 'Document extraction tools') }}</strong> <span data-i18n="home.diff.1.text">{{ strings.get('home.diff.1.text', 'read the data but do not check whether it is right.') }}</span></p></li>
+                        <li class="home-item"><p><strong data-i18n="home.diff.2.name">{{ strings.get('home.diff.2.name', 'AI chat assistants') }}</strong> <span data-i18n="home.diff.2.text">{{ strings.get('home.diff.2.text', 'answer questions but do not give a reviewer findings to check page by page.') }}</span></p></li>
+                        <li class="home-item"><p><strong data-i18n="home.diff.4.name">{{ strings.get('home.diff.4.name', 'This layer') }}</strong> <span data-i18n="home.diff.4.text">{{ strings.get('home.diff.4.text', 'checks every document and shows where each finding came from.') }}</span></p></li>
+                </ul>
+        </section>
   </div>
 {% endblock %}

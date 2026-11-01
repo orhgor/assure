@@ -24,7 +24,7 @@
     <link rel="apple-touch-icon" href="{{ url_for('static', filename='assure-logo.png') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
     {% if locale|default('en') == 'ar' %}
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
     {% endif %}
@@ -37,150 +37,150 @@
     </script>
     <script>if(!matchMedia('(prefers-reduced-motion: reduce)').matches)document.documentElement.classList.add('fx')</script>
 </head>
-<body id="top" class="enterprise-landing rev">
+<body id="top" class="enterprise-landing">
     {% set nav_current = 'landing' %}
     {% include 'includes/landing_header.html' %}
 
     <main id="main-content">
-        <section class="rev-hero v4-hero">
+        <section class="hero-section">
             <div class="container">
-                <p class="v4-eyebrow">DETERMINISTIC DOCUMENT COMPILER</p>
-                <h1>The output is a document. The product is verification.</h1>
-                <p class="rev-sub">Assure compiles claim files, contracts, and registers into finished documents, and physically locks export until every figure ties to its source page.</p>
-                <p class="rev-cta">
-                    <a class="btn-primary" href="{{ locale_path }}contact-us/">Book a review</a>
-                </p>
-                {% set band_class = 'logos-band-hero' %}
-                {% include 'includes/logos_band.html' %}
-                <div class="v4-window" aria-label="Compiled coverage opinion with export locked">
-                    <div class="v4-chrome">
-                        <span>Coverage opinion</span>
-                        <span class="v4-export">Export DOCX / PDF <b>Locked</b> <em>1 Unresolved Conflict ($30,000 delta)</em></span>
-                    </div>
-                    <div class="v4-panes">
-                        <div>
-                            <p class="v4-kicker">Source</p>
-                            <p>Claim_Form_04.pdf, p. 14</p>
-                            <p>Register.csv, row 212</p>
-                            <p>Reserve $1,450,000</p>
+                <h1 class="hero-title" data-i18n-html="brand.hero_title_html">{{ strings.get('brand.hero_title_html', 'Documents in. Checked findings out.')|safe }}</h1>
+                <p class="hero-sub" data-i18n="landing.hero.lead">{{ strings.get('landing.hero.lead', 'Assure reads your files, cross-checks every fact and flags each mismatch with its page.') }}</p>
+                <p class="home-hero-body" data-i18n="landing.hero.subtitle">{{ strings.get('landing.hero.subtitle', 'For insurers, public bodies, fuel retail and maintenance teams. You make the call.') }}</p>
+                <div class="hero-cta-group">
+                    <a href="{{ locale_path }}use-cases/" class="btn-secondary" data-i18n="landing.hero.cta_secondary">{{ strings.get('landing.hero.cta_secondary', 'See example findings') }}</a>
+                    <button type="button" class="btn-primary" data-demo-open data-i18n="landing.hero.cta_primary">{{ strings.get('landing.hero.cta_primary', 'Book a demo') }}</button>
+                </div>
+                <p class="hero-deployment" data-i18n="landing.hero.deployment">{{ strings.get('landing.hero.deployment', 'Runs in your AWS account or on-prem. You pick where the models run.') }}</p>
+                {% set band_class = 'logos-band-hero' %}{% include 'includes/logos_band.html' %}
+            </div>
+        </section>
+
+                {% set flow_id = 'how' %}{% set flow_title = strings.get('home.how.title', 'How it works') %}{% set flow_line1 = strings.get('home.how.1', 'Scans, PDFs, forms and SAP exports.') %}{% set flow_line2 = strings.get('home.how.2', 'ParSure reads every file, including handwritten and scanned reports.') %}{% set flow_line3 = strings.get('home.how.3', 'CrossSure checks each fact against your rules, registers and the other documents.') %}{% set flow_line4 = strings.get('home.how.4', 'A person approves or rejects each finding.') %}{% set flow_line5 = strings.get('home.how.5', 'DraftSure drafts only from approved facts.') %}{% set flow_name5 = strings.get('home.how.5.name', 'Draft') %}{% set flow_more = strings.get('home.how.more', 'See each step in detail') %}{% set flow_more_href = locale_path ~ 'about/#how' %}{% include 'includes/flow.html' %}
+
+        <section id="example" class="home-section home-example">
+            <div class="container">
+                <div class="home-edge home-edge-solo">
+                    <div class="uc2-finding home-edge-card hd" data-hd role="group" aria-label="{{ strings.get('home.demo.aria', 'Example of one finding, from documents to a reviewer\'s decision') }}">
+                        <span class="uc2-finding-tag" data-i18n="home.sample.tag">{{ strings.get('home.sample.tag', 'Example finding') }}</span>
+                        <div class="hd-docs"><span class="hd-chip" data-i18n="home.demo.doc.1">{{ strings.get('home.demo.doc.1', 'Invoice') }}</span><span class="hd-chip" data-i18n="home.demo.doc.2">{{ strings.get('home.demo.doc.2', 'Contract') }}</span><span class="hd-chip" data-i18n="home.demo.doc.3">{{ strings.get('home.demo.doc.3', 'Delivery note') }}</span></div>
+                        <div class="hd-facts">
+                            <ul class="hd-list">
+                                <li class="hd-fact hd-f1"><span class="hd-src" data-i18n="home.demo.f1.src">{{ strings.get('home.demo.f1.src', 'Invoice, p. 1') }}</span><span class="hd-val" data-i18n="home.demo.f1.val">{{ strings.get('home.demo.f1.val', 'Total as billed') }}</span></li>
+                                <li class="hd-fact hd-f2"><span class="hd-src" data-i18n="home.demo.f2.src">{{ strings.get('home.demo.f2.src', 'Contract, p. 3') }}</span><span class="hd-val" data-i18n="home.demo.f2.val">{{ strings.get('home.demo.f2.val', 'Agreed price') }}</span></li>
+                                <li class="hd-fact hd-f3"><span class="hd-src" data-i18n="home.demo.f3.src">{{ strings.get('home.demo.f3.src', 'Delivery note, p. 2') }}</span><span class="hd-val" data-i18n="home.demo.f3.val">{{ strings.get('home.demo.f3.val', 'Quantity delivered') }}</span></li>
+                            </ul>
+                            <svg class="hd-link" viewBox="0 0 24 92" aria-hidden="true"><path pathLength="1" d="M2 14 C 22 14, 22 46, 2 46"/></svg>
                         </div>
-                        <div>
-                            <p class="v4-kicker">Section 1.2</p>
-                            <p>Compiled coverage opinion</p>
-                            <p class="v4-conflict">Reserve $1,420,000</p>
-                        </div>
+                        <div class="hd-mismatch"><p class="uc2-finding-text" data-i18n="home.sample.text">{{ strings.get('home.sample.text', 'The invoice total does not match the agreed price in the contract.') }}</p><span class="hd-page" data-i18n="home.demo.page">{{ strings.get('home.demo.page', 'p. 3') }}</span></div>
+                        <div class="hd-review"><span data-i18n="home.demo.reviewer">{{ strings.get('home.demo.reviewer', 'Reviewer decides') }}</span><span class="hd-btn hd-ok" data-i18n="home.demo.approve">{{ strings.get('home.demo.approve', 'Approve') }}</span><span class="hd-btn" data-i18n="home.demo.reject">{{ strings.get('home.demo.reject', 'Reject') }}</span></div>
+                        <p class="hd-draft" data-i18n="home.demo.draft">{{ strings.get('home.demo.draft', 'DraftSure: draft built from approved facts') }}</p>
                     </div>
-                </div>
             </div>
         </section>
 
-        <section class="rev-section rev-alt">
-            <div class="container v4-problem">
-                <h2>Language models write fluent drafts, and fluent drafts drift.</h2>
-                <p>Change a table on page 14 and Section 1.2 keeps the old number. In claims, finance, and procurement, one wrong figure in a signed document is a liability.</p>
-            </div>
-        </section>
-
-        <section id="how-it-works" class="rev-section">
+        <section id="who" class="use-case-cards">
             <div class="container">
-                <h2>Four stages from raw case file to locked deliverable.</h2>
-                <ol class="v4-pipe">
-                    <li><span>01</span><h3>ParSure</h3><p>Ingest and anchor. Parses PDFs, scans, tables, and ERP exports. Every extracted figure keeps its exact page, cell, or row coordinate.</p></li>
-                    <li><span>02</span><h3>CrossSure</h3><p>Verify constraints. Compiles figures and domain rules into formal constraints across the case file. Every contradiction lists the two sources in conflict.</p></li>
-                    <li><span>03</span><h3>Red-Hat</h3><p>Stress-test. Runs an adversarial pass against the draft to flag unsupported claims, omitted clauses, and policy gaps before sign-off.</p></li>
-                    <li><span>04</span><h3>DraftSure</h3><p>Lock and export. Compiles the final Word or PDF document. Export unlocks only when all checks pass and open findings are resolved, with a complete audit record.</p></li>
-                </ol>
+                <h2 class="section-title" data-i18n="home.icp.title">{{ strings.get('home.icp.title', 'For teams that check before they act.') }}</h2>
+                <ul class="home-who">
+                    <li class="home-who-item"><h3><a href="{{ locale_path }}use-cases/government/" data-i18n="home.icp.gov.name">{{ strings.get('home.icp.gov.name', 'Public bodies and government services') }}</a></h3><p data-i18n="home.who.gov">{{ strings.get('home.who.gov', 'Applicant files: a missing certificate. A case officer decides.') }}</p></li>
+                    <li class="home-who-item"><h3><a href="{{ locale_path }}use-cases/insurance/" data-i18n="home.icp.ins.name">{{ strings.get('home.icp.ins.name', 'Insurers') }}</a></h3><p data-i18n="home.who.ins">{{ strings.get('home.who.ins', 'Claim files: a treatment date outside cover. The adjuster decides.') }}</p></li>
+                    <li class="home-who-item"><h3><a href="{{ locale_path }}use-cases/fuel-retail/" data-i18n="home.icp.fuel.name">{{ strings.get('home.icp.fuel.name', 'Fuel retailers and distributors') }}</a></h3><p data-i18n="home.who.fuel">{{ strings.get('home.who.fuel', 'Bonus statements: a rate that does not match the agreement. The finance team decides.') }}</p></li>
+                    <li class="home-who-item"><h3><span data-i18n="home.icp.ind.name">{{ strings.get('home.icp.ind.name', 'Industrial and manufacturing groups') }}</span></h3><p data-i18n="home.who.ind">{{ strings.get('home.who.ind', 'Supplier invoices: a price above the agreed rate. Procurement decides.') }}</p></li>
+                    <li class="home-who-item"><h3><span data-i18n="home.icp.mro.name">{{ strings.get('home.icp.mro.name', 'Aviation and engineering maintenance') }}</span></h3><p data-i18n="home.who.mro">{{ strings.get('home.who.mro', 'Release certificates: a serial number that does not match. The engineer decides.') }}</p></li>
+                </ul>
+                <div class="home-wf"><span class="home-wf-label" data-i18n="home.wf.label">{{ strings.get('home.wf.label', 'Also used for:') }}</span><ul class="home-chips"><li class="home-chip" data-i18n="home.wf.1">{{ strings.get('home.wf.1', 'Onboarding and KYC files') }}</li><li class="home-chip" data-i18n="home.wf.2">{{ strings.get('home.wf.2', 'Claims and payouts') }}</li><li class="home-chip" data-i18n="home.wf.3">{{ strings.get('home.wf.3', 'Supplier invoices and contracts') }}</li><li class="home-chip" data-i18n="home.wf.4">{{ strings.get('home.wf.4', 'Tenders and procurement') }}</li><li class="home-chip" data-i18n="home.wf.5">{{ strings.get('home.wf.5', 'Grants and subsidies') }}</li><li class="home-chip" data-i18n="home.wf.6">{{ strings.get('home.wf.6', 'Compliance and audit evidence') }}</li><li class="home-chip" data-i18n="home.wf.7">{{ strings.get('home.wf.7', 'Reconciliations') }}</li><li class="home-chip" data-i18n="home.wf.8">{{ strings.get('home.wf.8', 'Certificates and shipping files') }}</li></ul></div>
+                <p class="home-more"><a href="{{ locale_path }}use-cases/#workflows" data-i18n="home.wf.more">{{ strings.get('home.wf.more', 'See all use cases') }}</a> <span aria-hidden="true">→</span></p>
             </div>
         </section>
 
-        <section class="rev-section rev-alt">
+        <section id="different" class="home-section">
             <div class="container">
-                <h2>Every figure anchored. Every conflict blocked.</h2>
-                <div class="v4-proof">
-                    <div>
-                        <h3>Source evidence. ParSure</h3>
-                        <p>Claim_Form_04.pdf · p. 14 → Reserve $1,450,000</p>
-                        <p>Register.csv · row 212 → Reserve $1,450,000</p>
-                    </div>
-                    <div>
-                        <h3>Compiled draft. DraftSure</h3>
-                        <p>Coverage_Opinion.docx · Section 1.2 → Stated reserve $1,420,000</p>
-                    </div>
-                    <div>
-                        <h3>Gate verdict. CrossSure</h3>
-                        <p class="v4-lock">EXPORT LOCKED</p>
-                        <p>$30,000 discrepancy between Section 1.2 ($1,420,000) and the source register ($1,450,000). Resolve or re-sync to unlock export.</p>
-                    </div>
-                </div>
+                <h2 class="section-title" data-i18n="home.edge.lead">{{ strings.get('home.edge.lead', 'Other tools read documents. We check them.') }}</h2>
+                <ul class="home-list home-list-three">
+                        <li class="home-item"><p><strong data-i18n="home.diff.1.name">{{ strings.get('home.diff.1.name', 'Document extraction tools') }}</strong> <span data-i18n="home.diff.1.text">{{ strings.get('home.diff.1.text', 'read the data but do not check whether it is right.') }}</span></p></li>
+                        <li class="home-item"><p><strong data-i18n="home.diff.2.name">{{ strings.get('home.diff.2.name', 'AI chat assistants') }}</strong> <span data-i18n="home.diff.2.text">{{ strings.get('home.diff.2.text', 'answer questions but do not give a reviewer findings to check page by page.') }}</span></p></li>
+                </ul>
+                <p class="home-more"><a href="{{ locale_path }}about/#different" data-i18n="home.diff.more">{{ strings.get('home.diff.more', 'How it differs, in detail') }}</a> <span aria-hidden="true">→</span></p>
             </div>
         </section>
 
-        <section class="rev-section">
+        <section id="trust" class="home-section">
             <div class="container">
-                <h2>Where a single wrong figure is a liability.</h2>
-                <p class="rev-sub">Built for institutional teams that sign their names to multi-source deliverables.</p>
-                <div class="v4-bento">
-                    <article>
-                        <p class="v4-roles">Claims VPs · Coverage Counsel · Complex Loss Adjusters · Underwriters</p>
-                        <h3>Insurance and claims operations</h3>
-                        <p class="v4-flow">Master policy + FNOL + loss register → Coverage opinion and reserve determination</p>
-                        <p>Locks export when the narrative reserve ($1,420,000) drifts from the loss register ($1,450,000) or cites an inapplicable exclusion.</p>
-                    </article>
-                    <article>
-                        <p class="v4-roles">M&amp;A managing directors · Private credit underwriters · Fund controllers</p>
-                        <h3>Institutional finance and deal advisory</h3>
-                        <p class="v4-flow">QoE report + Excel model + credit agreement → Sell-side CIM and IC memo</p>
-                        <p>Locks export when adjusted EBITDA in the executive summary contradicts the sensitivity table on page 38.</p>
-                    </article>
-                    <article>
-                        <p class="v4-roles">Contracting officers · Bid directors · Defense systems integrators</p>
-                        <h3>Public sector and regulated procurement</h3>
-                        <p class="v4-flow">RFP specs + bill of materials + vendor pricing → Tender compliance and acceptance dossier</p>
-                        <p>Locks export when line-item bill-of-materials pricing fails to sum to the contract ceiling or omits a mandatory statutory clause.</p>
-                    </article>
-                    <article>
-                        <p class="v4-roles">Regulatory affairs VPs · Clinical trial directors · Industrial QA auditors</p>
-                        <h3>Clinical, pharma and industrial QA</h3>
-                        <p class="v4-flow">Clinical CSR tables + lab logs + SAP exports → Regulatory submission and batch release log</p>
-                        <p>Locks export when patient cohort counts or SAP invoice quantities diverge from the underlying source tables.</p>
-                    </article>
-                </div>
-                <p class="rev-also"><a href="{{ locale_path }}solutions/">Explore vertical workflows and SAP/ERP reconciliation on Solutions</a></p>
+                <h2 class="section-title" data-i18n="home.trust.title">{{ strings.get('home.trust.title', 'Your infrastructure, your rules.') }}</h2>
+                <ul class="home-list home-list-two">
+                        <li class="home-item"><p><strong data-i18n="home.trust.3.name">{{ strings.get('home.trust.3.name', 'Access by project.') }}</strong> <span data-i18n="home.trust.3.text">{{ strings.get('home.trust.3.text', 'Each project is visible only to the people you add.') }}</span></p></li>
+                        <li class="home-item"><p><strong data-i18n="home.trust.4.name">{{ strings.get('home.trust.4.name', 'Activity log.') }}</strong> <span data-i18n="home.trust.4.text">{{ strings.get('home.trust.4.text', 'Actions and decisions are recorded with who made them and when.') }}</span></p></li>
+                </ul>
+                <p class="home-more"><a href="{{ locale_path }}security/" data-i18n="home.trust.link">{{ strings.get('home.trust.link', 'Security and data') }}</a> <span aria-hidden="true">→</span></p>
             </div>
         </section>
 
-        <section class="rev-section rev-alt">
+        <section id="faq" class="home-section">
             <div class="container">
-                <h2>Run in our cloud or entirely inside yours.</h2>
-                <div class="v4-trust">
-                    <div>
-                        <h3>Deployment topology</h3>
-                        <p>{{ deployment.topology }}</p>
-                    </div>
-                    <div>
-                        <h3>Data residency and storage</h3>
-                        <p>{{ deployment.residency }}</p>
-                    </div>
-                    <div>
-                        <h3>Bring your own model</h3>
-                        <p>{{ deployment.byok }}</p>
-                    </div>
-                </div>
-                <p class="rev-also"><a href="{{ locale_path }}security/">Inspect security architecture</a> · <a href="{{ locale_path }}terms/">How checks are scoped</a></p>
+                <h2 class="section-title" data-i18n="home.faq.title">{{ strings.get('home.faq.title', 'Questions') }}</h2>
+                <dl class="home-faq">
+                    <div class="home-faq-item"><dt data-i18n="home.faq.1.q">{{ strings.get('home.faq.1.q', 'What exactly does it do?') }}</dt><dd data-i18n="home.faq.1.a">{{ strings.get('home.faq.1.a', 'It reads your files, links the facts across them and checks each one against your rules and registers.') }}</dd></div>
+                    <div class="home-faq-item"><dt data-i18n="home.faq.2.q">{{ strings.get('home.faq.2.q', 'What documents can it check?') }}</dt><dd data-i18n="home.faq.2.a">{{ strings.get('home.faq.2.a', 'Scans, PDFs, forms, contracts, invoices, receipts and certificates, including handwritten and scanned reports, alongside your SAP exports.') }}</dd></div>
+                    <div class="home-faq-item"><dt data-i18n="home.faq.3.q">{{ strings.get('home.faq.3.q', 'Where does it run?') }}</dt><dd data-i18n="home.faq.3.a">{{ strings.get('home.faq.3.a', 'In your own AWS account or on-premises. You choose where the models run, including your own GPU servers.') }}</dd></div>
+                    <div class="home-faq-item"><dt data-i18n="home.faq.4.q">{{ strings.get('home.faq.4.q', 'Who makes the decision?') }}</dt><dd data-i18n="home.faq.4.a">{{ strings.get('home.faq.4.a', 'A person. The layer shows each finding with its source page, and your reviewer approves or rejects it.') }}</dd></div>
+                </dl>
             </div>
         </section>
 
-        <section class="rev-section">
-            <div class="container v4-close">
-                <h2>Test Assure against your hardest case file.</h2>
-                <p>30 minutes with the engineers who built it. Bring a real multi-document file; we will show you exactly what Assure catches.</p>
-                <p class="rev-cta">
-                    <a class="btn-primary" href="{{ locale_path }}contact-us/">Book a review</a>
-                </p>
+        <section id="closing" class="closing-section">
+            <div class="container center">
+                <h2 class="section-title" data-i18n="home.start.title">{{ strings.get('home.start.title', 'Try it on your own files.') }}</h2>
+                <p class="section-sub" data-i18n="home.start.body">{{ strings.get('home.start.body', 'Bring a real document set. We run it with your team and walk you through the findings.') }}</p>
+                <button type="button" class="btn-primary" data-demo-open data-i18n="landing.closing.cta">{{ strings.get('landing.closing.cta', 'Book a demo') }}</button>
             </div>
         </section>
     </main>
 
+    <div id="download-modal" class="demo-modal" hidden role="dialog" aria-modal="true" aria-labelledby="demo-title">
+        <div class="demo-backdrop" data-demo-close></div>
+        <div class="demo-panel">
+            <button type="button" class="demo-close" data-demo-close data-i18n-aria="landing.modal.close" aria-label="{{ strings.get('landing.modal.close', 'Close') }}">&times;</button>
+            <div id="pilot-form-wrap">
+                <h2 id="demo-title" data-i18n="landing.pilot.title">{{ strings.get('landing.pilot.title', 'Book a demo') }}</h2>
+                <p class="text-small" data-i18n="landing.pilot.lead">{{ strings.get('landing.pilot.lead', 'Three fields. We will contact you to set up a demo.') }}</p>
+                <form id="demo-form" method="post" action="#">
+                    <label for="demo-email" data-i18n="landing.pilot.email">{{ strings.get('landing.pilot.email', 'Work email') }}</label>
+                    <input id="demo-email" class="demo-input" name="email" type="email" autocomplete="email" required>
+                    <label for="demo-name" data-i18n="landing.pilot.company">{{ strings.get('landing.pilot.company', 'Company name') }}</label>
+                    <input id="demo-name" class="demo-input" name="company" type="text" autocomplete="organization" required>
+                    <label for="demo-workflow" data-i18n="landing.pilot.workflow">{{ strings.get('landing.pilot.workflow', 'Primary document workflow') }}</label>
+                    <select id="demo-workflow" class="demo-input" name="workflow">
+                        <option value="" disabled selected data-i18n="landing.pilot.workflow.select">{{ strings.get('landing.pilot.workflow.select', 'Select a workflow') }}</option>
+                        <option value="Government document checks">{{ strings.get('landing.pilot.workflow.gov', 'Government document checks') }}</option>
+                        <option value="Insurance claims review">{{ strings.get('landing.pilot.workflow.ins', 'Insurance claims review') }}</option>
+                        <option value="Bonus reconciliation">{{ strings.get('landing.pilot.workflow.fuel', 'Bonus reconciliation') }}</option>
+                        <option value="Other">{{ strings.get('landing.pilot.workflow.other', 'Other') }}</option>
+                    </select>
+                    <button type="submit" class="demo-submit" data-i18n="landing.pilot.submit">{{ strings.get('landing.pilot.submit', 'Book a demo') }}</button>
+                    <p class="demo-error" id="demo-error" data-error-text="{{ strings.get('landing.pilot.error', 'Could not send your request. Please try again.') }}" hidden></p>
+                </form>
+            </div>
+            <div id="demo-done" class="pilot-sandbox" hidden>
+                <span class="demo-success-icon" aria-hidden="true">✓</span>
+                <p class="role-badge" data-i18n="landing.pilot.ready_badge">{{ strings.get('landing.pilot.ready_badge', 'Request received') }}</p>
+                <h2 data-i18n="landing.pilot.ready_title">{{ strings.get('landing.pilot.ready_title', 'Thank you') }}</h2>
+                <p data-i18n="landing.pilot.ready_body">{{ strings.get('landing.pilot.ready_body', 'Our team will contact you at your work email to schedule the demo.') }}</p>
+            </div>
+        </div>
+    </div>
+
     {% include 'includes/landing_footer.html' %}
+    <script src="{{ url_for('static', filename='landing-pilot.js') }}?v={{ landing_js_version|default('42') }}"></script>
+    <script>(function(){var d=document;if(matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+var h=d.querySelector('.hero-title');if(h){h.removeAttribute('data-i18n-html');var t=h.textContent.trim(),j=/[\u3040-\u30ff\u3400-\u9fff]/.test(t),p=j?Array.from(t):t.split(/(\s+)/),o=d.createElement('span'),i=0;o.setAttribute('aria-hidden','true');p.forEach(function(x){if(!x)return;if(/^\s+$/.test(x)){o.appendChild(d.createTextNode(' '));return}var s=d.createElement('span');s.className='rw';s.textContent=x;s.style.animationDelay=(i++*(j?45:80))+'ms';o.appendChild(s)});var v=d.createElement('span');v.className='visually-hidden';v.textContent=t;h.textContent='';h.appendChild(v);h.appendChild(o);h.classList.add('rise')}
+var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target)}})},{rootMargin:'0px 0px -8% 0px'});
+d.querySelectorAll('#main-content > section:not(.hero-section)').forEach(function(s){s.classList.add('fu');io.observe(s)});
+var c=d.querySelector('[data-hd]');if(!c)return;var T=[300,1300,2900,3900,5000,6000],tm=[],on=0,vis=0;
+function S(a){for(var k=1;k<7;k++)c.classList[a?'add':'remove']('s'+k)}
+function clr(){tm.forEach(clearTimeout);tm=[]}
+function run(){clr();c.classList.add('rst');S(0);void c.offsetWidth;c.classList.remove('rst');T.forEach(function(t,k){tm.push(setTimeout(function(){c.classList.add('s'+(k+1))},t))});tm.push(setTimeout(run,8800))}
+function up(){var g=vis&&!d.hidden;if(g&&!on){on=1;c.classList.add('run');run()}else if(!g&&on){on=0;clr();S(1)}}
+new IntersectionObserver(function(es){vis=es[0].isIntersecting;up()}).observe(c);d.addEventListener('visibilitychange',up)})();</script>
 </body>
 </html>

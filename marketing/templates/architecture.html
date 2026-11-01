@@ -3,50 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Architecture | Assure AI</title>
-    <meta name="description" content="ParSure, CrossSure, Red-Hat, and DraftSure, and the export gate.">
+    <title>Architecture | Assure</title>
+    <meta name="description" content="How Assure reads files, checks facts, and leaves the decision with a person.">
     <link rel="canonical" href="{{ page_url }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='landing.css') }}?v={{ landing_css_version|default('88') }}">
     <link rel="icon" href="{{ url_for('static', filename='assure-logo.png') }}" type="image/png">
 </head>
-<body id="top" class="enterprise-landing rev">
-    {% set nav_current = 'architecture' %}
+<body id="top" class="enterprise-landing">
+    {% set nav_current = 'about' %}
     {% include 'includes/landing_header.html' %}
     <main id="main-content" class="page">
         <h1>Architecture</h1>
-        <ol class="v4-pipe">
-            <li><span>01</span><h3>ParSure</h3><p>Ingest and anchor.</p></li>
-            <li><span>02</span><h3>CrossSure</h3><p>Verify constraints.</p></li>
-            <li><span>03</span><h3>Red-Hat</h3><p>Stress-test the draft.</p></li>
-            <li><span>04</span><h3>DraftSure</h3><p>Lock and export.</p></li>
-        </ol>
-        <section>
-            <h2>Export gate</h2>
-            <ol class="v4-gate">
-                <li>Draft</li>
-                <li>Constraint and rule check</li>
-                <li>Findings open (export locked)</li>
-                <li>Resolved and signed</li>
-                <li>Export unlocked + audit record</li>
-            </ol>
-        </section>
-        <section>
-            <h2>Glossary</h2>
-            <table class="rev-table">
-                <thead><tr><th>Name</th><th>Role</th></tr></thead>
-                <tbody>
-                    <tr><td>ParSure</td><td>Parse sources and keep each figure tied to its page, cell, or row.</td></tr>
-                    <tr><td>CrossSure</td><td>Check figures and rules as constraints across the case file.</td></tr>
-                    <tr><td>Red-Hat</td><td>Adversarial pass for unsupported claims, omitted clauses, and policy gaps.</td></tr>
-                    <tr><td>DraftSure</td><td>Compile the Word or PDF and hold export until findings are resolved.</td></tr>
-                    <tr><td>Substrate Vault</td><td>Stored source text for the case.</td></tr>
-                    <tr><td>Z3 Truth Ledger</td><td>The record of checks.</td></tr>
-                    <tr><td>Laya</td><td>Layout analysis used while reading a page.</td></tr>
-                    <tr><td>JDF</td><td>The document structure used inside compilation.</td></tr>
-                </tbody>
-            </table>
-        </section>
-        <p class="rev-close"><a class="btn-primary" href="{{ locale_path }}contact-us/">Book a review</a></p>
+        <p>ParSure reads each file. CrossSure checks the facts against your rules, registers and other documents. Every finding shows the page it came from. A person decides. DraftSure drafts only from approved facts.</p>
+        <p><a href="{{ locale_path }}about/#how">See each step</a></p>
     </main>
     {% include 'includes/landing_footer.html' %}
 </body>
