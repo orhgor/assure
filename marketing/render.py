@@ -98,6 +98,18 @@ PAGES: list[dict] = [
         "suffix": "about/",
     },
     {
+        "template": "architecture.html",
+        "output": "architecture/index.html",
+        "kind": "landing",
+        "suffix": "architecture/",
+    },
+    {
+        "template": "solutions.html",
+        "output": "solutions/index.html",
+        "kind": "landing",
+        "suffix": "solutions/",
+    },
+    {
         "template": "pricing.html",
         "output": "pricing/index.html",
         "kind": "base",
@@ -134,6 +146,8 @@ TEMPLATE_TO_META = {
     "about.html": "about",
     "security.html": "security",
     "pricing.html": "pricing",
+    "architecture.html": "architecture",
+    "solutions.html": "solutions",
 }
 
 LOCALE_TO_OG = {
@@ -284,7 +298,7 @@ def _public_strings(app, page: dict, locale: str) -> dict:
     catalog = string_catalog(locale)
     used = _used_string_keys(app, page["template"])
     # landing-demo.js resolves keys dynamically ("landing.demo." + name).
-    filtered = {k: v for k, v in catalog.items() if k in used or k.startswith("landing.demo.")}
+    filtered = {k: v for k, v in catalog.items() if k in used}
     badge = filtered.get("landing.hero.badge")
     if badge:  # "... 8 languages" follows the number of published locales
         filtered["landing.hero.badge"] = re.sub(r"\d+", str(len(publish_locales())), badge, count=1)

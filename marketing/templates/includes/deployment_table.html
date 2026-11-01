@@ -1,0 +1,45 @@
+<table class="rev-table">
+    <caption>Deployment modes</caption>
+    <thead>
+        <tr>
+            <th scope="col"></th>
+            {% for mode in deployment.modes %}
+            <th scope="col">{{ mode.name }}</th>
+            {% endfor %}
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <th scope="row">Where processing runs</th>
+            {% for mode in deployment.modes %}<td>{{ mode.where_processing_runs }}</td>{% endfor %}
+        </tr>
+        <tr>
+            <th scope="row">Where documents are stored</th>
+            {% for mode in deployment.modes %}<td>{{ mode.where_documents_stored }}</td>{% endfor %}
+        </tr>
+        <tr>
+            <th scope="row">Prompts and questions</th>
+            {% for mode in deployment.modes %}<td>{{ mode.prompts_and_questions }}</td>{% endfor %}
+        </tr>
+        <tr>
+            <th scope="row">What reaches Assure servers</th>
+            {% for mode in deployment.modes %}<td>{{ mode.what_reaches_assure }}</td>{% endfor %}
+        </tr>
+        <tr>
+            <th scope="row">Model providers</th>
+            {% for mode in deployment.modes %}<td>{{ mode.model_providers }}</td>{% endfor %}
+        </tr>
+        <tr>
+            <th scope="row">Encryption in transit / at rest</th>
+            {% for mode in deployment.modes %}<td>{{ mode.encryption }}</td>{% endfor %}
+        </tr>
+        <tr>
+            <th scope="row">Retention and deletion</th>
+            {% for mode in deployment.modes %}<td>{{ mode.retention_and_deletion }}</td>{% endfor %}
+        </tr>
+        <tr>
+            <th scope="row">Audit logs</th>
+            {% for mode in deployment.modes %}<td>{{ mode.audit_logs }}</td>{% endfor %}
+        </tr>
+    </tbody>
+</table>

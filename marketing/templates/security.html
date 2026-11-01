@@ -1,25 +1,16 @@
 {% extends "marketing_base.html" %}
-{% block title %}{{ strings.get('sec.title', 'Security and data') }} · {{ strings.get('brand.name', 'Assure') }}{% endblock %}
+{% block title %}Security | Assure AI{% endblock %}
 {% block body %}
-  <div class="page">
+  <div class="page rev">
     <div class="page-hero">
-      <h1 data-i18n="sec.title">{{ strings.get('sec.title', 'Security and data') }}</h1>
-      <p class="lede" data-i18n="sec.sub">{{ strings.get('sec.sub', 'Where Assure runs, what it stores and who can see it.') }}</p>
+      <h1>Security</h1>
+      <p class="lede">{{ deployment.model_access }}</p>
     </div>
     <section class="card">
-      <h2 data-i18n="sec.1.title">{{ strings.get('sec.1.title', 'Where it runs') }}</h2>
-      <p data-i18n="sec.1.body">{{ strings.get('sec.1.body', 'In your own AWS account or on your own servers, in the AWS region you choose.') }}</p>
-      <h2 data-i18n="sec.2.title">{{ strings.get('sec.2.title', 'Where the models run') }}</h2>
-      <p data-i18n="sec.2.body">{{ strings.get('sec.2.body', 'You choose. With a model inside your environment, your documents stay there. With a hosted model, the text of each document is sent to the provider you choose over an encrypted connection.') }}</p>
-      <h2 data-i18n="sec.3.title">{{ strings.get('sec.3.title', 'Encryption') }}</h2>
-      <p data-i18n="sec.3.body">{{ strings.get('sec.3.body', 'Databases, cache and file storage are encrypted at rest. Traffic to the site and to model providers is encrypted in transit.') }}</p>
-      <h2 data-i18n="sec.4.title">{{ strings.get('sec.4.title', 'Access') }}</h2>
-      <p data-i18n="sec.4.body">{{ strings.get('sec.4.body', 'Every user signs in. Each project is visible only to its owner and the people they add. Admin tools need an admin role.') }}</p>
-      <h2 data-i18n="sec.5.title">{{ strings.get('sec.5.title', 'Records') }}</h2>
-      <p data-i18n="sec.5.body">{{ strings.get('sec.5.body', 'Actions and decisions are logged with who made them and when. Every finding links to its source page.') }}</p>
-      <h2 data-i18n="sec.6.title">{{ strings.get('sec.6.title', 'Your data') }}</h2>
-      <p data-i18n="sec.6.body">{{ strings.get('sec.6.body', 'We do not use your documents to train models. Retention is set per deployment in your agreement. You can delete a project and its results.') }}</p>
+      <h2>Contact</h2>
+      <p>Security contact: <a href="mailto:{{ deployment.security_email }}">{{ deployment.security_email }}</a></p>
+      <p>Send vulnerability reports to that address.</p>
     </section>
+    <p class="rev-close"><a class="btn-primary" href="{{ locale_path }}contact-us/">Book a review</a></p>
   </div>
-  {% include 'includes/demo_cta.html' %}
 {% endblock %}

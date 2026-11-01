@@ -1,0 +1,24 @@
+{
+  "multiple_modes_confirmed": false,
+  "modes": [],
+  "model_access_confirmed": true,
+  "model_access": "Assure adds no token markup.",
+  "subprocessors": "",
+  "security_email": "privacy@getassureai.com",
+  "company_legal_name": "Archeon Cloud",
+  "company_address": "",
+  "analytics_statement": "This site uses privacy-friendly analytics.",
+  "self_serve_url": "",
+  "review_response_time": "We reply within 2 days.",
+  "who_builds": "",
+  "company_base": "",
+  "scan_scoring_shipped": true,
+  "plan_sla": "",
+  "signals_shipped": {
+    "resolution": true,
+    "blur": true,
+    "contrast": true,
+    "signature_mark_detection": true,
+    "compliance_bound_field_flags": true
+  }
+}

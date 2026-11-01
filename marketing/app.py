@@ -19,6 +19,7 @@ Workbench-runtime pieces are replicated as tiny env-only shims below:
 from __future__ import annotations
 
 import importlib.util
+import json
 import os
 import sys
 from pathlib import Path
@@ -173,6 +174,9 @@ def create_static_app(*, default_locale: str = "en") -> Flask:
             short = key.split(".", 1)[1]
             if strings.get(key):
                 brand[short] = strings[key]
+        deployment = json.loads(
+            (Path(__file__).parent / "content" / "deployment_modes.json").read_text(encoding="utf-8")
+        )
         return {
             "brand": brand,
             "strings": strings,
@@ -183,6 +187,7 @@ def create_static_app(*, default_locale: str = "en") -> Flask:
             "plausible_enabled": _plausible_enabled(),
             "sentry_enabled": _sentry_enabled(),
             "sentry_browser_dsn": _sentry_browser_dsn(),
+            "deployment": deployment,
         }
 
     return app
