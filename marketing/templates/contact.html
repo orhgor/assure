@@ -80,37 +80,49 @@
         }
     </style>
 </head>
-<body id="top" class="enterprise-landing contact-landing rev">
+<body id="top" class="enterprise-landing contact-landing">
     {% set nav_current = 'contact' %}
     {% include 'includes/landing_header.html' %}
 
     <main class="contact-main">
-        <div class="container rev-form">
-            <h1 class="section-title">Book a review.</h1>
-            <p class="contact-lead">What happens next, and the expected response time: {{ deployment.review_response_time }}</p>
-            <div class="contact-card">
+        <div class="container" style="text-align: center;">
+            <h1 class="section-title" data-i18n="contact.title">{{ strings.get('contact.title', 'Contact sales') }}</h1>
+            <p class="contact-lead" data-i18n="contact.lead">{{ strings.get('contact.lead', 'Tell us what you’re evaluating and we’ll follow up directly.') }}</p>
+
+            <div class="contact-grid">
+                <div class="contact-card">
+                    <h2 data-i18n="contact.form_title">{{ strings.get('contact.form_title', 'Request form') }}</h2>
                     <form class="contact-form" id="contact-form" novalidate>
                         <input type="text" name="company_website" id="cf-website" tabindex="-1" autocomplete="off" hidden aria-hidden="true">
                         <label for="cf-name" data-i18n="contact.f_name">{{ strings.get('contact.f_name', 'Name') }}</label>
                         <input id="cf-name" name="name" type="text" autocomplete="name" required>
                         <label for="cf-email" data-i18n="contact.f_email">{{ strings.get('contact.f_email', 'Work email') }}</label>
                         <input id="cf-email" name="email" type="email" autocomplete="email" required>
-                        <label for="cf-company">Organization</label>
+                        <label for="cf-company" data-i18n="contact.f_company">{{ strings.get('contact.f_company', 'Company') }}</label>
                         <input id="cf-company" name="company" type="text" autocomplete="organization">
-                        <label for="cf-vertical">Primary vertical</label>
-                        <select id="cf-vertical" name="vertical">
-                            <option value="Insurance and claims">Insurance and claims</option>
-                            <option value="Institutional finance and deal advisory">Institutional finance and deal advisory</option>
-                            <option value="Public sector and regulated procurement">Public sector and regulated procurement</option>
-                            <option value="Clinical, pharma and industrial QA">Clinical, pharma and industrial QA</option>
+                        <label for="cf-workflow" data-i18n="landing.pilot.workflow">{{ strings.get('landing.pilot.workflow', 'Primary document workflow') }}</label>
+                        <select id="cf-workflow" class="demo-input" name="workflow">
+                            <option value="" disabled selected data-i18n="landing.pilot.workflow.select">{{ strings.get('landing.pilot.workflow.select', 'Select a workflow') }}</option>
+                            <option value="Government document checks">{{ strings.get('landing.pilot.workflow.gov', 'Government document checks') }}</option>
+                            <option value="Insurance claims review">{{ strings.get('landing.pilot.workflow.ins', 'Insurance claims review') }}</option>
+                            <option value="Bonus reconciliation">{{ strings.get('landing.pilot.workflow.fuel', 'Bonus reconciliation') }}</option>
+                            <option value="Other">{{ strings.get('landing.pilot.workflow.other', 'Other') }}</option>
                         </select>
-                        <label for="cf-message">What documents do you want to verify?</label>
+                        <label for="cf-message" data-i18n="contact.f_message">{{ strings.get('contact.f_message', 'What should the demo cover?') }}</label>
                         <textarea id="cf-message" name="message"></textarea>
-                        <button type="submit" class="btn-primary">Book a review</button>
+                        <button type="submit" class="btn-primary" data-i18n="contact.submit">{{ strings.get('contact.submit', 'Send request') }}</button>
                         <p class="contact-error" id="contact-error" hidden></p>
                     </form>
                     <p id="contact-done" data-i18n="contact.done" hidden>{{ strings.get('contact.done', 'Thanks, we will be in touch.') }}</p>
+                    <p class="contact-alt">{{ strings.get('contact.alt', 'Prefer email?') }} <a class="contact-email" href="mailto:sales@getassureai.com">sales@getassureai.com</a></p>
                 </div>
+
+                <div class="contact-card">
+                    <h2 data-i18n="contact.direct_title">{{ strings.get('contact.direct_title', 'Direct') }}</h2>
+                    <p data-i18n="contact.direct_body">{{ strings.get('contact.direct_body', 'Write to us directly and include your use case, document volume, and timeline. Attachments are fine.') }}</p>
+                    <a class="contact-email" href="mailto:sales@getassureai.com?subject=Enterprise%20demo%20request">sales@getassureai.com</a>
+                </div>
+            </div>
         </div>
     </main>
 
@@ -151,7 +163,6 @@
                         name: name,
                         email: email,
                         company: company,
-                        vertical: get("cf-vertical"),
                         message: message,
                         company_website: get("cf-website"),
                     }),
