@@ -11,14 +11,14 @@ _CONTENT_DIR = Path(__file__).resolve().parent / "content" / "privacy"
 # Kept here (not in i18n.py dicts) so every locale gets it via the catalog
 # fallback, the same way the policy body is joined.
 PRIVACY_SUMMARY = {
-    "en": "This policy covers the getassureai.com website only: no analytics, no ad trackers, no cookies. We use your contact details only to reply and arrange a demo.",
-    "es": "Esta política cubre solo el sitio getassureai.com: sin analítica, sin rastreadores de anuncios, sin cookies. Usamos sus datos de contacto solo para responderle y coordinar una demo.",
-    "zh": "本政策仅覆盖 getassureai.com 网站：无分析脚本、无广告跟踪器、无 Cookie。您的联系方式仅用于回复和安排演示。",
-    "fr": "Cette politique couvre uniquement le site getassureai.com : pas d'analytique, pas de traceurs publicitaires, pas de cookies. Vos coordonnées servent seulement à vous répondre et à organiser une démo.",
-    "de": "Diese Richtlinie gilt nur für getassureai.com: keine Analyse-Skripte, keine Werbe-Tracker, keine Cookies. Ihre Kontaktdaten verwenden wir nur, um zu antworten und eine Demo zu vereinbaren.",
-    "ja": "本ポリシーの対象は getassureai.com のみです。分析スクリプト、広告トラッカー、Cookie はありません。ご連絡先は回答とデモ調整のためだけに使用します。",
-    "tr": "Bu politika yalnızca getassureai.com sitesini kapsar: analitik yok, reklam izleyici yok, cookie yok. İletişim bilgilerinizi yalnızca dönmek ve demo planlamak için kullanırız.",
-    "ar": "تغطي هذه السياسة موقع getassureai.com فقط: لا تحليلات، ولا متتبعات إعلانات، ولا ملفات تعريف ارتباط. ونستخدم بيانات تواصلك فقط للرد وترتيب التجربة.",
+    "en": "This policy covers the getassureai.com website only. The site uses privacy-friendly analytics and no advertising trackers. We use your contact details only to reply and arrange a review.",
+    "es": "Esta política cubre únicamente el sitio web getassureai.com. El sitio utiliza analíticas que respetan la privacidad y no emplea rastreadores publicitarios. Usamos sus datos de contacto solo para responder y coordinar una revisión.",
+    "zh": "本政策仅适用于 getassureai.com 网站。本网站使用保护隐私的分析工具，不使用广告追踪器。我们仅使用您的联系方式回复您并安排评估。",
+    "fr": "Cette politique couvre uniquement le site web getassureai.com. Le site utilise des analyses respectueuses de la vie privée et aucun traqueur publicitaire. Nous utilisons vos coordonnées uniquement pour vous répondre et organiser un examen.",
+    "de": "Diese Richtlinie gilt nur für die Website getassureai.com. Die Website verwendet datenschutzfreundliche Analysen und keine Werbe-Tracker. Wir verwenden Ihre Kontaktdaten ausschließlich, um zu antworten und eine Überprüfung zu vereinbaren.",
+    "ja": "このポリシーはgetassureai.comウェブサイトのみに適用されます。当サイトでは、プライバシーに配慮した分析機能を使用しており、広告トラッカーは使用していません。お客様の連絡先は、ご返信およびレビューの手配にのみ使用します。",
+    "tr": "Bu politika yalnızca getassureai.com web sitesini kapsar. Site, gizliliği gözeten analiz araçları kullanır ve reklam izleyicileri kullanmaz. İletişim bilgilerinizi yalnızca yanıt vermek ve bir değerlendirme ayarlamak için kullanırız.",
+    "ar": "تغطي هذه السياسة موقع getassureai.com فقط. يستخدم الموقع تحليلات تراعي الخصوصية ولا يستخدم أدوات تتبع إعلانية. نستخدم تفاصيل الاتصال الخاصة بك فقط للرد وترتيب مراجعة.",
 }
 
 

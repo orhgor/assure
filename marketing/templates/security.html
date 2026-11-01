@@ -11,22 +11,9 @@
       {% include 'includes/deployment_table.html' %}
       <h2>Subprocessors</h2>
       <p>{{ deployment.subprocessors }}</p>
-      <h2>Compliance status</h2>
-      <p>We provide security documentation and a data-processing agreement on request.</p>
-      <h2>Data flow</h2>
-      <svg class="rev-flow" viewBox="0 0 640 120" role="img" aria-label="Data flow placeholder">
-        <rect x="8" y="36" width="160" height="48" fill="none" stroke="#111418"/>
-        <rect x="240" y="36" width="160" height="48" fill="none" stroke="#111418"/>
-        <rect x="472" y="36" width="160" height="48" fill="none" stroke="#111418"/>
-        <path d="M168 60 H240 M400 60 H472" fill="none" stroke="#111418"/>
-        <text x="88" y="64" text-anchor="middle" font-size="12" fill="#111418">[CONFIRM]</text>
-        <text x="320" y="64" text-anchor="middle" font-size="12" fill="#111418">[CONFIRM]</text>
-        <text x="552" y="64" text-anchor="middle" font-size="12" fill="#111418">[CONFIRM]</text>
-      </svg>
-      <p>[CONFIRM contents] of the data-flow diagram, one per mode.</p>
       <h2>Contact</h2>
-      <p>Security contact: {{ deployment.security_email }}</p>
-      <p>Vulnerability reports: write to that address. [CONFIRM] the reporting instructions.</p>
+      <p>Security contact: <a href="mailto:{{ deployment.security_email }}">{{ deployment.security_email }}</a></p>
+      <p>Send vulnerability reports to that address.</p>
     </section>
     <p class="rev-close"><a class="btn-primary" href="{{ locale_path }}contact-us/">Book a review</a></p>
   </div>
