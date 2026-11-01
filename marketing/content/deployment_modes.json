@@ -1,9 +1,37 @@
 {
-  "multiple_modes_confirmed": false,
-  "modes": [],
+  "multiple_modes_confirmed": true,
+  "modes": [
+    {
+      "name": "Mode A: Managed Cloud Workspace",
+      "where_processing_runs": "Assure-managed AWS compute",
+      "where_documents_stored": "Encrypted tenant storage (AES-256) during active projects",
+      "prompts_and_questions": "Stored in encrypted project history; never used for training",
+      "what_reaches_assure": "Workspace files, verification states, and billing telemetry",
+      "model_providers": "Customer API keys (BYOK) or managed endpoints; zero markup",
+      "encryption": "TLS 1.3 in transit; AES-256 at rest",
+      "retention_and_deletion": "User-controlled project purge; deleted on account closure",
+      "audit_logs": "Exported with every verified DOCX/PDF deliverable"
+    },
+    {
+      "name": "Mode B: Customer VPC / Self-Hosted",
+      "where_processing_runs": "Customer's own AWS account, VPC, or on-premises servers",
+      "where_documents_stored": "Customer's internal storage; zero document egress to Assure",
+      "prompts_and_questions": "Retained strictly inside the customer perimeter",
+      "what_reaches_assure": "Zero case files or prompts",
+      "model_providers": "Customer private endpoints (Bedrock, Azure OpenAI, local models)",
+      "encryption": "Customer KMS/HSM policies (TLS 1.3 / AES-256)",
+      "retention_and_deletion": "Governed by customer IT lifecycle policies",
+      "audit_logs": "Stored locally and exported with deliverables"
+    }
+  ],
+  "topology": "Managed Cloud Workspace (app.getassureai.com) or Customer VPC / On-Premises inside your own AWS account or servers.",
+  "residency": "Zero model training on customer files. In Customer VPC mode, zero documents or prompts ever reach Assure servers.",
+  "byok": "Connect your own Azure OpenAI, AWS Bedrock, Anthropic, or OpenAI keys with zero token markup.",
   "model_access_confirmed": true,
   "model_access": "Assure adds no token markup.",
-  "subprocessors": "",
+  "subprocessors": ["AWS", "Supabase", "Clerk", "Stripe", "Plausible Analytics"],
+  "subprocessors_note": "These apply to Mode A only. Mode B requires zero external Assure subprocessors.",
+  "dpa_statement": "A data processing agreement and security pack are available on request.",
   "security_email": "privacy@getassureai.com",
   "company_legal_name": "Archeon Cloud",
   "company_address": "",

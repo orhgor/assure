@@ -4,10 +4,23 @@
   <div class="page rev">
     <div class="page-hero">
       <h1>Security</h1>
-      <p class="lede">{{ deployment.model_access }}</p>
+      {% set band_class = 'logos-band-hero' %}
+      {% include 'includes/logos_band.html' %}
+      <p class="lede">Processing runs either on Assure-managed AWS compute or inside the customer VPC or on-premises servers. Documents stay in encrypted tenant storage for a managed workspace, or in the customer's own storage when the deployment is self-hosted. In Customer VPC mode, case files and prompts do not reach Assure servers.</p>
     </div>
+    {% include 'includes/deployment_table.html' %}
+    <section class="card">
+      <h2>Subprocessors</h2>
+      <p>{{ deployment.subprocessors_note }}</p>
+      <ul>
+        {% for name in deployment.subprocessors %}
+        <li>{{ name }}</li>
+        {% endfor %}
+      </ul>
+    </section>
     <section class="card">
       <h2>Contact</h2>
+      <p>{{ deployment.dpa_statement }}</p>
       <p>Security contact: <a href="mailto:{{ deployment.security_email }}">{{ deployment.security_email }}</a></p>
       <p>Send vulnerability reports to that address.</p>
     </section>

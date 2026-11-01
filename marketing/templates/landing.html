@@ -24,7 +24,7 @@
     <link rel="apple-touch-icon" href="{{ url_for('static', filename='assure-logo.png') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet">
     {% if locale|default('en') == 'ar' %}
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
     {% endif %}
@@ -42,85 +42,141 @@
     {% include 'includes/landing_header.html' %}
 
     <main id="main-content">
-        <section class="rev-hero">
-            <div class="container rev-narrow">
+        <section class="rev-hero v4-hero">
+            <div class="container">
+                <p class="v4-eyebrow">DETERMINISTIC DOCUMENT COMPILER</p>
                 <h1>The output is a document. The product is verification.</h1>
-                <p class="rev-sub">Assure compiles claim files, contracts and registers into a finished document, checks every figure against its source page, and blocks export when something contradicts the evidence.</p>
-                <p class="rev-cta"><a class="btn-primary" href="{{ locale_path }}contact-us/">Book a review</a> <a class="rev-text-link" href="#how-it-works">See how it works</a></p>
+                <p class="rev-sub">Assure compiles claim files, contracts, and registers into finished documents, and physically locks export until every figure ties to its source page.</p>
+                <p class="rev-cta">
+                    <a class="btn-primary" href="{{ locale_path }}contact-us/">Book a review</a>
+                </p>
+                {% set band_class = 'logos-band-hero' %}
+                {% include 'includes/logos_band.html' %}
+                <div class="v4-window" aria-label="Compiled coverage opinion with export locked">
+                    <div class="v4-chrome">
+                        <span>Coverage opinion</span>
+                        <span class="v4-export">Export DOCX / PDF <b>Locked</b> <em>1 Unresolved Conflict ($30,000 delta)</em></span>
+                    </div>
+                    <div class="v4-panes">
+                        <div>
+                            <p class="v4-kicker">Source</p>
+                            <p>Claim_Form_04.pdf, p. 14</p>
+                            <p>Register.csv, row 212</p>
+                            <p>Reserve $1,450,000</p>
+                        </div>
+                        <div>
+                            <p class="v4-kicker">Section 1.2</p>
+                            <p>Compiled coverage opinion</p>
+                            <p class="v4-conflict">Reserve $1,420,000</p>
+                        </div>
+                    </div>
+                </div>
             </div>
         </section>
 
         <section class="rev-section rev-alt">
-            <div class="container rev-narrow">
-                <h2>The problem</h2>
-                <p>Language models write fluent text, and fluent text drifts. Change a table in one place and a paragraph elsewhere keeps the old number. Review catches some of it. Nothing stops the rest from being sent.</p>
-                <p>In claims, procurement and finance, one wrong figure in a signed document is a liability.</p>
+            <div class="container v4-problem">
+                <h2>Language models write fluent drafts, and fluent drafts drift.</h2>
+                <p>Change a table on page 14 and Section 1.2 keeps the old number. In claims, finance, and procurement, one wrong figure in a signed document is a liability.</p>
             </div>
         </section>
 
         <section id="how-it-works" class="rev-section">
             <div class="container">
-                <h2>How it works</h2>
-                <ol class="rev-steps">
-                    <li>
-                        <h3>Extract</h3>
-                        <p>Reads PDFs, scans, tables and system exports. Every fact keeps its page, cell or row reference. Each page and field is scored so weak scans are flagged for review.</p>
-                    </li>
-                    <li>
-                        <h3>Verify</h3>
-                        <p>Figures and rules are checked against each other as formal constraints across the whole file. Each contradiction is listed with the two sources in conflict.</p>
-                    </li>
-                    <li>
-                        <h3>Challenge and export</h3>
-                        <p>An adversarial review looks for unsupported statements and policy gaps. Export unlocks only when checks pass and open findings are resolved. An audit record ships with the document.</p>
-                    </li>
+                <h2>Four stages from raw case file to locked deliverable.</h2>
+                <ol class="v4-pipe">
+                    <li><span>01</span><h3>ParSure</h3><p>Ingest and anchor. Parses PDFs, scans, tables, and ERP exports. Every extracted figure keeps its exact page, cell, or row coordinate.</p></li>
+                    <li><span>02</span><h3>CrossSure</h3><p>Verify constraints. Compiles figures and domain rules into formal constraints across the case file. Every contradiction lists the two sources in conflict.</p></li>
+                    <li><span>03</span><h3>Red-Hat</h3><p>Stress-test. Runs an adversarial pass against the draft to flag unsupported claims, omitted clauses, and policy gaps before sign-off.</p></li>
+                    <li><span>04</span><h3>DraftSure</h3><p>Lock and export. Compiles the final Word or PDF document. Export unlocks only when all checks pass and open findings are resolved, with a complete audit record.</p></li>
                 </ol>
             </div>
         </section>
 
         <section class="rev-section rev-alt">
             <div class="container">
-                <h2>A coverage opinion, checked.</h2>
-                <div class="rev-case">
+                <h2>Every figure anchored. Every conflict blocked.</h2>
+                <div class="v4-proof">
                     <div>
-                        <h3>Source</h3>
-                        <p><code>Claim_Form_04.pdf, p. 14: Reserve $1,450,000</code></p>
-                        <p><code>Register.csv, row 212: Reserve $1,450,000</code></p>
+                        <h3>Source evidence. ParSure</h3>
+                        <p>Claim_Form_04.pdf · p. 14 → Reserve $1,450,000</p>
+                        <p>Register.csv · row 212 → Reserve $1,450,000</p>
                     </div>
                     <div>
-                        <h3>Draft</h3>
-                        <p><code>Section 1.2: Reserve $1,420,000</code></p>
-                    </div>
-                </div>
-                <p class="rev-result">Check failed. $30,000 difference between Section 1.2 and the claim form (p. 14). Export locked until resolved.</p>
-                <h2>An enterprise file, cross-checked.</h2>
-                <div class="rev-case">
-                    <div>
-                        <h3>Source</h3>
-                        <p><code>Invoice, p. 1</code></p>
-                        <p><code>Contract, p. 3</code></p>
+                        <h3>Compiled draft. DraftSure</h3>
+                        <p>Coverage_Opinion.docx · Section 1.2 → Stated reserve $1,420,000</p>
                     </div>
                     <div>
-                        <h3>Check</h3>
-                        <p>The invoice total does not match the agreed price in the contract.</p>
+                        <h3>Gate verdict. CrossSure</h3>
+                        <p class="v4-lock">EXPORT LOCKED</p>
+                        <p>$30,000 discrepancy between Section 1.2 ($1,420,000) and the source register ($1,450,000). Resolve or re-sync to unlock export.</p>
                     </div>
                 </div>
-                <p class="rev-result">Check failed. Export locked until resolved.</p>
-                <aside class="rev-scope">
-                    <p><strong>What Assure checks.</strong> Figures and rules set up for your case, compared against the documents you provide, with every verified statement linked to its source page. The authorized reviewer remains responsible for professional, legal and underwriting judgment.</p>
-                </aside>
-                <p class="rev-also"><a href="{{ locale_path }}solutions/">Also used for public procurement, deal advisory, and regulated QA.</a></p>
             </div>
         </section>
 
         <section class="rev-section">
             <div class="container">
-                <p>{{ deployment.model_access }}</p>
-                <p><a href="{{ locale_path }}security/">Security</a></p>
-                <div class="rev-close">
-                    <a class="btn-primary" href="{{ locale_path }}contact-us/">Book a review</a>
-                    <p>30 minutes with the people who built it. Bring a real case file; we will tell you what Assure would and would not catch.</p>
+                <h2>Where a single wrong figure is a liability.</h2>
+                <p class="rev-sub">Built for institutional teams that sign their names to multi-source deliverables.</p>
+                <div class="v4-bento">
+                    <article>
+                        <p class="v4-roles">Claims VPs · Coverage Counsel · Complex Loss Adjusters · Underwriters</p>
+                        <h3>Insurance and claims operations</h3>
+                        <p class="v4-flow">Master policy + FNOL + loss register → Coverage opinion and reserve determination</p>
+                        <p>Locks export when the narrative reserve ($1,420,000) drifts from the loss register ($1,450,000) or cites an inapplicable exclusion.</p>
+                    </article>
+                    <article>
+                        <p class="v4-roles">M&amp;A managing directors · Private credit underwriters · Fund controllers</p>
+                        <h3>Institutional finance and deal advisory</h3>
+                        <p class="v4-flow">QoE report + Excel model + credit agreement → Sell-side CIM and IC memo</p>
+                        <p>Locks export when adjusted EBITDA in the executive summary contradicts the sensitivity table on page 38.</p>
+                    </article>
+                    <article>
+                        <p class="v4-roles">Contracting officers · Bid directors · Defense systems integrators</p>
+                        <h3>Public sector and regulated procurement</h3>
+                        <p class="v4-flow">RFP specs + bill of materials + vendor pricing → Tender compliance and acceptance dossier</p>
+                        <p>Locks export when line-item bill-of-materials pricing fails to sum to the contract ceiling or omits a mandatory statutory clause.</p>
+                    </article>
+                    <article>
+                        <p class="v4-roles">Regulatory affairs VPs · Clinical trial directors · Industrial QA auditors</p>
+                        <h3>Clinical, pharma and industrial QA</h3>
+                        <p class="v4-flow">Clinical CSR tables + lab logs + SAP exports → Regulatory submission and batch release log</p>
+                        <p>Locks export when patient cohort counts or SAP invoice quantities diverge from the underlying source tables.</p>
+                    </article>
                 </div>
+                <p class="rev-also"><a href="{{ locale_path }}solutions/">Explore vertical workflows and SAP/ERP reconciliation on Solutions</a></p>
+            </div>
+        </section>
+
+        <section class="rev-section rev-alt">
+            <div class="container">
+                <h2>Run in our cloud or entirely inside yours.</h2>
+                <div class="v4-trust">
+                    <div>
+                        <h3>Deployment topology</h3>
+                        <p>{{ deployment.topology }}</p>
+                    </div>
+                    <div>
+                        <h3>Data residency and storage</h3>
+                        <p>{{ deployment.residency }}</p>
+                    </div>
+                    <div>
+                        <h3>Bring your own model</h3>
+                        <p>{{ deployment.byok }}</p>
+                    </div>
+                </div>
+                <p class="rev-also"><a href="{{ locale_path }}security/">Inspect security architecture</a> · <a href="{{ locale_path }}terms/">How checks are scoped</a></p>
+            </div>
+        </section>
+
+        <section class="rev-section">
+            <div class="container v4-close">
+                <h2>Test Assure against your hardest case file.</h2>
+                <p>30 minutes with the engineers who built it. Bring a real multi-document file; we will show you exactly what Assure catches.</p>
+                <p class="rev-cta">
+                    <a class="btn-primary" href="{{ locale_path }}contact-us/">Book a review</a>
+                </p>
             </div>
         </section>
     </main>
