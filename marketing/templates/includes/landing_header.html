@@ -10,19 +10,11 @@
         </a>
         <nav class="nav-links is-collapsed" id="landing-nav-links" data-i18n-aria="landing.nav.aria" aria-label="Primary">
             <button type="button" class="nav-menu-toggle" id="nav-menu-toggle" aria-expanded="false" aria-controls="landing-nav-links" data-i18n="landing.nav.menu">{{ strings.get('landing.nav.menu', 'Menu') }}</button>
-            <a href="{{ locale_path }}use-cases/"{% if nav_current == 'use-cases' %} aria-current="page"{% endif %} data-i18n="landing.nav.usecases">{{ strings.get('landing.nav.usecases', 'Use cases') }}</a>
-            <a href="{{ locale_path }}about/"{% if nav_current == 'about' %} aria-current="page"{% endif %} data-i18n="landing.nav.about">{{ strings.get('landing.nav.about', 'About') }}</a>
-            <a href="{{ locale_path }}pricing/"{% if nav_current == 'pricing' %} aria-current="page"{% endif %} data-i18n="landing.nav.pricing">{{ strings.get('landing.nav.pricing', 'Pricing') }}</a>
-            <a href="{{ locale_path }}security/"{% if nav_current == 'security' %} aria-current="page"{% endif %} data-i18n="nav.security">{{ strings.get('nav.security', 'Security') }}</a>
-            <a href="{{ locale_path }}privacy"{% if nav_current == 'privacy' %} aria-current="page"{% endif %} data-i18n="landing.nav.privacy">{{ strings.get('landing.nav.privacy', 'Privacy') }}</a>
-            <label class="landing-lang-wrap" for="landing-lang">
-                <span class="landing-lang-label" data-i18n="landing.lang">{{ strings.get('landing.lang', 'Language') }}</span>
-                <select id="landing-lang" class="landing-lang-select" data-i18n-aria="landing.lang" aria-label="{{ strings.get('landing.lang', 'Language') }}">
-                    {% for code, label in languages.items() %}
-                    <option value="{{ code }}" {% if locale == code %}selected{% endif %}>{{ label }}</option>
-                    {% endfor %}
-                </select>
-            </label>
+            <a href="{{ locale_path }}#how-it-works">How it works</a>
+            <a href="{{ locale_path }}solutions/"{% if nav_current == 'solutions' %} aria-current="page"{% endif %}>Solutions</a>
+            <a href="{{ locale_path }}security/"{% if nav_current == 'security' %} aria-current="page"{% endif %}>Security</a>
+            <a href="{{ locale_path }}about/"{% if nav_current == 'about' %} aria-current="page"{% endif %}>About</a>
+            <a class="btn-primary nav-cta" href="{{ locale_path }}contact-us/">Book a review</a>
         </nav>
     </div>
 </header>

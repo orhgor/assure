@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="{{ locale|default('en') }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Solutions | Assure AI</title>
+    <meta name="description" content="Assure checks claim files, procurement files, deal documents, and regulated quality files before export.">
+    <link rel="canonical" href="{{ page_url }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='landing.css') }}?v={{ landing_css_version|default('88') }}">
+    <link rel="icon" href="{{ url_for('static', filename='assure-logo.png') }}" type="image/png">
+</head>
+<body id="top" class="enterprise-landing rev">
+    {% set nav_current = 'solutions' %}
+    {% include 'includes/landing_header.html' %}
+    <main id="main-content" class="page">
+        <h1>Solutions</h1>
+        <section>
+            <h2>Insurance and claims</h2>
+            <p>A coverage opinion can repeat a reserve that the claim form and the register do not support.</p>
+            <p>Section 1.2 states $1,420,000. The claim form (p. 14) and row 212 state $1,450,000. The difference is $30,000. Export stays locked until that is resolved.</p>
+            <p><a href="{{ locale_path }}contact-us/">Book a review</a></p>
+        </section>
+        <section>
+            <h2>Public sector and regulated procurement</h2>
+            <p>A tender pack can carry a price or a certificate that does not match the other documents in the file.</p>
+            <p>Example check: the awarded price in the decision note does not match the priced schedule.</p>
+            <p><a href="{{ locale_path }}contact-us/">Book a review</a></p>
+        </section>
+        <section>
+            <h2>Institutional finance and deal advisory</h2>
+            <p>A deal memo can keep a figure after the source schedule has changed.</p>
+            <p>Example check: the consideration in the memo does not match the schedule.</p>
+            <p><a href="{{ locale_path }}contact-us/">Book a review</a></p>
+        </section>
+        <section>
+            <h2>Clinical, pharma and industrial QA</h2>
+            <p>A quality file can state a result the batch record does not support.</p>
+            <p>Example check: the released result does not match the batch record.</p>
+            <p><a href="{{ locale_path }}contact-us/">Book a review</a></p>
+        </section>
+        <p class="rev-close"><a class="btn-primary" href="{{ locale_path }}contact-us/">Book a review</a></p>
+    </main>
+    {% include 'includes/landing_footer.html' %}
+</body>
+</html>

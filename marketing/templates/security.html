@@ -1,25 +1,34 @@
 {% extends "marketing_base.html" %}
-{% block title %}{{ strings.get('sec.title', 'Security and data') }} · {{ strings.get('brand.name', 'Assure') }}{% endblock %}
+{% block title %}Security | Assure AI{% endblock %}
 {% block body %}
-  <div class="page">
+  <div class="page rev">
     <div class="page-hero">
-      <h1 data-i18n="sec.title">{{ strings.get('sec.title', 'Security and data') }}</h1>
-      <p class="lede" data-i18n="sec.sub">{{ strings.get('sec.sub', 'Where Assure runs, what it stores and who can see it.') }}</p>
+      <h1>Security</h1>
+      <p class="lede">Where processing runs, what is stored, and what leaves the customer environment are listed in the table below. Every cell is still [CONFIRM] until the deployment record is filled.</p>
+      <p>Processing location: see the table. Stored documents: see the table. What reaches Assure servers: see the table.</p>
     </div>
     <section class="card">
-      <h2 data-i18n="sec.1.title">{{ strings.get('sec.1.title', 'Where it runs') }}</h2>
-      <p data-i18n="sec.1.body">{{ strings.get('sec.1.body', 'In your own AWS account or on your own servers, in the AWS region you choose.') }}</p>
-      <h2 data-i18n="sec.2.title">{{ strings.get('sec.2.title', 'Where the models run') }}</h2>
-      <p data-i18n="sec.2.body">{{ strings.get('sec.2.body', 'You choose. With a model inside your environment, your documents stay there. With a hosted model, the text of each document is sent to the provider you choose over an encrypted connection.') }}</p>
-      <h2 data-i18n="sec.3.title">{{ strings.get('sec.3.title', 'Encryption') }}</h2>
-      <p data-i18n="sec.3.body">{{ strings.get('sec.3.body', 'Databases, cache and file storage are encrypted at rest. Traffic to the site and to model providers is encrypted in transit.') }}</p>
-      <h2 data-i18n="sec.4.title">{{ strings.get('sec.4.title', 'Access') }}</h2>
-      <p data-i18n="sec.4.body">{{ strings.get('sec.4.body', 'Every user signs in. Each project is visible only to its owner and the people they add. Admin tools need an admin role.') }}</p>
-      <h2 data-i18n="sec.5.title">{{ strings.get('sec.5.title', 'Records') }}</h2>
-      <p data-i18n="sec.5.body">{{ strings.get('sec.5.body', 'Actions and decisions are logged with who made them and when. Every finding links to its source page.') }}</p>
-      <h2 data-i18n="sec.6.title">{{ strings.get('sec.6.title', 'Your data') }}</h2>
-      <p data-i18n="sec.6.body">{{ strings.get('sec.6.body', 'We do not use your documents to train models. Retention is set per deployment in your agreement. You can delete a project and its results.') }}</p>
+      <h2>Deployment modes</h2>
+      {% include 'includes/deployment_table.html' %}
+      <h2>Subprocessors</h2>
+      <p>{{ deployment.subprocessors }}</p>
+      <h2>Compliance status</h2>
+      <p>We provide security documentation and a data-processing agreement on request.</p>
+      <h2>Data flow</h2>
+      <svg class="rev-flow" viewBox="0 0 640 120" role="img" aria-label="Data flow placeholder">
+        <rect x="8" y="36" width="160" height="48" fill="none" stroke="#111418"/>
+        <rect x="240" y="36" width="160" height="48" fill="none" stroke="#111418"/>
+        <rect x="472" y="36" width="160" height="48" fill="none" stroke="#111418"/>
+        <path d="M168 60 H240 M400 60 H472" fill="none" stroke="#111418"/>
+        <text x="88" y="64" text-anchor="middle" font-size="12" fill="#111418">[CONFIRM]</text>
+        <text x="320" y="64" text-anchor="middle" font-size="12" fill="#111418">[CONFIRM]</text>
+        <text x="552" y="64" text-anchor="middle" font-size="12" fill="#111418">[CONFIRM]</text>
+      </svg>
+      <p>[CONFIRM contents] of the data-flow diagram, one per mode.</p>
+      <h2>Contact</h2>
+      <p>Security contact: {{ deployment.security_email }}</p>
+      <p>Vulnerability reports: write to that address. [CONFIRM] the reporting instructions.</p>
     </section>
+    <p class="rev-close"><a class="btn-primary" href="{{ locale_path }}contact-us/">Book a review</a></p>
   </div>
-  {% include 'includes/demo_cta.html' %}
 {% endblock %}

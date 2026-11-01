@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="{{ locale|default('en') }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Architecture | Assure AI</title>
+    <meta name="description" content="How Assure extracts, verifies, challenges, and holds export until findings are resolved.">
+    <link rel="canonical" href="{{ page_url }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='landing.css') }}?v={{ landing_css_version|default('88') }}">
+    <link rel="icon" href="{{ url_for('static', filename='assure-logo.png') }}" type="image/png">
+</head>
+<body id="top" class="enterprise-landing rev">
+    {% set nav_current = 'architecture' %}
+    {% include 'includes/landing_header.html' %}
+    <main id="main-content" class="page">
+        <h1>Architecture</h1>
+        <section>
+            <h2>Pipeline</h2>
+            <ol>
+                <li>Extract</li>
+                <li>Verify</li>
+                <li>Challenge</li>
+                <li>Export gate</li>
+            </ol>
+        </section>
+        <section>
+            <h2>Extraction and routing</h2>
+            <p>Page quality, extraction confidence, and compliance-bound field flags decide when a field is trusted and when it is routed to mandatory human review.</p>
+            <p>[CONFIRM each signal below is shipped, not planned: resolution, blur, contrast, signature-mark detection, compliance-bound field flags. None are listed as shipped until confirmed.]</p>
+        </section>
+        <section>
+            <h2>What is formalized and checked</h2>
+            <p>Plausibility rules (for example, effective date before expiration, premium within liability limit), cross-document conflicts, and constraint solving for the figures and rules configured for the case. Missing or unverified required fields hold the document for review rather than passing silently. Verification is done by constraint solving over the configured rules, not by a second language model judging the first.</p>
+        </section>
+        <section>
+            <h2>Export gate</h2>
+            <ol>
+                <li>Draft</li>
+                <li>Checks running</li>
+                <li>Findings open</li>
+                <li>Cleared</li>
+                <li>Exported</li>
+            </ol>
+            <p>[CONFIRM D4: real export-gate screenshot.]</p>
+        </section>
+        <section>
+            <h2>Audit record</h2>
+            <p>For every verified statement: the source page and text position, the extraction confidence, the plausibility rule results, any cross-document conflicts, and the human sign-off.</p>
+        </section>
+        <section>
+            <h2>Glossary</h2>
+            <table class="rev-table">
+                <thead><tr><th>Internal name</th><th>Plain term</th></tr></thead>
+                <tbody>
+                    <tr><td>ParSure</td><td>Extract</td></tr>
+                    <tr><td>CrossSure</td><td>Verify</td></tr>
+                    <tr><td>DraftSure</td><td>The draft written after checks</td></tr>
+                    <tr><td>Substrate Vault</td><td>Stored source text for the case</td></tr>
+                    <tr><td>Z3 Truth Ledger</td><td>The record of checks</td></tr>
+                    <tr><td>Red-Hat</td><td>Challenge</td></tr>
+                    <tr><td>Laya</td><td>[CONFIRM]</td></tr>
+                    <tr><td>JDF</td><td>The document structure used inside compilation</td></tr>
+                </tbody>
+            </table>
+        </section>
+        <section>
+            <h2>Limits</h2>
+            <p>Assure checks what has been configured as rules and figures. It does not judge anything outside them.</p>
+        </section>
+        <p class="rev-close"><a class="btn-primary" href="{{ locale_path }}contact-us/">Book a review</a></p>
+    </main>
+    {% include 'includes/landing_footer.html' %}
+</body>
+</html>
