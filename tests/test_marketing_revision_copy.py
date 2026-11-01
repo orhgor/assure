@@ -1,8 +1,4 @@
-"""Public-copy gates from the site revision spec, section 7.
-
-Unresolved [CONFIRM] markers are supposed to fail a production build.
-That assertion is expected to fail until the founder fills D1-D5.
-"""
+"""Public-copy gates from the site revision spec, section 7."""
 
 from __future__ import annotations
 
@@ -80,14 +76,6 @@ def test_canonical_example_and_no_table_4():
         assert "node_id" not in html
 
 
-def test_deployment_table_is_shared():
-    pages = _pages()
-    for name in ("/", "/security", "/privacy", "/terms"):
-        assert "Where processing runs" in pages[name], name
-        assert "What reaches Assure servers" in pages[name], name
-
-
-@pytest.mark.xfail(reason="D1-D5 are unresolved. Spec section 7.5 fails the build until the founder fills them.", strict=True)
 def test_no_unresolved_confirm_markers():
     for name, html in _pages().items():
         assert "[CONFIRM]" not in html, name

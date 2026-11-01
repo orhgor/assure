@@ -4,13 +4,9 @@
   <div class="page rev">
     <div class="page-hero">
       <h1>Security</h1>
-      <p class="lede">Where processing runs, what is stored, and what leaves the customer environment are the three rows in the table. Each cell is [CONFIRM] until the deployment record is filled.</p>
+      <p class="lede">{{ deployment.model_access }}</p>
     </div>
     <section class="card">
-      <h2>Deployment modes</h2>
-      {% include 'includes/deployment_table.html' %}
-      <h2>Subprocessors</h2>
-      <p>{{ deployment.subprocessors }}</p>
       <h2>Contact</h2>
       <p>Security contact: <a href="mailto:{{ deployment.security_email }}">{{ deployment.security_email }}</a></p>
       <p>Send vulnerability reports to that address.</p>

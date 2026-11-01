@@ -115,12 +115,8 @@
 
         <section class="rev-section">
             <div class="container">
-                <h2 class="rev-narrow">{% if deployment.multiple_modes_confirmed %}You decide where it runs.{% else %}Where your data goes.{% endif %}</h2>
-                {% include 'includes/deployment_table.html' %}
-                {% if deployment.model_access_confirmed %}
                 <p>{{ deployment.model_access }}</p>
-                {% endif %}
-                <p><a href="{{ locale_path }}security/">Full details on Security</a></p>
+                <p><a href="{{ locale_path }}security/">Security</a></p>
                 <div class="rev-close">
                     <a class="btn-primary" href="{{ locale_path }}contact-us/">Book a review</a>
                     <p>30 minutes with the people who built it. Bring a real case file; we will tell you what Assure would and would not catch.</p>

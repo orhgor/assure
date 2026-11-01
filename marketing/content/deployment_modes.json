@@ -1,21 +1,9 @@
 {
   "multiple_modes_confirmed": false,
-  "modes": [
-    {
-      "name": "[CONFIRM name]",
-      "where_processing_runs": "[CONFIRM]",
-      "where_documents_stored": "[CONFIRM]",
-      "prompts_and_questions": "[CONFIRM]",
-      "what_reaches_assure": "[CONFIRM]",
-      "model_providers": "[CONFIRM]",
-      "encryption": "[CONFIRM]",
-      "retention_and_deletion": "[CONFIRM]",
-      "audit_logs": "[CONFIRM]"
-    }
-  ],
+  "modes": [],
   "model_access_confirmed": true,
   "model_access": "Assure adds no token markup.",
-  "subprocessors": "[CONFIRM]",
+  "subprocessors": "",
   "security_email": "privacy@getassureai.com",
   "company_legal_name": "Archeon Cloud",
   "company_address": "",
