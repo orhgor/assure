@@ -642,5 +642,8 @@
   "vault.prompts.content": "İçerik",
   "vault.prompts.edit": "Düzenle",
   "vault.prompts.name": "Ad",
-  "wizard.back": "Geri"
+  "wizard.back": "Geri",
+  "landing.nav.solutions": "Çözümler",
+  "landing.nav.architecture": "Mimari",
+  "landing.nav.contact": "İletişim"
 }

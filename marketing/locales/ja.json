@@ -642,5 +642,8 @@
   "vault.prompts.content": "内容",
   "vault.prompts.edit": "編集",
   "vault.prompts.name": "名前",
-  "wizard.back": "戻る"
+  "wizard.back": "戻る",
+  "landing.nav.solutions": "ソリューション",
+  "landing.nav.architecture": "アーキテクチャ",
+  "landing.nav.contact": "お問い合わせ"
 }

@@ -61,9 +61,32 @@ fi
 if [ -f "$ROOT/landing/robots.txt" ]; then
   cp "$ROOT/landing/robots.txt" "$DIST_DIR/robots.txt"
 fi
-if [ -f "$ROOT/landing/sitemap.xml" ]; then
-  cp "$ROOT/landing/sitemap.xml" "$DIST_DIR/sitemap.xml"
-fi
+"$PYTHON" - <<PY
+from pathlib import Path
+root = Path("$DIST_DIR")
+locs = []
+for path in sorted(root.rglob("index.html")):
+    rel = path.relative_to(root).as_posix()
+    if rel == "index.html":
+        url = "https://getassureai.com/"
+    else:
+        url = "https://getassureai.com/" + rel[: -len("index.html")]
+    locs.append(url)
+lines = ['<?xml version="1.0" encoding="UTF-8"?>', '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">']
+for url in locs:
+    tail = url.removeprefix("https://getassureai.com/")
+    home = tail == "" or (tail.count("/") == 1 and len(tail.strip("/")) == 2)
+    freq = "weekly" if home else "monthly"
+    priority = "1.0" if home else "0.6"
+    lines.append("  <url>")
+    lines.append(f"    <loc>{url}</loc>")
+    lines.append(f"    <changefreq>{freq}</changefreq>")
+    lines.append(f"    <priority>{priority}</priority>")
+    lines.append("  </url>")
+lines.append("</urlset>")
+(root / "sitemap.xml").write_text("\\n".join(lines) + "\\n", encoding="utf-8")
+print(f"→ Sitemap: {len(locs)} URLs")
+PY
 if [ -f "$ROOT/landing/llms.txt" ]; then
   cp "$ROOT/landing/llms.txt" "$DIST_DIR/llms.txt"
 fi

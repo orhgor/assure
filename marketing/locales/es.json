@@ -642,5 +642,8 @@
   "vault.prompts.content": "Contenido",
   "vault.prompts.edit": "Editar",
   "vault.prompts.name": "Nombre",
-  "wizard.back": "Atrás"
+  "wizard.back": "Atrás",
+  "landing.nav.solutions": "Soluciones",
+  "landing.nav.architecture": "Arquitectura",
+  "landing.nav.contact": "Contacto"
 }

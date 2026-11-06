@@ -147,12 +147,20 @@ export default {
     if (m) {
       return Response.redirect(new URL(`/${m[1]}/contact-us/`, url.origin).toString(), 301);
     }
+    const gov = url.pathname.match(/^\/(?:([a-z]{2})\/)?government\/?$/i);
+    if (gov && (!gov[1] || LOCALES.includes(gov[1]))) {
+      const prefix = gov[1] ? `/${gov[1]}` : "";
+      return Response.redirect(new URL(`${prefix}/use-cases/government/`, url.origin).toString(), 301);
+    }
     if (url.pathname.startsWith("/app") || url.pathname.startsWith("/api")) {
       // The workbench is gone; these legacy paths go to the contact page.
       return Response.redirect(new URL("/contact-us/", url.origin).toString(), 301);
     }
     if (request.method !== "GET" && request.method !== "HEAD") {
       return new Response("Method not allowed", { status: 405 });
+    }
+    if (url.pathname !== "/" && !url.pathname.endsWith("/") && !/\.[a-z0-9]+$/i.test(url.pathname)) {
+      return Response.redirect(new URL(url.pathname + "/", url.origin).toString(), 301);
     }
 
     const key = objectKey(url.pathname);

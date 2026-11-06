@@ -645,5 +645,8 @@
   "vault.prompts.content": "内容",
   "vault.prompts.edit": "编辑",
   "vault.prompts.name": "名称",
-  "wizard.back": "返回"
+  "wizard.back": "返回",
+  "landing.nav.solutions": "解决方案",
+  "landing.nav.architecture": "架构",
+  "landing.nav.contact": "联系"
 }
