@@ -16,10 +16,10 @@ Do not start Batch E unless asked. Skip REV-012 until the insurance H1 may say â
 
 | ID | Change | Status |
 | --- | --- | --- |
-| REV-004 | Sitemap orphans | proposed |
-| REV-005 | One government URL plus a 301 | proposed |
-| REV-006 | Trailing slashes | proposed |
-| REV-007 | Nav | proposed |
+| REV-004 | Sitemap includes `/solutions/` and `/architecture/` for each published locale. No old `.html` paths. | done |
+| REV-005 | Canonical government URL is `/use-cases/government/`. `/government/` 301s there. | done |
+| REV-006 | Nav and footer hrefs use a trailing slash, including `/privacy/` and `/terms/`. Unslashed paths 301. | done |
+| REV-007 | Primary nav adds Solutions, Architecture, and Contact. Contact goes to `/contact-us/`. | done |
 
 ## Batch C â€” structured data
 

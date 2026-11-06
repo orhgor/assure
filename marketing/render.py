@@ -35,12 +35,6 @@ from marketing.app import (  # noqa: E402
 PAGES: list[dict] = [
     {"template": "landing.html", "output": "index.html", "kind": "landing", "suffix": ""},
     {
-        "template": "government.html",
-        "output": "government/index.html",
-        "kind": "landing",
-        "suffix": "government/",
-    },
-    {
         "template": "use_cases_index.html",
         "output": "use-cases/index.html",
         "kind": "landing",
