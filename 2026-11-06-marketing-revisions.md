@@ -25,7 +25,7 @@ Do not start Batch E unless asked. Skip REV-012 until the insurance H1 may say â
 
 | ID | Change | Status |
 | --- | --- | --- |
-| REV-008 | Schema, `og:type`, BreadcrumbList, and HowTo only from visible copy | proposed |
+| REV-008 | `og:type=website`. SoftwareApplication gains the visible provider. HowTo uses the four visible stages. No home BreadcrumbList. | done |
 
 ## Batch D â€” thicker pages
 

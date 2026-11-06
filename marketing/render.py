@@ -352,6 +352,45 @@ def _render_page(app, page: dict, locale: str) -> str:
                         "description": page_description,
                         "url": page_url,
                         "inLanguage": locale,
+                        "provider": {
+                            "@type": "Organization",
+                            "name": "Assure",
+                            "url": "https://getassureai.com",
+                        },
+                    }
+                )
+                json_ld.append(
+                    {
+                        "@context": "https://schema.org",
+                        "@type": "HowTo",
+                        "name": "Four stages from raw case file to locked deliverable.",
+                        "inLanguage": "en",
+                        "step": [
+                            {
+                                "@type": "HowToStep",
+                                "position": 1,
+                                "name": "ParSure",
+                                "text": "Ingest and anchor. Parses PDFs, scans, tables, and ERP exports. Every extracted figure keeps its exact page, cell, or row coordinate.",
+                            },
+                            {
+                                "@type": "HowToStep",
+                                "position": 2,
+                                "name": "CrossSure",
+                                "text": "Verify constraints. Compiles figures and domain rules into formal constraints across the case file. Every contradiction lists the two sources in conflict.",
+                            },
+                            {
+                                "@type": "HowToStep",
+                                "position": 3,
+                                "name": "Red-Hat",
+                                "text": "Stress-test. Runs an adversarial pass against the draft to flag unsupported claims, omitted clauses, and policy gaps before sign-off.",
+                            },
+                            {
+                                "@type": "HowToStep",
+                                "position": 4,
+                                "name": "DraftSure",
+                                "text": "Lock and export. Compiles the final Word or PDF document. Export unlocks only when all checks pass and open findings are resolved, with a complete audit record.",
+                            },
+                        ],
                     }
                 )
                 faq = [(full.get(f"home.faq.{i}.q"), full.get(f"home.faq.{i}.a")) for i in range(1, 5)]
