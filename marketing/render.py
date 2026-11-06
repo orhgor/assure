@@ -312,12 +312,16 @@ def _render_page(app, page: dict, locale: str) -> str:
             session["lang"] = locale
             meta_prefix = TEMPLATE_TO_META.get(page["template"])
             full = string_catalog(locale)
-            page_title = full.get(f"meta.{meta_prefix}.title") if meta_prefix else None
-            if not page_title:
-                page_title = full.get("brand.page_title", "Assure")
-            page_description = (
-                full.get(f"meta.{meta_prefix}.description") if meta_prefix else None
-            ) or full.get("brand.meta_description", "")
+            if page["template"] == "404.html":
+                page_title = full.get("error404.title", "Page not found") + " · Assure"
+                page_description = full.get("error404.body", "")
+            else:
+                page_title = full.get(f"meta.{meta_prefix}.title") if meta_prefix else None
+                if not page_title:
+                    page_title = full.get("brand.page_title", "Assure")
+                page_description = (
+                    full.get(f"meta.{meta_prefix}.description") if meta_prefix else None
+                ) or full.get("brand.meta_description", "")
             path = _locale_paths()[locale]
             page_url = "https://getassureai.com" + path + page["suffix"]
             en_url = "https://getassureai.com" + "/" + page["suffix"]
