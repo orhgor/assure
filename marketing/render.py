@@ -350,6 +350,7 @@ def _render_page(app, page: dict, locale: str) -> str:
                         "@type": "SoftwareApplication",
                         "name": "Assure",
                         "applicationCategory": "BusinessApplication",
+                        "operatingSystem": "Web",
                         "description": page_description,
                         "url": page_url,
                         "inLanguage": locale,
