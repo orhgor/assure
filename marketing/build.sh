@@ -92,6 +92,11 @@ if [ -f "$ROOT/marketing/llms.txt" ]; then
   cp "$ROOT/marketing/llms.txt" "$DIST_DIR/llms.txt"
 fi
 
+# Google Search Console ownership verification file (domain root).
+if [ -f "$ROOT/marketing/googledd970fc4996a6661.html" ]; then
+  cp "$ROOT/marketing/googledd970fc4996a6661.html" "$DIST_DIR/googledd970fc4996a6661.html"
+fi
+
 if [ -f "$ROOT/marketing/static/favicon.svg" ]; then
   cp "$ROOT/marketing/static/favicon.svg" "$DIST_DIR/favicon.svg"
 fi
