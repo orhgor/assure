@@ -46,7 +46,7 @@
         <section class="hero-section">
             <div class="container">
                 <h1 class="hero-title" data-i18n-html="brand.hero_title_html">{{ strings.get('brand.hero_title_html', 'Before you pay, accept, or sign.')|safe }}</h1>
-                <p class="hero-sub" data-i18n="landing.hero.lead">{{ strings.get('landing.hero.lead', 'Assure shows every fact that does not match your rules or your other documents, with the page.') }}</p>
+                <p class="hero-sub" data-i18n="landing.hero.lead">{{ strings.get('landing.hero.lead', 'Assure keeps the page behind every figure, and a language model writes the draft from your files. Z3, an SMT solver (satisfiability modulo theories), then decides whether that draft\'s figures and the values locked from the source can all be true at the same time.') }}</p>
                 <p class="home-hero-body" data-i18n="landing.hero.subtitle">{{ strings.get('landing.hero.subtitle', 'A person decides.') }}</p>
                 <div class="hero-cta-group">
                     <a href="{{ locale_path }}use-cases/" class="btn-secondary" data-i18n="landing.hero.cta_secondary">{{ strings.get('landing.hero.cta_secondary', 'See example findings') }}</a>
@@ -57,7 +57,7 @@
             </div>
         </section>
 
-                {% set flow_id = 'how' %}{% set flow_title = strings.get('home.how.title', 'How it works') %}{% set flow_line1 = strings.get('home.how.1', 'Scans, PDFs, forms and SAP exports.') %}{% set flow_line2 = strings.get('home.how.2', 'ParSure reads every file, including handwritten and scanned reports.') %}{% set flow_line3 = strings.get('home.how.3', 'CrossSure checks each fact against your rules, registers and the other documents.') %}{% set flow_line4 = strings.get('home.how.4', 'A person approves or rejects each finding.') %}{% set flow_line5 = strings.get('home.how.5', 'DraftSure drafts only from approved facts.') %}{% set flow_name5 = strings.get('home.how.5.name', 'Draft') %}{% set flow_more = strings.get('home.how.more', 'See each step in detail') %}{% set flow_more_href = locale_path ~ 'about/#how' %}{% include 'includes/flow.html' %}
+                {% set flow_id = 'how' %}{% set flow_title = strings.get('home.how.title', 'How it works') %}{% set flow_line1 = strings.get('home.how.1', 'Scans, PDFs, forms and SAP exports.') %}{% set flow_line2 = strings.get('home.how.2', 'ParSure reads every file, including handwritten and scanned pages, and keeps the page, cell, or row for each figure it extracts.') %}{% set flow_line3 = strings.get('home.how.3', 'DraftSure is the draft a language model writes from the files ParSure read. The Z3 check runs after this draft exists, not before it.') %}{% set flow_line4 = strings.get('home.how.4', 'CrossSure is the Z3 check on that draft. For a labeled number, Z3 makes the decision and the language model does not. For a sentence with no label, the language model turns it into a numeric comparison, and Z3 decides whether it holds.') %}{% set flow_line5 = strings.get('home.how.5', 'Red-Hat review is a separate pass a person can run on that draft. A language model reads it the way a skeptical reviewer would and tries to find what is wrong: a mismatch with the source sentence, an overstatement, a missing clause, or a figure that needs a citation. It does not run unless someone asks for it.') %}{% set flow_name3 = strings.get('home.how.3.name', 'DraftSure') %}{% set flow_name4 = strings.get('home.how.4.name', 'CrossSure') %}{% set flow_name5 = strings.get('home.how.5.name', 'Red-Hat review') %}{% set flow_more = strings.get('home.how.more', 'See each step in detail') %}{% set flow_more_href = locale_path ~ 'about/#how' %}{% include 'includes/flow.html' %}
 
         <section id="example" class="home-section home-example">
             <div class="container">
@@ -75,40 +75,55 @@
                         </div>
                         <div class="hd-mismatch"><p class="uc2-finding-text" data-i18n="home.sample.text">{{ strings.get('home.sample.text', 'The invoice total does not match the agreed price in the contract.') }}</p><span class="hd-page" data-i18n="home.demo.page">{{ strings.get('home.demo.page', 'p. 3') }}</span></div>
                         <div class="hd-review"><span data-i18n="home.demo.reviewer">{{ strings.get('home.demo.reviewer', 'Reviewer decides') }}</span><span class="hd-btn hd-ok" data-i18n="home.demo.approve">{{ strings.get('home.demo.approve', 'Approve') }}</span><span class="hd-btn" data-i18n="home.demo.reject">{{ strings.get('home.demo.reject', 'Reject') }}</span></div>
-                        <p class="hd-draft" data-i18n="home.demo.draft">{{ strings.get('home.demo.draft', 'DraftSure: draft built from approved facts') }}</p>
+                        <p class="hd-draft" data-i18n="home.demo.draft">{{ strings.get('home.demo.draft', 'DraftSure writes the draft from these files. A person decides.') }}</p>
                     </div>
             </div>
         </section>
 
         <section id="stages" class="home-section">
             <div class="container">
-                <h2 class="section-title">Four stages from raw case file to locked deliverable.</h2>
+                <h2 class="section-title" data-i18n="home.stages.title">{{ strings.get('home.stages.title', 'Four stages from the source file to a reviewed draft.') }}</h2>
                 <ol class="home-stages">
-                    <li><span>01</span><h3>ParSure</h3><p>Ingest and anchor. Parses PDFs, scans, tables, and ERP exports. Every extracted figure keeps its exact page, cell, or row coordinate.</p></li>
-                    <li><span>02</span><h3>CrossSure</h3><p>Verify constraints. Compiles figures and domain rules into formal constraints across the case file. Every contradiction lists the two sources in conflict.</p></li>
-                    <li><span>03</span><h3>Red-Hat</h3><p>Stress-test. Runs an adversarial pass against the draft to flag unsupported claims, omitted clauses, and policy gaps before sign-off.</p></li>
-                    <li><span>04</span><h3>DraftSure</h3><p>Lock and export. Compiles the final Word or PDF document. Export unlocks only when all checks pass and open findings are resolved, with a complete audit record.</p></li>
+                    <li><span>01</span><h3>ParSure</h3><p data-i18n="home.stages.1.text">{{ strings.get('home.stages.1.text', 'Reads every file, including scans and handwritten pages, and keeps the page, cell, or row for each figure it extracts.') }}</p></li>
+                    <li><span>02</span><h3>DraftSure</h3><p data-i18n="home.stages.2.text">{{ strings.get('home.stages.2.text', 'A language model writes the draft from those source files. The figure check runs only after this draft exists.') }}</p></li>
+                    <li><span>03</span><h3>CrossSure</h3><p data-i18n="home.stages.3.text">{{ strings.get('home.stages.3.text', 'Z3 decides whether the draft\'s figures and the values locked from the source can all be true at the same time. For a labeled number, the language model does not make that call. For a sentence with no label, the language model turns it into a numeric comparison, and Z3 decides whether it holds.') }}</p></li>
+                    <li><span>04</span><h3>Red-Hat review</h3><p data-i18n="home.stages.4.text">{{ strings.get('home.stages.4.text', 'Red-Hat review runs only when someone asks for it, on the draft just written. A language model tries to find what is wrong: a mismatch with the attached source sentence, an overstatement, a missing clause, or a figure that needs a citation.') }}</p></li>
                 </ol>
+                <p class="home-stages-human" data-i18n="home.stages.human">{{ strings.get('home.stages.human', 'A person decides. The reviewer accepts or rejects each finding.') }}</p>
+            </div>
+        </section>
+
+        <section id="behind" class="home-section">
+            <div class="container">
+                <h2 class="section-title" data-i18n="home.behind.title">{{ strings.get('home.behind.title', 'Who decides a conflict') }}</h2>
+                <div class="home-behind">
+                    <h3 data-i18n="home.behind.solver.title">{{ strings.get('home.behind.solver.title', 'Z3 decides the figure conflict.') }}</h3>
+                    <p data-i18n="home.behind.solver.text">{{ strings.get('home.behind.solver.text', 'For a labeled number, Z3 compares it with the value locked from the source, and the language model does not make that call. For a sentence with no label, the language model only proposes the numeric comparison. Z3 decides whether it holds. When the file is first read, Z3 can also flag figures inside that file that contradict each other.') }}</p>
+                    <h3 data-i18n="home.behind.redhat.title">{{ strings.get('home.behind.redhat.title', 'Red-Hat review tries to find what is wrong.') }}</h3>
+                    <p data-i18n="home.behind.redhat.text">{{ strings.get('home.behind.redhat.text', 'Red-Hat review is not the figure check. It is a language-model pass on the draft, and it runs only when someone asks for it. It looks for a mismatch with the attached source sentence, an overstatement, a missing clause, or a figure that needs a citation. A person accepts or rejects each finding.') }}</p>
+                </div>
             </div>
         </section>
 
         <section id="proof" class="home-section">
             <div class="container">
-                <h2 class="section-title">Every figure anchored. Every conflict blocked.</h2>
+                <p class="home-proof-flag" data-i18n="home.proof.illustrative">{{ strings.get('home.proof.illustrative', 'Illustrative example') }}</p>
+                <h2 class="section-title" data-i18n="home.proof.title">{{ strings.get('home.proof.title', 'An illustrative conflict, not a customer case.') }}</h2>
                 <div class="home-proof">
                     <div>
-                        <h3>Source evidence. ParSure</h3>
-                        <p>Claim_Form_04.pdf · p. 14 → Reserve $1,450,000</p>
-                        <p>Register.csv · row 212 → Reserve $1,450,000</p>
+                        <h3 data-i18n="home.proof.source">{{ strings.get('home.proof.source', 'Source evidence. ParSure') }}</h3>
+                        <p data-i18n="home.proof.source.1">{{ strings.get('home.proof.source.1', 'Claim_Form_04.pdf · p. 14 → Reserve $1,450,000') }}</p>
+                        <p data-i18n="home.proof.source.2">{{ strings.get('home.proof.source.2', 'Register.csv · row 212 → Reserve $1,450,000') }}</p>
                     </div>
                     <div>
-                        <h3>Compiled draft. DraftSure</h3>
-                        <p>Coverage_Opinion.docx · Section 1.2 → Stated reserve $1,420,000</p>
+                        <h3 data-i18n="home.proof.draft">{{ strings.get('home.proof.draft', 'Compiled draft. DraftSure') }}</h3>
+                        <p data-i18n="home.proof.draft.body">{{ strings.get('home.proof.draft.body', 'Coverage_Opinion.docx · Section 1.2 → Stated reserve $1,420,000') }}</p>
                     </div>
                     <div>
-                        <h3>Gate verdict. CrossSure</h3>
-                        <p class="home-locked">EXPORT LOCKED</p>
-                        <p>$30,000 discrepancy between Section 1.2 ($1,420,000) and the source register ($1,450,000). Resolve or re-sync to unlock export.</p>
+                        <h3 data-i18n="home.proof.finding">{{ strings.get('home.proof.finding', 'Figure check. CrossSure') }}</h3>
+                        <p data-i18n="home.proof.finding.body">{{ strings.get('home.proof.finding.body', 'The draft says $1,420,000. The source page says $1,450,000. The two figures are $30,000 apart. Z3 marks that conflict, and the review screen shows export blocked.') }}</p>
+                        <h3 data-i18n="home.proof.export">{{ strings.get('home.proof.export', 'Review screen') }}</h3>
+                        <p class="home-locked" data-i18n="home.proof.locked">{{ strings.get('home.proof.locked', 'Export blocked') }}</p>
                     </div>
                 </div>
             </div>
@@ -116,11 +131,15 @@
 
         <section id="different" class="home-section">
             <div class="container">
-                <h2 class="section-title" data-i18n="home.edge.lead">{{ strings.get('home.edge.lead', 'Other tools read documents. We check them.') }}</h2>
-                <ul class="home-list home-list-three">
-                        <li class="home-item"><p><strong data-i18n="home.diff.1.name">{{ strings.get('home.diff.1.name', 'Document extraction tools') }}</strong> <span data-i18n="home.diff.1.text">{{ strings.get('home.diff.1.text', 'read the data but do not check whether it is right.') }}</span></p></li>
-                        <li class="home-item"><p><strong data-i18n="home.diff.2.name">{{ strings.get('home.diff.2.name', 'AI chat assistants') }}</strong> <span data-i18n="home.diff.2.text">{{ strings.get('home.diff.2.text', 'answer questions but do not give a reviewer findings to check page by page.') }}</span></p></li>
+                <h2 class="section-title" data-i18n="home.edge.lead">{{ strings.get('home.edge.lead', 'Not just field extraction. The figures are checked, and the page stays attached.') }}</h2>
+                <p class="home-define" data-i18n="copy.defining">{{ strings.get('copy.defining', 'Assure keeps each figure\'s source page, a language model writes the draft, Z3 decides whether those figures conflict with the locked source values, and a Red-Hat review can try to find what is wrong in the draft. A person decides.') }}</p>
+                <ul class="home-list home-list-two">
+                    <li class="home-item"><h3 data-i18n="home.edge.1.name">{{ strings.get('home.edge.1.name', 'The page stays with the figure.') }}</h3><p data-i18n="home.edge.1.text">{{ strings.get('home.edge.1.text', 'ParSure keeps the page, cell, or row for every figure it extracts.') }}</p></li>
+                    <li class="home-item"><h3 data-i18n="home.edge.2.name">{{ strings.get('home.edge.2.name', 'Z3 decides the conflict.') }}</h3><p data-i18n="home.edge.2.text">{{ strings.get('home.edge.2.text', 'CrossSure sends the draft\'s figures and the locked source values to Z3. The language model does not decide a labeled number. It may only turn an unlabeled sentence into a numeric comparison, which Z3 then decides.') }}</p></li>
+                    <li class="home-item"><h3 data-i18n="home.edge.3.name">{{ strings.get('home.edge.3.name', 'Red-Hat review is a second reading.') }}</h3><p data-i18n="home.edge.3.text">{{ strings.get('home.edge.3.text', 'When someone runs it, a language model reads the draft the way a skeptical reviewer would and tries to find a mismatch, an overstatement, a missing clause, or a figure that needs a citation.') }}</p></li>
+                    <li class="home-item"><h3 data-i18n="home.edge.4.name">{{ strings.get('home.edge.4.name', 'A person decides.') }}</h3><p data-i18n="home.edge.4.text">{{ strings.get('home.edge.4.text', 'The review screen shows a Z3 contradiction as export blocked. Red-Hat review findings are for that person to accept or reject. The file can still be downloaded.') }}</p></li>
                 </ul>
+                <p class="home-define" data-i18n="home.edge.compare">{{ strings.get('home.edge.compare', 'Document extraction tools pull fields out of a file. Assure also checks those figures against the values locked from the source and shows the source page.') }}</p>
                 <p class="home-more"><a href="{{ locale_path }}about/#different" data-i18n="home.diff.more">{{ strings.get('home.diff.more', 'How it differs, in detail') }}</a> <span aria-hidden="true">→</span></p>
             </div>
         </section>
@@ -140,10 +159,14 @@
             <div class="container">
                 <h2 class="section-title" data-i18n="home.faq.title">{{ strings.get('home.faq.title', 'Questions') }}</h2>
                 <dl class="home-faq">
-                    <div class="home-faq-item"><dt data-i18n="home.faq.1.q">{{ strings.get('home.faq.1.q', 'What exactly does it do?') }}</dt><dd data-i18n="home.faq.1.a">{{ strings.get('home.faq.1.a', 'It reads your files, links the facts across them and checks each one against your rules and registers.') }}</dd></div>
+                    <div class="home-faq-item"><dt data-i18n="home.faq.1.q">{{ strings.get('home.faq.1.q', 'What exactly does it do?') }}</dt><dd data-i18n="home.faq.1.a">{{ strings.get('home.faq.1.a', 'It reads your files and keeps the page for each figure. A language model writes a draft. Z3, the check that decides whether a set of figures can all be true at the same time, then decides whether the draft\'s figures conflict with the values locked from the source. A person decides.') }}</dd></div>
                     <div class="home-faq-item"><dt data-i18n="home.faq.2.q">{{ strings.get('home.faq.2.q', 'What documents can it check?') }}</dt><dd data-i18n="home.faq.2.a">{{ strings.get('home.faq.2.a', 'Scans, PDFs, forms, contracts, invoices, receipts and certificates, including handwritten and scanned reports, alongside your SAP exports.') }}</dd></div>
                     <div class="home-faq-item"><dt data-i18n="home.faq.3.q">{{ strings.get('home.faq.3.q', 'Where does it run?') }}</dt><dd data-i18n="home.faq.3.a">{{ strings.get('home.faq.3.a', 'In your own AWS account or on-premises. You choose where the models run, including your own GPU servers.') }}</dd></div>
                     <div class="home-faq-item"><dt data-i18n="home.faq.4.q">{{ strings.get('home.faq.4.q', 'Who makes the decision?') }}</dt><dd data-i18n="home.faq.4.a">{{ strings.get('home.faq.4.a', 'A person. The layer shows each finding with its source page, and your reviewer approves or rejects it.') }}</dd></div>
+                    <div class="home-faq-item"><dt data-i18n="home.faq.5.q">{{ strings.get('home.faq.5.q', 'What is Z3, and why does Assure use it?') }}</dt><dd data-i18n="home.faq.5.a">{{ strings.get('home.faq.5.a', 'Z3 is an SMT solver, satisfiability modulo theories: software that decides whether a set of figures and conditions can all be true at the same time. CrossSure gives it the draft\'s figures and the values locked from the source. For a labeled number, Z3 makes the decision and the language model does not. For a sentence with no label, the language model turns it into a numeric comparison, and Z3 decides whether it holds.') }}</dd></div>
+                    <div class="home-faq-item"><dt data-i18n="home.faq.6.q">{{ strings.get('home.faq.6.q', 'How is the Z3 check different from a language model reviewing the document?') }}</dt><dd data-i18n="home.faq.6.a">{{ strings.get('home.faq.6.a', 'A language model writes text and can propose a numeric comparison. It does not decide whether a labeled figure conflicts with the value locked from the source. Z3 makes that decision. Red-Hat review is a different pass: a language model tries to find what is wrong in the draft, and a person decides what to do with each finding.') }}</dd></div>
+                    <div class="home-faq-item"><dt data-i18n="home.faq.7.q">{{ strings.get('home.faq.7.q', 'What does the Red-Hat review check?') }}</dt><dd data-i18n="home.faq.7.a">{{ strings.get('home.faq.7.a', 'Red-Hat review runs only when someone asks for it, on the draft DraftSure has already written. A language model looks for a mismatch with the attached source sentence, an overstatement, a missing clause, or a figure that needs a citation.') }}</dd></div>
+                    <div class="home-faq-item"><dt data-i18n="home.faq.8.q">{{ strings.get('home.faq.8.q', 'Does a failed check stop the file from downloading?') }}</dt><dd data-i18n="home.faq.8.a">{{ strings.get('home.faq.8.a', 'The review screen shows a Z3 contradiction as export blocked. Red-Hat review findings are left for a person to accept or reject. The file can still be downloaded.') }}</dd></div>
                 </dl>
             </div>
         </section>

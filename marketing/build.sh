@@ -37,7 +37,7 @@ if [ ! -f "$ROOT/marketing/static/favicon.ico" ]; then
   "$PYTHON" "$ROOT/marketing/make_favicon.py" || echo "warn: favicon.ico generation failed"
 fi
 
-# Locales to publish. ar is built for preview only: set PUBLISH_LOCALES="en es zh fr de ja tr ar" to turn it on.
+# Published locales, including ar. Override with PUBLISH_LOCALES if a build should omit one.
 PUBLISH_LOCALES="${PUBLISH_LOCALES:-en es zh fr de ja tr ar}"
 export PUBLISH_LOCALES
 
@@ -87,8 +87,9 @@ lines.append("</urlset>")
 (root / "sitemap.xml").write_text("\\n".join(lines) + "\\n", encoding="utf-8")
 print(f"→ Sitemap: {len(locs)} URLs")
 PY
-if [ -f "$ROOT/landing/llms.txt" ]; then
-  cp "$ROOT/landing/llms.txt" "$DIST_DIR/llms.txt"
+# /llms.txt is authored in marketing/. landing/llms.txt is not the build input.
+if [ -f "$ROOT/marketing/llms.txt" ]; then
+  cp "$ROOT/marketing/llms.txt" "$DIST_DIR/llms.txt"
 fi
 
 if [ -f "$ROOT/marketing/static/favicon.svg" ]; then

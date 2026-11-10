@@ -1,0 +1,40 @@
+# Assure
+
+Assure keeps each figure's source page with ParSure. DraftSure is the draft a language model writes from those files. Z3, an SMT solver (satisfiability modulo theories), decides whether the draft's figures and the values locked from the source can all be true at the same time. For a labeled number, the language model does not make that call. For a sentence with no label, the language model turns it into a numeric comparison, and Z3 decides whether it holds. Red-Hat review is a separate language-model pass that tries to find what is wrong in that draft, and it runs only when someone asks for it. A person decides.
+
+Document extraction tools pull fields out of a file. Assure also checks those figures against the values locked from the source and shows the source page.
+
+## Four stages
+
+The order is the compile order: the draft is written first, then Z3 checks that draft, then a person can run Red-Hat review on it.
+
+- ParSure: Reads every file, including scans and handwritten pages, and keeps the page, cell, or row for each figure it extracts.
+- DraftSure: A language model writes the draft from those source files. The figure check runs only after this draft exists.
+- CrossSure: Z3 decides whether the draft's figures and the values locked from the source can all be true at the same time. For a labeled number, the language model does not make that call. For a sentence with no label, the language model turns it into a numeric comparison, and Z3 decides whether it holds.
+- Red-Hat review: Runs only when someone asks for it, on the draft just written. A language model tries to find what is wrong: a mismatch with the attached source sentence, an overstatement, a missing clause, or a figure that needs a citation.
+
+A person decides. The reviewer accepts or rejects each finding. The review screen shows a Z3 contradiction as export blocked. The file can still be downloaded.
+
+## Who it is for
+
+Insurers, public bodies, fuel retailers and industrial groups, and teams handling procurement, grants and compliance evidence, who must check documents before they pay, accept or sign.
+
+## Deployment
+
+Runs in your own AWS account or on your own machines. You choose where the models run, including your own GPU servers. Access is set per project, and actions and decisions are recorded in an activity log.
+
+## Key pages
+
+- Home: https://getassureai.com/
+- Solutions: https://getassureai.com/solutions/
+- Architecture: https://getassureai.com/architecture/
+- Use cases: https://getassureai.com/use-cases/
+- Government use case: https://getassureai.com/use-cases/government/
+- Insurance use case: https://getassureai.com/use-cases/insurance/
+- Fuel retail use case: https://getassureai.com/use-cases/fuel-retail/
+- About: https://getassureai.com/about/
+- Security and data: https://getassureai.com/security/
+- Pricing: https://getassureai.com/pricing/
+- Contact: https://getassureai.com/contact-us/
+- Privacy: https://getassureai.com/privacy/
+- Terms: https://getassureai.com/terms/

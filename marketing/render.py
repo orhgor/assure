@@ -158,7 +158,8 @@ LOCALE_TO_OG = {
 OG_IMAGE = "https://getassureai.com/static/og-image.png"
 
 
-# Locales that exist for preview but are not published yet (turn on via PUBLISH_LOCALES).
+# ar is published with en, es, zh, fr, de, ja, and tr.
+# PUBLISH_LOCALES can still narrow a build.
 UNPUBLISHED_BY_DEFAULT = frozenset()
 
 # Locales that can be built with the marketing site (7 + ar)
@@ -359,41 +360,49 @@ def _render_page(app, page: dict, locale: str) -> str:
                         },
                     }
                 )
+                howto_steps = (
+                    (
+                        "ParSure",
+                        "home.stages.1.text",
+                        "Reads every file, including scans and handwritten pages, and keeps the page, cell, or row for each figure it extracts.",
+                    ),
+                    (
+                        "DraftSure",
+                        "home.stages.2.text",
+                        "A language model writes the draft from those source files. The figure check runs only after this draft exists.",
+                    ),
+                    (
+                        "CrossSure",
+                        "home.stages.3.text",
+                        "Z3 decides whether the draft's figures and the values locked from the source can all be true at the same time. For a labeled number, the language model does not make that call. For a sentence with no label, the language model turns it into a numeric comparison, and Z3 decides whether it holds.",
+                    ),
+                    (
+                        "Red-Hat review",
+                        "home.stages.4.text",
+                        "Red-Hat review runs only when someone asks for it, on the draft just written. A language model tries to find what is wrong: a mismatch with the attached source sentence, an overstatement, a missing clause, or a figure that needs a citation.",
+                    ),
+                )
                 json_ld.append(
                     {
                         "@context": "https://schema.org",
                         "@type": "HowTo",
-                        "name": "Four stages from raw case file to locked deliverable.",
-                        "inLanguage": "en",
+                        "name": full.get(
+                            "home.stages.title",
+                            "Four stages from the source file to a reviewed draft.",
+                        ),
+                        "inLanguage": locale,
                         "step": [
                             {
                                 "@type": "HowToStep",
-                                "position": 1,
-                                "name": "ParSure",
-                                "text": "Ingest and anchor. Parses PDFs, scans, tables, and ERP exports. Every extracted figure keeps its exact page, cell, or row coordinate.",
-                            },
-                            {
-                                "@type": "HowToStep",
-                                "position": 2,
-                                "name": "CrossSure",
-                                "text": "Verify constraints. Compiles figures and domain rules into formal constraints across the case file. Every contradiction lists the two sources in conflict.",
-                            },
-                            {
-                                "@type": "HowToStep",
-                                "position": 3,
-                                "name": "Red-Hat",
-                                "text": "Stress-test. Runs an adversarial pass against the draft to flag unsupported claims, omitted clauses, and policy gaps before sign-off.",
-                            },
-                            {
-                                "@type": "HowToStep",
-                                "position": 4,
-                                "name": "DraftSure",
-                                "text": "Lock and export. Compiles the final Word or PDF document. Export unlocks only when all checks pass and open findings are resolved, with a complete audit record.",
-                            },
+                                "position": index,
+                                "name": name,
+                                "text": full.get(key) or fallback,
+                            }
+                            for index, (name, key, fallback) in enumerate(howto_steps, start=1)
                         ],
                     }
                 )
-                faq = [(full.get(f"home.faq.{i}.q"), full.get(f"home.faq.{i}.a")) for i in range(1, 5)]
+                faq = [(full.get(f"home.faq.{i}.q"), full.get(f"home.faq.{i}.a")) for i in range(1, 9)]
                 if all(q and a for q, a in faq):
                     json_ld.append(
                         {

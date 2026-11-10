@@ -4173,9 +4173,20 @@ html[dir="rtl"] .flow-arrow-approval .flow-badge { left: auto; right: 50%; trans
 .home-stages h3, .home-proof h3 { font-size: 1rem; margin: 0 0 8px; color: #0a0a0a; }
 .home-stages p, .home-proof p { margin: 0 0 8px; color: #334155; font-size: 0.95rem; line-height: 1.55; }
 .home-locked { font-weight: 700; color: #0a0a0a; letter-spacing: 0.04em; }
+.home-stages-human { max-width: 44rem; margin: 28px auto 0; text-align: center; color: #334155; line-height: 1.6; }
+.home-proof-flag { display: block; margin: 0 auto 12px; text-align: center; font-size: 0.75rem; letter-spacing: 0.06em; text-transform: uppercase; color: #64748b; }
+.home-proof h3:not(:first-child) { margin-top: 16px; }
+.home-define { max-width: 46rem; margin: 0 auto 28px; text-align: center; color: #334155; font-size: 1.05rem; line-height: 1.6; }
+.home-behind { max-width: 46rem; margin: 28px auto 0; text-align: start; }
+.home-behind h3 { font-size: 1.05rem; margin: 1.25rem 0 0.4rem; color: #0a0a0a; }
+.home-behind p { margin: 0; color: #334155; line-height: 1.65; }
 @media (max-width: 900px) {
     .home-stages, .home-proof { grid-template-columns: 1fr; }
 }
+.about-sec p + p { margin-top: 0.85rem; }
+.compare-scroll { overflow-x: auto; margin-top: 1.5rem; }
+.compare-table caption { caption-side: top; text-align: start; font-weight: 600; padding-bottom: 0.75rem; }
+.compare-note { margin-top: 0.75rem; font-size: 0.875rem; color: var(--text-muted); }
 
 .home-example { padding-top: 0; }
 .home-example .home-edge-solo { margin-top: 0; }

@@ -50,14 +50,12 @@ LANDING_JS = _uiv.LANDING_JS
 
 BRAND_BASE = {"name": "Assure"}
 BRAND_STRING_KEYS = (
-    "brand.category",
     "brand.tagline",
     "brand.eyebrow",
     "brand.hero_title",
     "brand.page_title",
     "brand.meta_description",
     "brand.architecture_title",
-    "brand.architecture_meta_description",
 )
 
 EDITION_FREE = {

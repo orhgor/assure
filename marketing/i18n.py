@@ -1,6 +1,6 @@
 """Assure marketing-site strings. Copied from the app catalog; text identical.
 
-Locales: en, es, zh, fr, de, ja, tr (published) + ar (preview, gated by PUBLISH_LOCALES).
+Locales: en, es, zh, fr, de, ja, tr, ar. All eight are published.
 This file is standalone: it must not import or read anything from the workbench tree.
 """
 
@@ -9,8 +9,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-LOCALES = ("en", "es", "zh", "fr", "de", "ja", "tr", "ar")  # published
-MARKETING_LOCALES = ("en", "es", "zh", "fr", "de", "ja", "tr", "ar")  # ar = preview
+LOCALES = ("en", "es", "zh", "fr", "de", "ja", "tr", "ar")  # all published
+MARKETING_LOCALES = ("en", "es", "zh", "fr", "de", "ja", "tr", "ar")
 RTL_LOCALES = frozenset({"ar"})
 LOCALE_LABELS = {
     "en": "English",

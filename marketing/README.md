@@ -16,6 +16,7 @@ database. Everything the site needs lives here.
 | `content/privacy/` | Own privacy policy HTML per locale. |
 | `cache_versions.py` | Own cache-bust values (LANDING_CSS / LANDING_JS). |
 | `render.py` | Renders the marketing templates to static HTML, one locale per run. |
+| `llms.txt` | Source for the published `/llms.txt`. `build.sh` copies this file; it does not read `landing/llms.txt`. |
 | `build.sh` | Builds `dist/` (assets + the published locales). |
 | `deploy.sh` | Uploads changed `dist/` files to Cloudflare R2 and deploys the marketing Worker when its source changes. |
 | `sync_r2.py` | Content-hash sync (uploads only changed files — free-tier friendly). |
@@ -41,4 +42,4 @@ A CI check fails any PR that touches both `marketing/` and the workbench tree.
 - Never read anything from the workbench tree from here, and never import the workbench app.
 - Never put page HTML in `landing/` — that folder is hosting metadata + assets only.
 - Bump `LANDING_CSS` in `marketing/cache_versions.py` when `landing.css` changes.
-- Arabic (`ar`) is built for preview only. To turn it on later: `PUBLISH_LOCALES="en es zh fr de ja tr ar" bash marketing/build.sh` (or set that variable in the deploy workflow); the switcher and the language count follow it automatically.
+- Arabic (`ar`) is a published locale, same as en, es, zh, fr, de, ja, and tr. `marketing/build.sh` includes it in the default `PUBLISH_LOCALES`, and the sitemap and hreflang follow that list.
