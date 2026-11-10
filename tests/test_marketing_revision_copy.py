@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import json
 import re
+from html import unescape
 from pathlib import Path
 
 import pytest
@@ -63,3 +65,38 @@ def test_home_is_the_earlier_enterprise_page():
     assert "For teams that check before they act." not in html
     assert "Launch App" not in html
     assert "0F5C4D" not in html
+
+
+_LDJSON_RE = re.compile(
+    r'<script type="application/ld\+json">(.*?)</script>',
+    re.DOTALL,
+)
+_HOME_LOCALES = ("en", "es", "zh", "fr", "de", "ja", "tr", "ar")
+
+
+def _home_pages() -> dict[str, str]:
+    pages = {
+        locale: (DIST / "index.html" if locale == "en" else DIST / locale / "index.html")
+        for locale in _HOME_LOCALES
+    }
+    missing = [str(path) for path in pages.values() if not path.is_file()]
+    if missing:
+        pytest.skip("marketing dist is not built: " + ", ".join(missing))
+    return {locale: path.read_text(encoding="utf-8") for locale, path in pages.items()}
+
+
+def _json_ld_blocks(html: str) -> list[dict]:
+    return [json.loads(unescape(raw.strip())) for raw in _LDJSON_RE.findall(html)]
+
+
+def test_software_application_schema_has_category_and_operating_system():
+    """Google Rich Results requires two of offers, aggregateRating, applicationCategory, operatingSystem."""
+    for locale, html in _home_pages().items():
+        blocks = _json_ld_blocks(html)
+        apps = [block for block in blocks if block.get("@type") == "SoftwareApplication"]
+        assert len(apps) == 1, (locale, [block.get("@type") for block in blocks])
+        app = apps[0]
+        assert app.get("applicationCategory") == "BusinessApplication", locale
+        assert app.get("operatingSystem") == "Web", locale
+        assert "offers" not in app, locale
+        assert "aggregateRating" not in app, locale
