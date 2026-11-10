@@ -359,41 +359,49 @@ def _render_page(app, page: dict, locale: str) -> str:
                         },
                     }
                 )
+                howto_steps = (
+                    (
+                        "ParSure",
+                        "home.stages.1.text",
+                        "Reads every file, including scans and handwritten reports, and anchors each extracted figure to its exact page, cell or row.",
+                    ),
+                    (
+                        "CrossSure",
+                        "home.stages.2.text",
+                        "Compiles domain rules and extracted facts into formal constraints and checks them with Z3, an SMT solver; every contradiction names the two sources in conflict.",
+                    ),
+                    (
+                        "Red-Hat",
+                        "home.stages.3.text",
+                        "Runs an adversarial stress-test on the draft for unsupported claims, omitted clauses and policy gaps before sign-off.",
+                    ),
+                    (
+                        "DraftSure",
+                        "home.stages.4.text",
+                        "Drafts only from approved facts; export stays locked until findings are resolved, with a complete audit record.",
+                    ),
+                )
                 json_ld.append(
                     {
                         "@context": "https://schema.org",
                         "@type": "HowTo",
-                        "name": "Four stages from raw case file to locked deliverable.",
-                        "inLanguage": "en",
+                        "name": full.get(
+                            "home.stages.title",
+                            "Four stages from raw case file to locked deliverable.",
+                        ),
+                        "inLanguage": locale,
                         "step": [
                             {
                                 "@type": "HowToStep",
-                                "position": 1,
-                                "name": "ParSure",
-                                "text": "Ingest and anchor. Parses PDFs, scans, tables, and ERP exports. Every extracted figure keeps its exact page, cell, or row coordinate.",
-                            },
-                            {
-                                "@type": "HowToStep",
-                                "position": 2,
-                                "name": "CrossSure",
-                                "text": "Verify constraints. Compiles figures and domain rules into formal constraints across the case file. Every contradiction lists the two sources in conflict.",
-                            },
-                            {
-                                "@type": "HowToStep",
-                                "position": 3,
-                                "name": "Red-Hat",
-                                "text": "Stress-test. Runs an adversarial pass against the draft to flag unsupported claims, omitted clauses, and policy gaps before sign-off.",
-                            },
-                            {
-                                "@type": "HowToStep",
-                                "position": 4,
-                                "name": "DraftSure",
-                                "text": "Lock and export. Compiles the final Word or PDF document. Export unlocks only when all checks pass and open findings are resolved, with a complete audit record.",
-                            },
+                                "position": index,
+                                "name": name,
+                                "text": full.get(key) or fallback,
+                            }
+                            for index, (name, key, fallback) in enumerate(howto_steps, start=1)
                         ],
                     }
                 )
-                faq = [(full.get(f"home.faq.{i}.q"), full.get(f"home.faq.{i}.a")) for i in range(1, 5)]
+                faq = [(full.get(f"home.faq.{i}.q"), full.get(f"home.faq.{i}.a")) for i in range(1, 9)]
                 if all(q and a for q, a in faq):
                     json_ld.append(
                         {

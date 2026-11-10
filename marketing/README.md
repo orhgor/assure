@@ -16,6 +16,7 @@ database. Everything the site needs lives here.
 | `content/privacy/` | Own privacy policy HTML per locale. |
 | `cache_versions.py` | Own cache-bust values (LANDING_CSS / LANDING_JS). |
 | `render.py` | Renders the marketing templates to static HTML, one locale per run. |
+| `llms.txt` | Source for the published `/llms.txt`. `build.sh` copies this file; it does not read `landing/llms.txt`. |
 | `build.sh` | Builds `dist/` (assets + the published locales). |
 | `deploy.sh` | Uploads changed `dist/` files to Cloudflare R2 and deploys the marketing Worker when its source changes. |
 | `sync_r2.py` | Content-hash sync (uploads only changed files — free-tier friendly). |

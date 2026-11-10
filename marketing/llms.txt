@@ -1,0 +1,36 @@
+# Assure
+
+Assure is verified document compilation: it extracts facts with their source pages, checks them against your rules with the Z3 SMT solver, stress-tests the draft adversarially, and lets a person decide before export.
+
+## Four stages
+
+- ParSure: Reads every file, including scans and handwritten reports, and anchors each extracted figure to its exact page, cell or row.
+- CrossSure: Compiles domain rules and extracted facts into formal constraints and checks them with Z3, an SMT solver; every contradiction names the two sources in conflict.
+- Red-Hat: Runs an adversarial stress-test on the draft for unsupported claims, omitted clauses and policy gaps before sign-off.
+- DraftSure: Drafts only from approved facts; export stays locked until findings are resolved, with a complete audit record.
+
+A person decides. Your reviewer approves or rejects each finding and makes the final decision.
+
+## Who it is for
+
+Insurers, public bodies, fuel retailers and industrial groups, and teams handling procurement, grants and compliance evidence, who must check documents before they pay, accept or sign.
+
+## Deployment
+
+Runs in your own AWS account or on-premises. You choose where the models run, including your own GPU servers. Access is set per project, and actions and decisions are recorded in an activity log.
+
+## Key pages
+
+- Home: https://getassureai.com/
+- Solutions: https://getassureai.com/solutions/
+- Architecture: https://getassureai.com/architecture/
+- Use cases: https://getassureai.com/use-cases/
+- Government use case: https://getassureai.com/use-cases/government/
+- Insurance use case: https://getassureai.com/use-cases/insurance/
+- Fuel retail use case: https://getassureai.com/use-cases/fuel-retail/
+- About: https://getassureai.com/about/
+- Security and data: https://getassureai.com/security/
+- Pricing: https://getassureai.com/pricing/
+- Contact: https://getassureai.com/contact-us/
+- Privacy: https://getassureai.com/privacy/
+- Terms: https://getassureai.com/terms/
