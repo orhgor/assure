@@ -58,7 +58,7 @@ def test_home_is_the_earlier_enterprise_page():
     assert "aws-startups.svg" in html
     assert "s3-icon.svg" in html
     assert "Book a demo" in html
-    assert "Four stages from raw case file to locked deliverable." in html
+    assert "Four stages from the source file to a reviewed draft." in html
     assert "$1,420,000" in html and "$1,450,000" in html and "$30,000" in html
     assert "For teams that check before they act." not in html
     assert "Launch App" not in html
