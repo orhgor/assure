@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="{{ locale|default('en') }}"{% if locale|default('en') == 'ar' %} dir="rtl"{% endif %}{% if page_class is defined %} class="{{ page_class }}"{% endif %}>
 <head>
+    {% include 'includes/gtag.html' %}
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="{{ page_description }}">
