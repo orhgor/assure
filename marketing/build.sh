@@ -37,7 +37,7 @@ if [ ! -f "$ROOT/marketing/static/favicon.ico" ]; then
   "$PYTHON" "$ROOT/marketing/make_favicon.py" || echo "warn: favicon.ico generation failed"
 fi
 
-# Locales to publish. ar is built for preview only: set PUBLISH_LOCALES="en es zh fr de ja tr ar" to turn it on.
+# Published locales, including ar. Override with PUBLISH_LOCALES if a build should omit one.
 PUBLISH_LOCALES="${PUBLISH_LOCALES:-en es zh fr de ja tr ar}"
 export PUBLISH_LOCALES
 

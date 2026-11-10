@@ -42,4 +42,4 @@ A CI check fails any PR that touches both `marketing/` and the workbench tree.
 - Never read anything from the workbench tree from here, and never import the workbench app.
 - Never put page HTML in `landing/` — that folder is hosting metadata + assets only.
 - Bump `LANDING_CSS` in `marketing/cache_versions.py` when `landing.css` changes.
-- Arabic (`ar`) is built for preview only. To turn it on later: `PUBLISH_LOCALES="en es zh fr de ja tr ar" bash marketing/build.sh` (or set that variable in the deploy workflow); the switcher and the language count follow it automatically.
+- Arabic (`ar`) is a published locale, same as en, es, zh, fr, de, ja, and tr. `marketing/build.sh` includes it in the default `PUBLISH_LOCALES`, and the sitemap and hreflang follow that list.

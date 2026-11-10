@@ -158,7 +158,8 @@ LOCALE_TO_OG = {
 OG_IMAGE = "https://getassureai.com/static/og-image.png"
 
 
-# Locales that exist for preview but are not published yet (turn on via PUBLISH_LOCALES).
+# ar is published with en, es, zh, fr, de, ja, and tr.
+# PUBLISH_LOCALES can still narrow a build.
 UNPUBLISHED_BY_DEFAULT = frozenset()
 
 # Locales that can be built with the marketing site (7 + ar)

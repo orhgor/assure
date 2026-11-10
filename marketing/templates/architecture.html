@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Architecture | Assure</title>
-    <meta name="description" content="How Assure reads files, checks facts, and leaves the decision with a person.">
+    <title>{{ page_title }}</title>
+    <meta name="description" content="{{ page_description }}">
     <link rel="canonical" href="{{ page_url }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='landing.css') }}?v={{ landing_css_version|default('88') }}">
     <link rel="icon" href="{{ url_for('static', filename='assure-logo.png') }}" type="image/png">
@@ -14,7 +14,7 @@
     {% include 'includes/landing_header.html' %}
     <main id="main-content" class="page">
         <h1>Architecture</h1>
-        <p>ParSure reads each file. CrossSure checks the facts against your rules, registers and other documents. Every finding shows the page it came from. A person decides. DraftSure drafts only from approved facts.</p>
+        <p data-i18n="arch.lead">{{ strings.get('arch.lead', 'ParSure reads each file and keeps the page for each figure. DraftSure is the draft a language model writes from those files. CrossSure then runs Z3, the program that decides whether a set of figures and conditions can all be true at the same time. For a labeled number, the language model does not make that call. Red-Hat review runs only when someone asks for it: a language model tries to find what is wrong in the draft. A person decides. The review screen shows a Z3 contradiction as export blocked. The file can still be downloaded.') }}</p>
         <p><a href="{{ locale_path }}about/#how">See each step</a></p>
     </main>
     {% include 'includes/landing_footer.html' %}
