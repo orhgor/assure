@@ -67,15 +67,13 @@
   "conflict.modal.close": "Close",
   "connect.open_keys": "Open to the internet",
   "contact.alt": "Prefer email?",
-  "contact.direct_body": "Write to us directly and include your use case, document volume, and timeline. Attachments are fine.",
-  "contact.direct_title": "Direct",
   "contact.done": "Thanks, we will be in touch.",
   "contact.f_company": "Company",
   "contact.f_email": "Work email",
   "contact.f_message": "What should the demo cover?",
   "contact.f_name": "Name",
   "contact.form_title": "Request form",
-  "contact.lead": "Tell us the workflow you want checked. We reply with a short scope note. A written “Yes, proceed” starts the assessment.",
+  "contact.lead": "Before you pay, accept, or sign, you still open the contract and the invoice side by side. Tell us the workflow you want checked. We reply with a short scope note.",
   "contact.submit": "Send request",
   "contact.title": "Contact",
   "edition.free": "Free",
@@ -413,7 +411,7 @@
   "meta.about.title": "About Assure AI | How a draft is checked against its source pages",
   "meta.architecture.description": "Both pages open, the contradiction is marked, export is flagged, and a person decides. Runs in your own AWS account, on-premises, or private GPU.",
   "meta.architecture.title": "Architecture | Assure AI",
-  "meta.contact.description": "Tell us the workflow you want checked. Enterprise deployment. Custom to your team.",
+  "meta.contact.description": "Before you pay, accept, or sign, you still open the contract and the invoice side by side. Tell us the workflow to be checked.",
   "meta.contact.title": "Contact | Assure AI",
   "meta.government.description": "Assure keeps the page for each figure in an applicant file and checks the draft against the source. Staff decide.",
   "meta.government.title": "Government document checks · Assure",
@@ -658,5 +656,6 @@
   "arch.flow.1.text": "Assure reads both documents side by side and keeps the page, cell, or row for every figure it extracts, so the source stays reachable.",
   "arch.flow.2.text": "Figures are compared one to one. Where two labeled numbers cannot both be true at the same time, the conflict is marked on the review screen.",
   "arch.flow.3.text": "The document cannot be exported while a contradiction is unresolved. The flag stays with the record, the source page stays linked, and nothing is exported while the flag is up.",
-  "arch.flow.4.text": "A reviewer opens the source pages, reads the marked conflict, and decides whether the figure is right before anything goes out."
+  "arch.flow.4.text": "A reviewer opens the source pages, reads the marked conflict, and decides whether the figure is right before anything goes out.",
+  "contact.note": "Written “Yes, proceed” required. 1 workflow. Limited sample cases."
 }
