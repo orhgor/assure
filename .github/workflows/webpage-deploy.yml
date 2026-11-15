@@ -121,3 +121,8 @@ jobs:
           code=$(curl -s -o /dev/null -w '%{http_code}' https://www.assureproof.com/)
           echo "status=$code"
           test "$code" = "200"
+          echo "-- OG image matches the built file (cache-busted):"
+          expected=$(md5sum dist/static/og-image.png | cut -d' ' -f1)
+          actual=$(curl -s "https://assureproof.com/static/og-image.png?nocache=${GITHUB_RUN_ID}" | md5sum | cut -d' ' -f1)
+          echo "expected=$expected actual=$actual"
+          test "$expected" = "$actual"

@@ -71,6 +71,30 @@ def test_home_is_the_earlier_enterprise_page():
     assert "For teams that check before they act." not in html
     assert "Launch App" not in html
     assert "0F5C4D" not in html
+    # The Open Graph image meta must point at the canonical URL, exactly.
+    assert '<meta property="og:image" content="https://assureproof.com/static/og-image.png">' in html
+
+
+def _og_png_dimensions(path: Path) -> tuple[int, int]:
+    """Width/height from the PNG IHDR chunk (no Pillow dependency)."""
+    data = path.read_bytes()
+    assert data[:8] == b"\x89PNG\r\n\x1a\n", f"{path} is not a PNG file"
+    return int.from_bytes(data[16:20], "big"), int.from_bytes(data[20:24], "big")
+
+
+def test_og_image_is_1200x630_everywhere():
+    """The OG image must exist and be exactly 1200x630 — source and dist copy."""
+    src = ROOT / "marketing" / "static" / "og-image.png"
+    assert src.is_file(), "og-image.png is missing from marketing/static"
+    width, height = _og_png_dimensions(src)
+    assert (width, height) == (1200, 630), (
+        f"og-image.png is {width}x{height}; link previews need exactly 1200x630"
+    )
+    dist_img = DIST / "static" / "og-image.png"
+    if dist_img.is_file():  # dist is present when the suite runs after a build
+        assert dist_img.read_bytes() == src.read_bytes(), (
+            "dist/static/og-image.png differs from marketing/static/og-image.png"
+        )
 
 
 _LDJSON_RE = re.compile(
