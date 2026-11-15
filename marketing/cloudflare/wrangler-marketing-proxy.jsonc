@@ -11,6 +11,8 @@
     }
   ],
   "routes": [
+    // assureproof.com/* and www.assureproof.com/* routes are asserted out-of-band (created via the API).
+    // Add them here only once the deploy token has Workers Routes Edit on the assureproof.com zone.
     { "pattern": "getassureai.com/*", "zone_name": "getassureai.com" },
     { "pattern": "www.getassureai.com/*", "zone_name": "getassureai.com" },
     { "pattern": "assureproof.com/*", "zone_name": "assureproof.com" },
