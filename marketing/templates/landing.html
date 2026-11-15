@@ -39,21 +39,14 @@
     </script>
     <script>if(!matchMedia('(prefers-reduced-motion: reduce)').matches)document.documentElement.classList.add('fx')</script>
 </head>
-<body id="top" class="enterprise-landing">
+<body id="top" class="enterprise-landing home-landing">
     {% set nav_current = 'landing' %}
     {% include 'includes/landing_header.html' %}
 
-    <main id="main-content">
-        <section class="hero-section">
+            <section class="hero-section">
             <div class="container">
-                <h1 class="hero-title" data-i18n-html="brand.hero_title_html">{{ strings.get('brand.hero_title_html', 'Before you pay, accept, or sign.')|safe }}</h1>
-                <p class="hero-sub" data-i18n="landing.hero.lead">{{ strings.get('landing.hero.lead', 'Before you pay, you still open the contract. You already extract the numbers. You still have to open the contract to check whether the invoice is allowed. Assure keeps the source page with every figure and shows the contradiction before you pay. A person decides.') }}</p>
-                <p class="home-hero-body" data-i18n="landing.hero.subtitle">{{ strings.get('landing.hero.subtitle', 'A person decides.') }}</p>
-                <div class="hero-cta-group">
-                    <a href="{{ locale_path }}use-cases/" class="btn-secondary" data-i18n="landing.hero.cta_secondary">{{ strings.get('landing.hero.cta_secondary', 'See example findings') }}</a>
-                    <button type="button" class="btn-primary" data-demo-open data-i18n="landing.hero.cta_primary">{{ strings.get('landing.hero.cta_primary', 'Book a demo') }}</button>
-                </div>
-                <div class="price-grid price-grid--duo home-hero-proof">
+                <h1 class="hero-title" data-i18n-html="brand.hero_title_html">{{ strings.get('brand.hero_title_html', 'When two documents disagree, both pages are already open.')|safe }}</h1>
+                <div class="price-grid price-grid--duo home-hero-proof" role="group" aria-label="{{ strings.get('home.hero.proof.aria', 'Invoice — 142,500 EUR compared with contract cap — 120,000 EUR') }}">
                     <section class="card">
                         <h2 data-i18n="home.hero.proof.invoice.label">{{ strings.get('home.hero.proof.invoice.label', 'Invoice') }}</h2>
                         <p class="lede" data-i18n="home.hero.proof.invoice.value">{{ strings.get('home.hero.proof.invoice.value', '142,500 EUR') }}</p>
@@ -63,123 +56,29 @@
                         <p class="lede" data-i18n="home.hero.proof.cap.value">{{ strings.get('home.hero.proof.cap.value', '120,000 EUR') }}</p>
                     </section>
                 </div>
-                <p class="lede" data-i18n="home.hero.proof.line">{{ strings.get('home.hero.proof.line', 'The contradiction is shown on the review screen with both source pages linked.') }}</p>
-                <p class="hero-deployment" data-i18n="landing.hero.deployment">{{ strings.get('landing.hero.deployment', 'Runs in your AWS account or on-prem. You pick where the models run.') }}</p>
-                {% set band_class = 'logos-band-hero' %}{% include 'includes/logos_band.html' %}
+                <p class="hero-sub" data-i18n="home.hero.proof.line">{{ strings.get('home.hero.proof.line', 'Export is flagged. A person decides.') }}</p>
+                <div class="hero-cta-group">
+                    <button type="button" class="btn-primary" data-demo-open data-i18n="landing.hero.cta_primary">{{ strings.get('landing.hero.cta_primary', 'Book a demo') }}</button>
+                </div>
             </div>
         </section>
 
-                {% set flow_id = 'how' %}{% set flow_title = strings.get('home.how.title', 'How it works') %}{% set flow_line1 = strings.get('home.how.1', 'Scans, PDFs, forms and SAP exports.') %}{% set flow_line2 = strings.get('home.how.2', 'Assure reads every file, including handwritten and scanned pages, and keeps the page, cell, or row for each figure it extracts.') %}{% set flow_line3 = strings.get('home.how.3', 'A language model writes the draft from the files Assure read. The formal consistency check runs after this draft exists, not before it.') %}{% set flow_line4 = strings.get('home.how.4', 'The formal consistency check tests the figures of the draft against the locked source values. For a labeled figure, the formal consistency checker makes the decision and the language model does not. For a sentence with no label, the language model turns it into a numeric comparison, and the formal consistency checker tests whether it holds.') %}{% set flow_line5 = strings.get('home.how.5', 'Red-Hat review is a separate pass a person can run on that draft. A language model reads it the way a skeptical reviewer would and tries to find what is wrong: a mismatch with the source sentence, an overstatement, a missing clause, or a figure that needs a citation. It does not run unless someone asks for it.') %}{% set flow_name3 = strings.get('home.how.3.name', 'the draft') %}{% set flow_name4 = strings.get('home.how.4.name', 'the formal consistency check') %}{% set flow_name5 = strings.get('home.how.5.name', 'Red-Hat review') %}{% set flow_more = strings.get('home.how.more', 'See each step in detail') %}{% set flow_more_href = locale_path ~ 'about/#how' %}{% include 'includes/flow.html' %}
-
-        <section id="example" class="home-section home-example">
+        <section id="how" class="home-section">
             <div class="container">
-                <div class="home-edge home-edge-solo">
-                    <div class="uc2-finding home-edge-card hd" data-hd role="group" aria-label="{{ strings.get('home.demo.aria', 'Example of one finding, from documents to a reviewer\'s decision') }}">
-                        <span class="uc2-finding-tag" data-i18n="home.sample.tag">{{ strings.get('home.sample.tag', 'Example finding') }}</span>
-                        <div class="hd-docs"><span class="hd-chip" data-i18n="home.demo.doc.1">{{ strings.get('home.demo.doc.1', 'Invoice') }}</span><span class="hd-chip" data-i18n="home.demo.doc.2">{{ strings.get('home.demo.doc.2', 'Contract') }}</span><span class="hd-chip" data-i18n="home.demo.doc.3">{{ strings.get('home.demo.doc.3', 'Delivery note') }}</span></div>
-                        <div class="hd-facts">
-                            <ul class="hd-list">
-                                <li class="hd-fact hd-f1"><span class="hd-src" data-i18n="home.demo.f1.src">{{ strings.get('home.demo.f1.src', 'Invoice, p. 1') }}</span><span class="hd-val" data-i18n="home.demo.f1.val">{{ strings.get('home.demo.f1.val', 'Total as billed') }}</span></li>
-                                <li class="hd-fact hd-f2"><span class="hd-src" data-i18n="home.demo.f2.src">{{ strings.get('home.demo.f2.src', 'Contract, p. 3') }}</span><span class="hd-val" data-i18n="home.demo.f2.val">{{ strings.get('home.demo.f2.val', 'Agreed price') }}</span></li>
-                                <li class="hd-fact hd-f3"><span class="hd-src" data-i18n="home.demo.f3.src">{{ strings.get('home.demo.f3.src', 'Delivery note, p. 2') }}</span><span class="hd-val" data-i18n="home.demo.f3.val">{{ strings.get('home.demo.f3.val', 'Quantity delivered') }}</span></li>
-                            </ul>
-                            <svg class="hd-link" viewBox="0 0 24 92" aria-hidden="true"><path pathLength="1" d="M2 14 C 22 14, 22 46, 2 46"/></svg>
-                        </div>
-                        <div class="hd-mismatch"><p class="uc2-finding-text" data-i18n="home.sample.text">{{ strings.get('home.sample.text', 'The invoice total does not match the agreed price in the contract.') }}</p><span class="hd-page" data-i18n="home.demo.page">{{ strings.get('home.demo.page', 'p. 3') }}</span></div>
-                        <div class="hd-review"><span data-i18n="home.demo.reviewer">{{ strings.get('home.demo.reviewer', 'Reviewer decides') }}</span><span class="hd-btn hd-ok" data-i18n="home.demo.approve">{{ strings.get('home.demo.approve', 'Approve') }}</span><span class="hd-btn" data-i18n="home.demo.reject">{{ strings.get('home.demo.reject', 'Reject') }}</span></div>
-                        <p class="hd-draft" data-i18n="home.demo.draft">{{ strings.get('home.demo.draft', 'A language model writes the draft from these files. A person decides.') }}</p>
-                    </div>
-            </div>
-        </section>
-
-        <section id="stages" class="home-section">
-            <div class="container">
-                <h2 class="section-title" data-i18n="home.stages.title">{{ strings.get('home.stages.title', 'Four stages from the source file to a reviewed draft.') }}</h2>
+                <h2 class="section-title" data-i18n="home.steps.title">{{ strings.get('home.steps.title', 'How it works') }}</h2>
                 <ol class="home-stages">
-                    <li><span>01</span><h3>Assure</h3><p data-i18n="home.stages.1.text">{{ strings.get('home.stages.1.text', 'Reads every file, including scans and handwritten pages, and keeps the page, cell, or row for each figure it extracts.') }}</p></li>
-                    <li><span>02</span><h3>the draft</h3><p data-i18n="home.stages.2.text">{{ strings.get('home.stages.2.text', 'A language model writes the draft from those source files. The figure check runs only after this draft exists.') }}</p></li>
-                    <li><span>03</span><h3>the formal consistency check</h3><p data-i18n="home.stages.3.text">{{ strings.get('home.stages.3.text', 'a formal consistency checker tests whether the draft\'s figures and the values locked from the source can all be true at the same time. For a labeled number, the language model does not make that call. For a sentence with no label, the language model turns it into a numeric comparison, and a formal consistency checker tests whether it holds.') }}</p></li>
-                    <li><span>04</span><h3>Red-Hat review</h3><p data-i18n="home.stages.4.text">{{ strings.get('home.stages.4.text', 'Red-Hat review runs only when someone asks for it, on the draft just written. A language model tries to find what is wrong: a mismatch with the attached source sentence, an overstatement, a missing clause, or a figure that needs a citation.') }}</p></li>
+                    <li><span>01</span><h3 data-i18n="home.steps.1.name">{{ strings.get('home.steps.1.name', 'Read') }}</h3><p data-i18n="home.steps.1.text">{{ strings.get('home.steps.1.text', 'Scans, PDFs, forms and SAP exports. Every figure keeps its source page.') }}</p></li>
+                    <li><span>02</span><h3 data-i18n="home.steps.2.name">{{ strings.get('home.steps.2.name', 'Draft and check') }}</h3><p data-i18n="home.steps.2.text">{{ strings.get('home.steps.2.text', "A language model writes the draft. The formal consistency check tests its figures against the values locked from the source.") }}</p></li>
+                    <li><span>03</span><h3 data-i18n="home.steps.3.name">{{ strings.get('home.steps.3.name', 'Decide') }}</h3><p data-i18n="home.steps.3.text">{{ strings.get('home.steps.3.text', 'The review screen marks export blocked. A person accepts or rejects each finding. The file stays downloadable.') }}</p></li>
                 </ol>
-                <p class="home-stages-human" data-i18n="home.stages.human">{{ strings.get('home.stages.human', 'A person decides. The reviewer accepts or rejects each finding.') }}</p>
             </div>
         </section>
 
-        <section id="behind" class="home-section">
+        <section id="runs" class="home-section">
             <div class="container">
-                <h2 class="section-title" data-i18n="home.behind.title">{{ strings.get('home.behind.title', 'Who decides a conflict') }}</h2>
-                <div class="home-behind">
-                    <h3 data-i18n="home.behind.solver.title">{{ strings.get('home.behind.solver.title', 'The formal consistency checker tests the figures.') }}</h3>
-                    <p data-i18n="home.behind.solver.text">{{ strings.get('home.behind.solver.text', 'For a labeled figure, the formal consistency checker compares it with the value locked from the source, and the language model does not make that call. For a sentence with no label, the language model only proposes the numeric comparison. a formal consistency checker tests whether it holds. When the file is first read, the formal consistency checker can also flag figures inside that file that contradict each other.') }}</p>
-                    <h3 data-i18n="home.behind.redhat.title">{{ strings.get('home.behind.redhat.title', 'Red-Hat review tries to find what is wrong.') }}</h3>
-                    <p data-i18n="home.behind.redhat.text">{{ strings.get('home.behind.redhat.text', 'Red-Hat review is not the figure check. It is a language-model pass on the draft, and it runs only when someone asks for it. It looks for a mismatch with the attached source sentence, an overstatement, a missing clause, or a figure that needs a citation. A person accepts or rejects each finding.') }}</p>
-                </div>
-            </div>
-        </section>
-
-        <section id="proof" class="home-section">
-            <div class="container">
-                <p class="home-proof-flag" data-i18n="home.proof.illustrative">{{ strings.get('home.proof.illustrative', 'Illustrative example') }}</p>
-                <h2 class="section-title" data-i18n="home.proof.title">{{ strings.get('home.proof.title', 'An illustrative conflict, not a customer case.') }}</h2>
-                <div class="home-proof">
-                    <div>
-                        <h3 data-i18n="home.proof.source">{{ strings.get('home.proof.source', 'Source evidence. Assure') }}</h3>
-                        <p data-i18n="home.proof.source.1">{{ strings.get('home.proof.source.1', 'Claim_Form_04.pdf · p. 14 → Reserve $1,450,000') }}</p>
-                        <p data-i18n="home.proof.source.2">{{ strings.get('home.proof.source.2', 'Register.csv · row 212 → Reserve $1,450,000') }}</p>
-                    </div>
-                    <div>
-                        <h3 data-i18n="home.proof.draft">{{ strings.get('home.proof.draft', 'Compiled draft. the draft') }}</h3>
-                        <p data-i18n="home.proof.draft.body">{{ strings.get('home.proof.draft.body', 'Coverage_Opinion.docx · Section 1.2 → Stated reserve $1,420,000') }}</p>
-                    </div>
-                    <div>
-                        <h3 data-i18n="home.proof.finding">{{ strings.get('home.proof.finding', 'Figure check. the formal consistency check') }}</h3>
-                        <p data-i18n="home.proof.finding.body">{{ strings.get('home.proof.finding.body', 'The draft says $1,420,000. The source page says $1,450,000. The two figures are $30,000 apart. The formal consistency checker marks that conflict, and the review screen shows export blocked.') }}</p>
-                        <h3 data-i18n="home.proof.export">{{ strings.get('home.proof.export', 'Review screen') }}</h3>
-                        <p class="home-locked" data-i18n="home.proof.locked">{{ strings.get('home.proof.locked', 'Export blocked') }}</p>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <section id="different" class="home-section">
-            <div class="container">
-                <h2 class="section-title" data-i18n="home.edge.lead">{{ strings.get('home.edge.lead', 'Not just field extraction. The figures are checked, and the page stays attached.') }}</h2>
-                <p class="home-define" data-i18n="copy.defining">{{ strings.get('copy.defining', 'Assure keeps each figure\'s source page, a language model writes the draft, a formal consistency checker tests whether those figures conflict with the locked source values, and a Red-Hat review can try to find what is wrong in the draft. A person decides.') }}</p>
-                <ul class="home-list home-list-two">
-                    <li class="home-item"><h3 data-i18n="home.edge.1.name">{{ strings.get('home.edge.1.name', 'The page stays with the figure.') }}</h3><p data-i18n="home.edge.1.text">{{ strings.get('home.edge.1.text', 'Assure keeps the page, cell, or row for every figure it extracts.') }}</p></li>
-                    <li class="home-item"><h3 data-i18n="home.edge.2.name">{{ strings.get('home.edge.2.name', 'The formal consistency checker tests the figures.') }}</h3><p data-i18n="home.edge.2.text">{{ strings.get('home.edge.2.text', 'the formal consistency check sends the draft\'s figures and the locked source values to Z3. The language model does not decide a labeled number. It may only turn an unlabeled sentence into a numeric comparison, which the formal consistency checker then tests.') }}</p></li>
-                    <li class="home-item"><h3 data-i18n="home.edge.3.name">{{ strings.get('home.edge.3.name', 'Red-Hat review is a second reading.') }}</h3><p data-i18n="home.edge.3.text">{{ strings.get('home.edge.3.text', 'When someone runs it, a language model reads the draft the way a skeptical reviewer would and tries to find a mismatch, an overstatement, a missing clause, or a figure that needs a citation.') }}</p></li>
-                    <li class="home-item"><h3 data-i18n="home.edge.4.name">{{ strings.get('home.edge.4.name', 'A person decides.') }}</h3><p data-i18n="home.edge.4.text">{{ strings.get('home.edge.4.text', 'The review screen shows the contradiction as export blocked. Red-Hat review findings are for that person to accept or reject. The file can still be downloaded.') }}</p></li>
-                </ul>
-                <p class="home-define" data-i18n="home.edge.compare">{{ strings.get('home.edge.compare', 'Document extraction tools pull fields out of a file. Assure also checks those figures against the values locked from the source and shows the source page.') }}</p>
-                <p class="home-more"><a href="{{ locale_path }}about/#different" data-i18n="home.diff.more">{{ strings.get('home.diff.more', 'How it differs, in detail') }}</a> <span aria-hidden="true">→</span></p>
-            </div>
-        </section>
-
-        <section id="trust" class="home-section">
-            <div class="container">
-                <h2 class="section-title" data-i18n="home.trust.title">{{ strings.get('home.trust.title', 'Your infrastructure, your rules.') }}</h2>
-                <ul class="home-list home-list-two">
-                        <li class="home-item"><p><strong data-i18n="home.trust.3.name">{{ strings.get('home.trust.3.name', 'Access by project.') }}</strong> <span data-i18n="home.trust.3.text">{{ strings.get('home.trust.3.text', 'Each project is visible only to the people you add.') }}</span></p></li>
-                        <li class="home-item"><p><strong data-i18n="home.trust.4.name">{{ strings.get('home.trust.4.name', 'Activity log.') }}</strong> <span data-i18n="home.trust.4.text">{{ strings.get('home.trust.4.text', 'Actions and decisions are recorded with who made them and when.') }}</span></p></li>
-                </ul>
+                <h2 class="section-title" data-i18n="home.runs.title">{{ strings.get('home.runs.title', 'Where it runs') }}</h2>
+                <p class="section-sub" data-i18n="landing.hero.deployment">{{ strings.get('landing.hero.deployment', 'Runs in your AWS account or on-prem. You pick where the models run.') }}</p>
                 <p class="home-more"><a href="{{ locale_path }}security/" data-i18n="home.trust.link">{{ strings.get('home.trust.link', 'Security and data') }}</a> <span aria-hidden="true">→</span></p>
-            </div>
-        </section>
-
-        <section id="faq" class="home-section">
-            <div class="container">
-                <h2 class="section-title" data-i18n="home.faq.title">{{ strings.get('home.faq.title', 'Questions') }}</h2>
-                <dl class="home-faq">
-                    <div class="home-faq-item"><dt data-i18n="home.faq.1.q">{{ strings.get('home.faq.1.q', 'What exactly does it do?') }}</dt><dd data-i18n="home.faq.1.a">{{ strings.get('home.faq.1.a', 'It reads your files and keeps the page for each figure. A language model writes a draft. A formal consistency checker - software that tests whether a set of figures can all be true at the same time - then tests whether the draft\'s figures conflict with the values locked from the source. A person decides.') }}</dd></div>
-                    <div class="home-faq-item"><dt data-i18n="home.faq.2.q">{{ strings.get('home.faq.2.q', 'What documents can it check?') }}</dt><dd data-i18n="home.faq.2.a">{{ strings.get('home.faq.2.a', 'Scans, PDFs, forms, contracts, invoices, receipts and certificates, including handwritten and scanned reports, alongside your SAP exports.') }}</dd></div>
-                    <div class="home-faq-item"><dt data-i18n="home.faq.3.q">{{ strings.get('home.faq.3.q', 'Where does it run?') }}</dt><dd data-i18n="home.faq.3.a">{{ strings.get('home.faq.3.a', 'In your own AWS account or on-premises. You choose where the models run, including your own GPU servers.') }}</dd></div>
-                    <div class="home-faq-item"><dt data-i18n="home.faq.4.q">{{ strings.get('home.faq.4.q', 'Who makes the decision?') }}</dt><dd data-i18n="home.faq.4.a">{{ strings.get('home.faq.4.a', 'A person. The layer shows each finding with its source page, and your reviewer approves or rejects it.') }}</dd></div>
-                    <div class="home-faq-item"><dt data-i18n="home.faq.5.q">{{ strings.get('home.faq.5.q', 'What is the formal consistency checker, and why does Assure use one?') }}</dt><dd data-i18n="home.faq.5.a">{{ strings.get('home.faq.5.a', 'The formal consistency checker is software that tests whether a set of figures and conditions can all be true at the same time. It receives the draft\'s figures and the values locked from the source. For a labeled number, the formal consistency checker makes the decision and the language model does not. For a sentence with no label, the language model turns it into a numeric comparison, and a formal consistency checker tests whether it holds.') }}</dd></div>
-                    <div class="home-faq-item"><dt data-i18n="home.faq.6.q">{{ strings.get('home.faq.6.q', 'How is the formal consistency check different from a language model reviewing the document?') }}</dt><dd data-i18n="home.faq.6.a">{{ strings.get('home.faq.6.a', 'A language model writes text and can propose a numeric comparison. It does not decide whether a labeled figure conflicts with the value locked from the source. the formal consistency checker makes that decision. Red-Hat review is a different pass: a language model tries to find what is wrong in the draft, and a person decides what to do with each finding.') }}</dd></div>
-                    <div class="home-faq-item"><dt data-i18n="home.faq.7.q">{{ strings.get('home.faq.7.q', 'What does the Red-Hat review check?') }}</dt><dd data-i18n="home.faq.7.a">{{ strings.get('home.faq.7.a', 'Red-Hat review runs only when someone asks for it, on the draft the draft has already written. A language model looks for a mismatch with the attached source sentence, an overstatement, a missing clause, or a figure that needs a citation.') }}</dd></div>
-                    <div class="home-faq-item"><dt data-i18n="home.faq.8.q">{{ strings.get('home.faq.8.q', 'Does a failed check stop the file from downloading?') }}</dt><dd data-i18n="home.faq.8.a">{{ strings.get('home.faq.8.a', 'The review screen shows the contradiction as export blocked. Red-Hat review findings are left for a person to accept or reject. The file can still be downloaded.') }}</dd></div>
-                </dl>
             </div>
         </section>
 

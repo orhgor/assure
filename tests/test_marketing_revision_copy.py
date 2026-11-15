@@ -55,13 +55,16 @@ def test_no_table_leaks_or_confirm():
 
 def test_home_is_the_earlier_enterprise_page():
     html = _pages()["/"]
-    assert "logos-band-hero" in html
-    assert "onprem-icon.svg" in html
-    assert "aws-startups.svg" in html
-    assert "s3-icon.svg" in html
+    # The fold: H1, the labeled proof duo, one supporting line, one CTA.
+    assert "When two documents disagree, both pages are already open." in html
+    assert "Invoice" in html and "142,500 EUR" in html
+    assert "Contract cap" in html and "120,000 EUR" in html
+    assert "Export is flagged. A person decides." in html
     assert "Book a demo" in html
-    assert "Four stages from the source file to a reviewed draft." in html
-    assert "$1,420,000" in html and "$1,450,000" in html and "$30,000" in html
+    # Retired copy and internal jargon are gone (visible copy and schema).
+    assert "Before you pay, accept, or sign." not in html
+    assert "Z3" not in html
+    assert "ParSure" not in html and "DraftSure" not in html and "CrossSure" not in html
     assert "For teams that check before they act." not in html
     assert "Launch App" not in html
     assert "0F5C4D" not in html
