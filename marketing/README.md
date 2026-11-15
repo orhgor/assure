@@ -18,10 +18,8 @@ database. Everything the site needs lives here.
 | `render.py` | Renders the marketing templates to static HTML, one locale per run. |
 | `llms.txt` | Source for the published `/llms.txt`. `build.sh` copies this file; it does not read `landing/llms.txt`. |
 | `build.sh` | Builds `dist/` (assets + the published locales). |
-| `deploy.sh` | Uploads changed `dist/` files to Cloudflare R2 and deploys the marketing Worker when its source changes. |
-| `sync_r2.py` | Content-hash sync (uploads only changed files — free-tier friendly). |
-| `worker_changed.py` | Skips redundant Worker deploys. |
-| `cloudflare/` | Worker source + wrangler config + deploy wrapper. |
+| `deploy.sh` | Deploys the site as Worker static assets: `dist/` uploads with the Worker (`wrangler deploy`), no R2 in the path. |
+| `cloudflare/` | Assets-based Worker source + wrangler config. |
 | `requirements.txt` | Build deps: `flask`. That's all. |
 
 ## Isolation contract
@@ -32,8 +30,9 @@ A CI check fails any PR that touches both `marketing/` and the workbench tree.
 
 ## Deploy flow
 
-- **Automatic**: push to `main` touching `marketing/**` or `landing/**` →
-  `.github/workflows/webpage-deploy.yml` builds + deploys.
+- **Automatic**: push to `main` touching `marketing/**` →
+  `.github/workflows/webpage-deploy.yml` builds + deploys the Worker with
+  `dist/` as static assets.
 - **Manual** (CI down): `bash marketing/deploy.sh` (needs `npx wrangler login`
   on the machine).
 
