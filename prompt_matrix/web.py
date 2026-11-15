@@ -228,8 +228,6 @@ BRAND = {
 _WAITLIST_ORIGINS = frozenset(
     {
         "https://getassureai.com",
-        "https://assureproof.com",
-        "https://www.assureproof.com",
         "https://www.getassureai.com",
         "https://app.getassureai.com",
     }
@@ -393,8 +391,6 @@ def create_app(*, require_auth: bool = True) -> Flask:
                 "CORS_ORIGINS",
                 ",".join([
                     "https://getassureai.com",
-                    "https://assureproof.com",
-                    "https://www.assureproof.com",
                     "https://www.getassureai.com",
                     "https://app.getassureai.com",
                     "https://staging.getassureai.com",
