@@ -2,7 +2,7 @@
 
 Ask one question. Get one answer. The question is rewritten for each model, then checked.
 
-**Current status (2026-09-10).** Assure is **The Intellectual Compiler** — a Document Compiler workbench (PEM engine, package `prompt_matrix`). Marketing at **`/`** on getassureai.com; workspace at **`/app`**; architecture at **`/architecture`**. **Production** `main` @ **`f4e2d20`**, UI `assure-127`. **Staging** `staging` @ **`3cb82a7`**, UI `assure-140`, **`ASSURE_USE_FREE_MODELS=1`** → `gemini/gemini-3.6-flash` + `openrouter/qwen/qwen3-next-80b-a3b-instruct` (live compare verified). Production draft model `anthropic/claude-sonnet-4-5`; Gemini path `gemini/gemini-3.6-flash`. v1.0 ship gate: Golden path **Steps 1–4 only**; Steps 5–10 in `docs/deferred.md` v1.1 backlog. Full status: `docs/product-status.md`. Source install: `./scripts/install.sh` then `assure --web`. No public installer; `pip install prompt-matrix` is not on PyPI.
+**Current status (2026-09-10).** Assure is **The Intellectual Compiler** — a Document Compiler workbench (PEM engine, package `prompt_matrix`). Marketing at **`/`** on assureproof.com; workspace at **`/app`**; architecture at **`/architecture`**. **Production** `main` @ **`f4e2d20`**, UI `assure-127`. **Staging** `staging` @ **`3cb82a7`**, UI `assure-140`, **`ASSURE_USE_FREE_MODELS=1`** → `gemini/gemini-3.6-flash` + `openrouter/qwen/qwen3-next-80b-a3b-instruct` (live compare verified). Production draft model `anthropic/claude-sonnet-4-5`; Gemini path `gemini/gemini-3.6-flash`. v1.0 ship gate: Golden path **Steps 1–4 only**; Steps 5–10 in `docs/deferred.md` v1.1 backlog. Full status: `docs/product-status.md`. Source install: `./scripts/install.sh` then `assure --web`. No public installer; `pip install prompt-matrix` is not on PyPI.
 
 The public site on Cloudflare Worker `assure` is live at [https://getassureai.com/](https://getassureai.com/) (HTTPS 200 on 2026-09-01) and [https://assure.orhangorenn.workers.dev](https://assure.orhangorenn.workers.dev), including [Check outputs](https://getassureai.com/hallucination-detection.html). Public NS are `cloe.ns.cloudflare.com` / `milan.ns.cloudflare.com`. `www.getassureai.com` did not resolve. Live HTML still lists canonical `getassure.com` (old `webpage` deploy). There is no public installer. Checklist: `docs/launch-checklist.md`.
 
@@ -521,7 +521,7 @@ How to run the next task: Cursor MCP `pem` lists `swarm_develop`. Call that tool
 | 2026-09-01 | P2.3 diff helper | hand-applied | n/a | `get_run_by_hash` and `diff_runs` in `history.py`. Reads `prompt_versions.final_response` (this schema has no `get_db()` and `executions` does not store reply text). Unittest in `tests/test_history.py`. No `/history` See changes UI yet. |
 | 2026-09-01 | P2.3 diff route | hand-applied | n/a | `GET /api/history/diff?left=&right=`. Registered before `/api/history/<id>` so `diff` is not captured as an id. App auth is `before_request` / `protect_app`, not an `@auth_required` decorator. No See changes UI yet. |
 | 2026-09-01 | P2.4 Compare selected | hand-applied | n/a | Previous work checkboxes. Compare selected appears at exactly two picks. Modal `#history-diff` shows the unified diff in `<pre>`. Keys in all seven catalogs. App CSS `?v=assure-31`. Did not change `history.py` or `web.py`. |
-| 2026-09-01 | Canonical domain | n/a | n/a | Public URL is `getassureai.com` (CNAME, sitemap, robots, Terms, homepage). Public NS/A lookup returned no records. Launch still no-go until Cloudflare zone + Worker custom domain. |
+| 2026-09-01 | Canonical domain | n/a | n/a | Public URL is `assureproof.com` (CNAME, sitemap, robots, Terms, homepage). Public NS/A lookup returned no records. Launch still no-go until Cloudflare zone + Worker custom domain. |
 | 2026-09-01 | P1 mobile polish | hand-applied | n/a | Compose/Previous work at `max-width: 640px`: model pills wrap, question + Get my answer stack full-width, Compare selected / checkboxes / Close are 44px, diff `<pre>` is `max-height: 70vh` and scrolls inside a centered modal. App CSS `?v=assure-32`. Did not change `history.py` or `web.py`. |
 | 2026-09-01 | getassureai.com HTTPS | n/a | n/a | `https://getassureai.com/` and `/hallucination-detection.html` return 200. `www` still does not resolve. Live HTML still canonical `getassure.com`. P0.6 URL check is pass. |
 | 2026-09-01 | P4 Account & credit wallet | swarm truncated, then hand-applied | Keep 0.95 in log, dump empty | MCP `swarm_develop` reviewer Keep 0.95; developer dump truncated; `logs/swarm.patch` stale. Hand-applied: TEXT Clerk ids (no `auth.users` FK), `spend_credit` RPC after a successful Send, Fernet settings, `/account/usage`, Stripe +100 Pro credits. No official `supabase` SDK. CLI and `assure --web` without Clerk stay unlimited. App CSS `?v=assure-33`. |
@@ -577,7 +577,7 @@ How to run the next task: Cursor MCP `pem` lists `swarm_develop`. Call that tool
 
 **Not run as swarm yet**
 
-P3.1 waitlist API and P4 credit wallet are on the branch (not waiting on swarm). P5 desktop packaging has not started. Phase 5 / market-readiness / ICP / landing-visual-pass swarm commands were not executed (hand-applied earlier). SSO and shared team workspaces stay out of scope. Audit Manifest JSON export is in the workbench (`1b21f8b`). PyPI is not published. App deploys from `p4-account-wallet`; marketing from `webpage`. There is no public desktop download URL yet. Public URL is [https://getassureai.com/](https://getassureai.com/). Apply `supabase/migrations/` on the live project (SQL editor on the workbench branch, not `webpage`).
+P3.1 waitlist API and P4 credit wallet are on the branch (not waiting on swarm). P5 desktop packaging has not started. Phase 5 / market-readiness / ICP / landing-visual-pass swarm commands were not executed (hand-applied earlier). SSO and shared team workspaces stay out of scope. Audit Manifest JSON export is in the workbench (`1b21f8b`). PyPI is not published. App deploys from `p4-account-wallet`; marketing from `webpage`. There is no public desktop download URL yet. Public URL is [https://assureproof.com/](https://assureproof.com/). Apply `supabase/migrations/` on the live project (SQL editor on the workbench branch, not `webpage`).
 
 ## Process flows
 
@@ -891,8 +891,8 @@ prompt_matrix/
   translations/       gettext .po/.mo for en, es, zh, fr, de, ja, tr
   desktop.py          frozen PyInstaller entry
   paths.py            resource_dir vs ~/.assure when frozen
-docs/launch-checklist.md  pre-launch tests (public HTTPS on getassureai.com is 200)
-landing/              public site (Worker assure on webpage; canonical getassureai.com)
+docs/launch-checklist.md  pre-launch tests (public HTTPS on assureproof.com is 200)
+landing/              public site (Worker assure on webpage; canonical assureproof.com)
   ICP.md, objections.md, use-cases/, pricing.html, terms.html, hallucination-detection.html, launch/
   assets/site.css     landing tokens, accent #FF6B35, cache ?v=21
 .github/workflows/ci.yml  unittest + pem --ci + pem eval
