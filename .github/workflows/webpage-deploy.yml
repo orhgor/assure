@@ -27,13 +27,11 @@ on:
     branches: [main]
     paths:
       - 'marketing/**'
-      - 'landing/**'
       - '.github/workflows/webpage-deploy.yml'
   pull_request:
     branches: [main]
     paths:
       - 'marketing/**'
-      - 'landing/**'
       - '.github/workflows/webpage-deploy.yml'
 
 concurrency:
@@ -88,7 +86,7 @@ jobs:
         run: bash marketing/build.sh
 
       - name: Website tests
-        run: pytest tests/test_counter_copy_i18n.py tests/test_r2_sync_marketing.py tests/test_marketing_revision_copy.py -v
+        run: pytest tests/test_r2_sync_marketing.py tests/test_marketing_revision_copy.py -v
 
   deploy:
     runs-on: ubuntu-latest
