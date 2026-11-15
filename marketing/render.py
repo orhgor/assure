@@ -369,19 +369,19 @@ def _render_page(app, page: dict, locale: str) -> str:
                 )
                 howto_steps = (
                     (
-                        "Read",
+                        "Both pages open",
                         "home.steps.1.text",
-                        "Scans, PDFs, forms and SAP exports. Every figure keeps its source page.",
+                        "The invoice and the contract cap sit side by side. Every figure keeps its source page.",
                     ),
                     (
-                        "Draft and check",
+                        "Contradiction marked",
                         "home.steps.2.text",
-                        "A language model writes the draft. The formal consistency check tests its figures against the values locked from the source.",
+                        "The formal consistency check flags the conflict. Export is blocked.",
                     ),
                     (
-                        "Decide",
+                        "Person decides",
                         "home.steps.3.text",
-                        "The review screen marks export blocked. A person accepts or rejects each finding. The file stays downloadable.",
+                        "A person accepts or rejects each finding. The file stays downloadable.",
                     ),
                 )
                 json_ld.append(
