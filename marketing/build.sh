@@ -68,13 +68,13 @@ locs = []
 for path in sorted(root.rglob("index.html")):
     rel = path.relative_to(root).as_posix()
     if rel == "index.html":
-        url = "https://getassureai.com/"
+        url = "https://assureproof.com/"
     else:
-        url = "https://getassureai.com/" + rel[: -len("index.html")]
+        url = "https://assureproof.com/" + rel[: -len("index.html")]
     locs.append(url)
 lines = ['<?xml version="1.0" encoding="UTF-8"?>', '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">']
 for url in locs:
-    tail = url.removeprefix("https://getassureai.com/")
+    tail = url.removeprefix("https://assureproof.com/")
     home = tail == "" or (tail.count("/") == 1 and len(tail.strip("/")) == 2)
     freq = "weekly" if home else "monthly"
     priority = "1.0" if home else "0.6"

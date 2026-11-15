@@ -11,7 +11,7 @@
     }
   ],
   "routes": [
-    { "pattern": "getassureai.com/*", "zone_name": "getassureai.com" },
-    { "pattern": "www.getassureai.com/*", "zone_name": "getassureai.com" }
+    { "pattern": "assureproof.com/*", "zone_name": "assureproof.com" },
+    { "pattern": "www.assureproof.com/*", "zone_name": "assureproof.com" }
   ]
 }
