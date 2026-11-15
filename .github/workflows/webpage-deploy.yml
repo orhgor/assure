@@ -94,6 +94,6 @@ jobs:
           echo "-- R2 canary (uploaded index.html parses):"
           npx wrangler@4 r2 object get assure-marketing-prod/index.html --pipe | grep -c '<html'
           echo "-- Live page:"
-          code=$(curl -s -o /dev/null -w '%{http_code}' https://www.getassureai.com/)
+          code=$(curl -s -o /dev/null -w '%{http_code}' https://www.assureproof.com/)
           echo "status=$code"
           test "$code" = "200"

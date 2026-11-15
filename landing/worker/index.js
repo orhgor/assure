@@ -1,5 +1,5 @@
 /** Legacy Worker — apex is EC2 via Tunnel. Redirect workers.dev hits to canonical host. */
-const CANONICAL_ORIGIN = "https://getassureai.com";
+const CANONICAL_ORIGIN = "https://assureproof.com";
 
 export default {
   async fetch(request) {

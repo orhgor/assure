@@ -1,5 +1,5 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://getassureai.com/sitemap.xml
-Host: https://getassureai.com
+Sitemap: https://assureproof.com/sitemap.xml
+Host: https://assureproof.com
