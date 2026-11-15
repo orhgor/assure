@@ -4,14 +4,18 @@
   <div class="page">
     <div class="page-hero">
       <h1 data-i18n="about.title">{{ strings.get('about.title', 'About') }}</h1>
-      <p class="lede" data-i18n="about.lead">{{ strings.get('about.lead', 'Before you pay, you still open the contract. Assure shows the contradiction first. A person decides.') }}</p>
     </div>
     <section class="card">
       <h2 data-i18n="about.what">{{ strings.get('about.what', 'What it does') }}</h2>
-      <p data-i18n="about.what.body">{{ strings.get('about.what.body', 'Assure keeps the source page with every figure and shows the contradiction before you pay. A formal consistency checker tests whether the draft\'s figures and the locked source values can all be true at the same time. The review screen shows the source page and flags export. A person decides. The file can still be downloaded.') }}</p>
+      <p data-i18n="about.what.body">{{ strings.get('about.what.body', 'Assure checks one document against another. Both source pages stay open, and the contradiction is shown before you pay. A person decides.') }}</p>
       <h2 data-i18n="about.engine">{{ strings.get('about.engine', 'Who it is for') }}</h2>
-      <p data-i18n="about.engine.body">{{ strings.get('about.engine.body', 'Teams that must check an invoice, claim, report, or pack against its source documents before payment or sign-off.') }}</p>
-      <p><a href="{{ locale_path }}security/" data-i18n="sec.link">{{ strings.get('sec.link', 'Security and data') }}</a></p>
+      <ul class="privacy-list">
+        <li data-i18n="about.who.1">{{ strings.get('about.who.1', 'Finance: invoices checked against contract caps and agreed terms.') }}</li>
+        <li data-i18n="about.who.2">{{ strings.get('about.who.2', 'Claims: claim files checked against policies and supporting documents.') }}</li>
+        <li data-i18n="about.who.3">{{ strings.get('about.who.3', 'Procurement: tenders checked against supplier documents and requirements.') }}</li>
+      </ul>
+      <p data-i18n="about.proof">{{ strings.get('about.proof', 'See the 142,500 EUR invoice checked against the 120,000 EUR contract cap.') }} <a href="{{ locale_path }}solutions/" data-i18n="about.proof.link">{{ strings.get('about.proof.link', 'See the example') }}</a></p>
+      <p><a class="btn btn-primary" href="{{ locale_path }}contact-us/" data-i18n="about.cta">{{ strings.get('about.cta', 'Book a demo') }}</a></p>
     </section>
   </div>
 {% endblock %}

@@ -4302,3 +4302,76 @@ body {
 /* ---- Demo card separators: no text concatenation ---- */
 .hd-chip + .hd-chip { margin-inline-start: 4px; }
 .hd-fact .hd-src::after { content: '\00a0\00b7\00a0'; color: #64748b; }
+
+/* ---- Use-cases hero: the labeled duo leads the page, same as the homepage ---- */
+.uc-landing .uc2-hero .home-hero-proof {
+    max-width: 62rem;
+    gap: 2rem;
+    margin: 2.5rem auto 0;
+}
+.uc-landing .uc2-hero .home-hero-proof .card {
+    padding: 2rem;
+    border: 2px solid #0a0a0a;
+    border-radius: 12px;
+    background: #ffffff;
+    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+}
+.uc-landing .uc2-hero .home-hero-proof .card h2 {
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #64748b;
+    margin-bottom: 0.9rem;
+}
+.uc-landing .uc2-hero .home-hero-proof .card .lede {
+    font-size: clamp(2.6rem, 5.4vw, 4.2rem);
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1;
+    color: #0a0a0a;
+}
+@media (max-width: 700px) {
+    .uc-landing .uc2-hero .home-hero-proof .card .lede { font-size: clamp(2.2rem, 9vw, 3rem); }
+}
+
+/* ---- Solutions / Architecture / POC: card chrome on the shared pages ---- */
+.enterprise-landing .page .price-grid--duo .card {
+    border: 2px solid #0a0a0a;
+    border-radius: 12px;
+    background: #ffffff;
+    box-shadow: 0 18px 40px rgba(15, 23, 42, 0.10);
+    padding: 2rem;
+}
+.enterprise-landing .page .price-grid--duo .card h2 {
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #64748b;
+    margin-bottom: 0.9rem;
+}
+.enterprise-landing .page .price-grid--duo .card .lede {
+    font-size: clamp(2.4rem, 5vw, 3.8rem);
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1;
+    color: #0a0a0a;
+    margin: 0;
+}
+.enterprise-landing .page section.card {
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    background: #ffffff;
+    padding: 2rem;
+}
+.enterprise-landing .page section.card h2 { margin-top: 0; }
+/* Shared .page wrapper: centered, like the landing container */
+.enterprise-landing .page {
+    max-width: 72rem;
+    margin: 0 auto;
+    padding: 0 1.5rem;
+}
+/* Architecture: step name on its own line, description below */
+.arch-steps li strong { display: block; color: #0a0a0a; margin-bottom: 2px; }
+.arch-steps li span { display: block; }

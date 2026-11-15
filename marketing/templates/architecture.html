@@ -16,17 +16,14 @@
     <main id="main-content" class="page">
         <div class="page-hero">
             <h1 data-i18n="arch.title">Architecture</h1>
-            <p class="lede" data-i18n="arch.lead">{{ strings.get('arch.lead', 'Source pages stay with the figures. The draft is checked against them. A person decides.') }}</p>
         </div>
         <section class="card">
             <h2 data-i18n="arch.flow.title">The flow</h2>
             <ol class="arch-steps">
-                <li data-i18n="arch.flow.1">{{ strings.get('arch.flow.1', 'Upload') }}</li>
-                <li data-i18n="arch.flow.2">{{ strings.get('arch.flow.2', 'Source pages for every figure are kept') }}</li>
-                <li data-i18n="arch.flow.3">{{ strings.get('arch.flow.3', 'A language model writes the draft') }}</li>
-                <li data-i18n="arch.flow.4">{{ strings.get('arch.flow.4', 'A formal consistency checker tests whether the draft\u0027s figures and the locked source values can all be true at the same time') }}</li>
-                <li data-i18n="arch.flow.5">{{ strings.get('arch.flow.5', 'Contradictions appear on the review screen with the source page linked') }}</li>
-                <li data-i18n="arch.flow.6">{{ strings.get('arch.flow.6', 'Export is flagged. A person decides. The file can still be downloaded.') }}</li>
+                <li><strong data-i18n="arch.flow.1">{{ strings.get('arch.flow.1', 'Both pages open') }}</strong><span data-i18n="arch.flow.1.text">{{ strings.get('arch.flow.1.text', 'Assure reads both documents side by side and keeps the page, cell, or row for every figure it extracts.') }}</span></li>
+                <li><strong data-i18n="arch.flow.2">{{ strings.get('arch.flow.2', 'Contradiction marked') }}</strong><span data-i18n="arch.flow.2.text">{{ strings.get('arch.flow.2.text', 'Figures are compared one to one. Where two labeled numbers cannot both be true, the conflict is marked on the review screen.') }}</span></li>
+                <li><strong data-i18n="arch.flow.3">{{ strings.get('arch.flow.3', 'Export flagged') }}</strong><span data-i18n="arch.flow.3.text">{{ strings.get('arch.flow.3.text', 'The document cannot be exported while a contradiction is unresolved. The flag stays with the record.') }}</span></li>
+                <li><strong data-i18n="arch.flow.4">{{ strings.get('arch.flow.4', 'A person decides') }}</strong><span data-i18n="arch.flow.4.text">{{ strings.get('arch.flow.4.text', 'A reviewer opens the source pages, reads the marked conflict, and decides whether the figure is right.') }}</span></li>
             </ol>
         </section>
         <section class="card">
