@@ -16,7 +16,6 @@
     <main id="main-content" class="page">
         <div class="page-hero">
             <h1 data-i18n="solutions.title">{{ strings.get('solutions.title', 'Solutions') }}</h1>
-            <p class="lede" data-i18n="solutions.lead">{{ strings.get('solutions.lead', 'Before you pay, you still open the contract. Assure shows the contradiction first. A person decides.') }}</p>
         </div>
         <div class="price-grid price-grid--duo">
             <section class="card">
@@ -28,20 +27,24 @@
                 <p class="lede" data-i18n="solutions.cap.value">{{ strings.get('solutions.cap.value', '120,000 EUR') }}</p>
             </section>
         </div>
+        <p class="lede" data-i18n="solutions.line">{{ strings.get('solutions.line', 'Invoice p.3 and Contract p.12 are both open. Export is flagged. A person decides.') }}</p>
         <section class="card">
-            <h2 data-i18n="solutions.check.title">{{ strings.get('solutions.check.title', 'The check') }}</h2>
-            <p data-i18n="solutions.check.body">{{ strings.get('solutions.check.body', 'A 142,500 EUR invoice is checked against a 120,000 EUR contract cap. Both source pages stay linked. The contradiction is shown on the review screen. Export is flagged. A person decides. The file can still be downloaded.') }}</p>
+            <h2 data-i18n="solutions.cards.1.name">{{ strings.get('solutions.cards.1.name', 'Invoice vs contract') }}</h2>
+            <p data-i18n="solutions.cards.1.finding">{{ strings.get('solutions.cards.1.finding', 'The invoice total is 142,500 EUR. The contract cap is 120,000 EUR. Both source pages stay open.') }}</p>
         </section>
         <section class="card">
-            <h2 data-i18n="solutions.where.title">{{ strings.get('solutions.where.title', 'Where teams use it') }}</h2>
-            <ul class="privacy-list">
-                <li data-i18n="solutions.where.1">{{ strings.get('solutions.where.1', 'Invoice vs contract cap') }}</li>
-                <li data-i18n="solutions.where.2">{{ strings.get('solutions.where.2', 'Claims files vs supporting documents') }}</li>
-                <li data-i18n="solutions.where.3">{{ strings.get('solutions.where.3', 'Compliance packs vs source files') }}</li>
-                <li data-i18n="solutions.where.4">{{ strings.get('solutions.where.4', 'Internal reports vs locked source values') }}</li>
-            </ul>
+            <h2 data-i18n="solutions.cards.2.name">{{ strings.get('solutions.cards.2.name', 'Claims') }}</h2>
+            <p data-i18n="solutions.cards.2.finding">{{ strings.get('solutions.cards.2.finding', 'The invoice total is different from the amount on the claim form.') }}</p>
         </section>
-        <p><a class="btn btn-primary" href="{{ locale_path }}use-cases/" data-i18n="solutions.cta">{{ strings.get('solutions.cta', 'See the side-by-side example') }}</a></p>
+        <section class="card">
+            <h2 data-i18n="solutions.cards.3.name">{{ strings.get('solutions.cards.3.name', 'Compliance pack') }}</h2>
+            <p data-i18n="solutions.cards.3.finding">{{ strings.get('solutions.cards.3.finding', 'The certificate number on the form does not match the certificate.') }}</p>
+        </section>
+        <section class="card">
+            <h2 data-i18n="solutions.cards.4.name">{{ strings.get('solutions.cards.4.name', 'Internal report') }}</h2>
+            <p data-i18n="solutions.cards.4.finding">{{ strings.get('solutions.cards.4.finding', 'The volume on the report is different from the sales records.') }}</p>
+        </section>
+        <p><a class="btn btn-primary" href="{{ locale_path }}contact-us/" data-i18n="landing.pilot.cta_primary">{{ strings.get('landing.hero.cta_primary', 'Book a demo') }}</a></p>
     </main>
     {% include 'includes/landing_footer.html' %}
 </body>

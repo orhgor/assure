@@ -42,25 +42,22 @@
         <section class="hero-section gov-hero uc2-hero">
             <div class="container">
                 <h1 class="hero-title" data-i18n="uc.index.title">{{ strings.get('uc.index.title', 'Use cases') }}</h1>
-                <p class="hero-sub" data-i18n="uc.index.sub">{{ strings.get('uc.index.sub', 'A 142,500 EUR invoice is checked against a 120,000 EUR contract cap. Both source pages stay linked. The contradiction is shown on the review screen. Export is flagged. A person decides. The file can still be downloaded.') }}</p>
+                <div class="price-grid price-grid--duo home-hero-proof" role="group" aria-label="{{ strings.get('home.hero.proof.aria', 'Invoice — 142,500 EUR compared with contract cap — 120,000 EUR') }}">
+                    <section class="card">
+                        <h2 data-i18n="home.hero.proof.invoice.label">{{ strings.get('home.hero.proof.invoice.label', 'Invoice') }}</h2>
+                        <p class="lede" data-i18n="home.hero.proof.invoice.value">{{ strings.get('home.hero.proof.invoice.value', '142,500 EUR') }}</p>
+                    </section>
+                    <section class="card">
+                        <h2 data-i18n="home.hero.proof.cap.label">{{ strings.get('home.hero.proof.cap.label', 'Contract cap') }}</h2>
+                        <p class="lede" data-i18n="home.hero.proof.cap.value">{{ strings.get('home.hero.proof.cap.value', '120,000 EUR') }}</p>
+                    </section>
+                </div>
             </div>
         </section>
         <section id="problem" class="home-section home-pain">
             <div class="container">
                 <h2 class="section-title" data-i18n="home.pain.title">{{ strings.get('home.pain.title', 'Your decisions run on documents.') }}</h2>
                 <p class="section-sub" data-i18n="home.pain.body">{{ strings.get('home.pain.body', 'Most of them, including handwritten and signed-off reports, are never fully read, checked against each other or connected to your risk review.') }}</p>
-            </div>
-        </section>
-        <section class="uc3-how" aria-labelledby="uc3-how-title">
-            <div class="container">
-                <h2 class="uc2-label" id="uc3-how-title" data-i18n="uc3.how.label">{{ strings.get('uc3.how.label', '') }}</h2>
-                <ol class="uc3-how-steps">
-                    <li><span class="uc3-how-n">1</span><strong>Assure</strong><span data-i18n="uc3.how.1.text">{{ strings.get('uc3.how.1.text', 'Assure reads each file and keeps the page, cell, or row for each figure.') }}</span></li>
-                    <li><span class="uc3-how-n">2</span><strong>the draft</strong><span data-i18n="uc3.how.2.text">{{ strings.get('uc3.how.2.text', 'A language model writes the draft from those files. The figure check runs after this draft exists.') }}</span></li>
-                    <li><span class="uc3-how-n">3</span><strong>the formal consistency check</strong><span data-i18n="uc3.how.3.text">{{ strings.get('uc3.how.3.text', 'a formal consistency checker tests whether the draft\'s figures conflict with the values locked from the source. For a labeled number, the language model does not make that call.') }}</span></li>
-                    <li><span class="uc3-how-n">4</span><strong>Red-Hat review</strong><span data-i18n="uc3.how.4.text">{{ strings.get('uc3.how.4.text', 'Red-Hat review runs only when someone asks for it. A language model tries to find what is wrong in the draft: a mismatch, an overstatement, a missing clause, or a figure that needs a citation.') }}</span></li>
-                    <li><span class="uc3-how-n">5</span><strong data-i18n="uc3.how.5.name">{{ strings.get('uc3.how.5.name', 'A person decides') }}</strong><span data-i18n="uc3.how.5.text">{{ strings.get('uc3.how.5.text', 'The reviewer accepts or rejects each finding. The review screen shows the contradiction as export blocked. The file can still be downloaded.') }}</span></li>
-                </ol>
             </div>
         </section>
         <section class="uc2-list">
@@ -114,33 +111,9 @@
                         <p class="uc3-outcome"><span class="uc3-outcome-label">{{ strings.get('uc3.label.outcome', '') }}</span><span data-i18n="uc3.ins.outcome">{{ strings.get('uc3.ins.outcome', '') }}</span></p>
                     </div>
                 </article>
-                <!-- 03 Fuel retail: statement table beside agreement clause, findings as side-by-side comparisons -->
-                <article class="uc3-case uc3-fuel" id="fuel-retail">
-                    <div class="uc3-intro">
-                        <span class="uc2-num">03</span>
-                        <h2 class="uc2-title" data-i18n="uc.fuel.title">{{ strings.get('uc.fuel.title', '') }}</h2>
-                        <p class="uc2-sub">{{ strings.get('uc.fuel.sub', '') }}</p>
-                        <h3 class="uc2-label">{{ strings.get('uc3.label.docs', '') }}</h3>
-                        <ul class="uc3-docs">
-                            <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg><span data-i18n="uc3.fuel.doc.1">{{ strings.get('uc3.fuel.doc.1', '') }}</span></li><li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg><span data-i18n="uc3.fuel.doc.2">{{ strings.get('uc3.fuel.doc.2', '') }}</span></li><li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg><span data-i18n="uc3.fuel.doc.3">{{ strings.get('uc3.fuel.doc.3', '') }}</span></li>
-                        </ul>
-                        <a class="uc2-more" href="{{ locale_path }}use-cases/fuel-retail/">{{ strings.get('uc.more', 'See how it works') }} <span aria-hidden="true" class="uc2-arrow">→</span></a>
-                    </div>
-                    <div class="uc3-body">
-                        <div class="uc3-sketch" aria-hidden="true">
-                            <figure class="uc3-stmt"><div class="uc3-grid"><i></i><i></i><i></i><i></i><i class="uc3-warn"></i><i></i><i></i><i></i><i class="uc2-hl"></i><i></i><i></i><i></i></div><figcaption>{{ strings.get('uc3.fuel.sk.1', '') }}</figcaption></figure>
-                            <figure class="uc3-clause"><span class="uc3-sec">§ 6</span><div class="uc3-lines"><i></i><i class="uc2-hl"></i><i></i><i class="short"></i></div><span class="uc3-sec">§ 7</span><div class="uc3-lines"><i class="uc3-warn"></i><i class="short"></i></div><figcaption>{{ strings.get('uc3.fuel.sk.2', '') }}</figcaption></figure>
-                        </div>
-                        <h3 class="uc2-label">{{ strings.get('uc3.label.findings', '') }}</h3>
-                        <div class="uc3-compare">
-                            <div class="uc3-cmp"><p class="uc3-cmp-text" data-i18n="uc3.fuel.f.1">{{ strings.get('uc3.fuel.f.1', '') }}</p><div class="uc3-cmp-pair"><span><em>{{ strings.get('uc3.col.statement', '') }}</em>{{ strings.get('uc3.fuel.a.1', '') }}</span><span class="uc3-ne" aria-hidden="true">≠</span><span><em>{{ strings.get('uc3.col.against', '') }}</em>{{ strings.get('uc3.fuel.b.1', '') }}</span></div></div><div class="uc3-cmp"><p class="uc3-cmp-text" data-i18n="uc3.fuel.f.2">{{ strings.get('uc3.fuel.f.2', '') }}</p><div class="uc3-cmp-pair"><span><em>{{ strings.get('uc3.col.statement', '') }}</em>{{ strings.get('uc3.fuel.a.2', '') }}</span><span class="uc3-ne" aria-hidden="true">≠</span><span><em>{{ strings.get('uc3.col.against', '') }}</em>{{ strings.get('uc3.fuel.b.2', '') }}</span></div></div><div class="uc3-cmp"><p class="uc3-cmp-text" data-i18n="uc3.fuel.f.3">{{ strings.get('uc3.fuel.f.3', '') }}</p><div class="uc3-cmp-pair"><span><em>{{ strings.get('uc3.col.statement', '') }}</em>{{ strings.get('uc3.fuel.a.3', '') }}</span><span class="uc3-ne" aria-hidden="true">≠</span><span><em>{{ strings.get('uc3.col.against', '') }}</em>{{ strings.get('uc3.fuel.b.3', '') }}</span></div></div>
-                        </div>
-                        <p class="uc3-outcome"><span class="uc3-outcome-label">{{ strings.get('uc3.label.outcome', '') }}</span><span data-i18n="uc3.fuel.outcome">{{ strings.get('uc3.fuel.outcome', '') }}</span></p>
-                    </div>
-                </article>
                 <article class="uc3-case uc3-inv" id="invoice-vs-contract">
                     <div class="uc3-intro">
-                        <span class="uc2-num">04</span>
+                        <span class="uc2-num">03</span>
                         <h2 class="uc2-title" data-i18n="uc3.inv.title">{{ strings.get('uc3.inv.title', '') }}</h2>
                         <h3 class="uc2-label">{{ strings.get('uc3.label.docs', '') }}</h3>
                         <ul class="uc3-docs">
