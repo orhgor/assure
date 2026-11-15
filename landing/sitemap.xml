@@ -1,442 +1,442 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://getassureai.com/</loc>
+    <loc>https://assureproof.com/</loc>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/tr/</loc>
+    <loc>https://assureproof.com/tr/</loc>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/de/</loc>
+    <loc>https://assureproof.com/de/</loc>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/es/</loc>
+    <loc>https://assureproof.com/es/</loc>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/fr/</loc>
+    <loc>https://assureproof.com/fr/</loc>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/ja/</loc>
+    <loc>https://assureproof.com/ja/</loc>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/zh/</loc>
+    <loc>https://assureproof.com/zh/</loc>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/ar/</loc>
+    <loc>https://assureproof.com/ar/</loc>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/use-cases/</loc>
+    <loc>https://assureproof.com/use-cases/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/tr/use-cases/</loc>
+    <loc>https://assureproof.com/tr/use-cases/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/de/use-cases/</loc>
+    <loc>https://assureproof.com/de/use-cases/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/es/use-cases/</loc>
+    <loc>https://assureproof.com/es/use-cases/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/fr/use-cases/</loc>
+    <loc>https://assureproof.com/fr/use-cases/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/ja/use-cases/</loc>
+    <loc>https://assureproof.com/ja/use-cases/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/zh/use-cases/</loc>
+    <loc>https://assureproof.com/zh/use-cases/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/ar/use-cases/</loc>
+    <loc>https://assureproof.com/ar/use-cases/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/use-cases/government/</loc>
+    <loc>https://assureproof.com/use-cases/government/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/tr/use-cases/government/</loc>
+    <loc>https://assureproof.com/tr/use-cases/government/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/de/use-cases/government/</loc>
+    <loc>https://assureproof.com/de/use-cases/government/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/es/use-cases/government/</loc>
+    <loc>https://assureproof.com/es/use-cases/government/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/fr/use-cases/government/</loc>
+    <loc>https://assureproof.com/fr/use-cases/government/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/ja/use-cases/government/</loc>
+    <loc>https://assureproof.com/ja/use-cases/government/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/zh/use-cases/government/</loc>
+    <loc>https://assureproof.com/zh/use-cases/government/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/ar/use-cases/government/</loc>
+    <loc>https://assureproof.com/ar/use-cases/government/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/use-cases/insurance/</loc>
+    <loc>https://assureproof.com/use-cases/insurance/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/tr/use-cases/insurance/</loc>
+    <loc>https://assureproof.com/tr/use-cases/insurance/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/de/use-cases/insurance/</loc>
+    <loc>https://assureproof.com/de/use-cases/insurance/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/es/use-cases/insurance/</loc>
+    <loc>https://assureproof.com/es/use-cases/insurance/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/fr/use-cases/insurance/</loc>
+    <loc>https://assureproof.com/fr/use-cases/insurance/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/ja/use-cases/insurance/</loc>
+    <loc>https://assureproof.com/ja/use-cases/insurance/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/zh/use-cases/insurance/</loc>
+    <loc>https://assureproof.com/zh/use-cases/insurance/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/ar/use-cases/insurance/</loc>
+    <loc>https://assureproof.com/ar/use-cases/insurance/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/use-cases/fuel-retail/</loc>
+    <loc>https://assureproof.com/use-cases/fuel-retail/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/tr/use-cases/fuel-retail/</loc>
+    <loc>https://assureproof.com/tr/use-cases/fuel-retail/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/de/use-cases/fuel-retail/</loc>
+    <loc>https://assureproof.com/de/use-cases/fuel-retail/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/es/use-cases/fuel-retail/</loc>
+    <loc>https://assureproof.com/es/use-cases/fuel-retail/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/fr/use-cases/fuel-retail/</loc>
+    <loc>https://assureproof.com/fr/use-cases/fuel-retail/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/ja/use-cases/fuel-retail/</loc>
+    <loc>https://assureproof.com/ja/use-cases/fuel-retail/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/zh/use-cases/fuel-retail/</loc>
+    <loc>https://assureproof.com/zh/use-cases/fuel-retail/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/ar/use-cases/fuel-retail/</loc>
+    <loc>https://assureproof.com/ar/use-cases/fuel-retail/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/pricing/</loc>
+    <loc>https://assureproof.com/pricing/</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/tr/pricing/</loc>
+    <loc>https://assureproof.com/tr/pricing/</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/de/pricing/</loc>
+    <loc>https://assureproof.com/de/pricing/</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/es/pricing/</loc>
+    <loc>https://assureproof.com/es/pricing/</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/fr/pricing/</loc>
+    <loc>https://assureproof.com/fr/pricing/</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/ja/pricing/</loc>
+    <loc>https://assureproof.com/ja/pricing/</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/zh/pricing/</loc>
+    <loc>https://assureproof.com/zh/pricing/</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/ar/pricing/</loc>
+    <loc>https://assureproof.com/ar/pricing/</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/privacy/</loc>
+    <loc>https://assureproof.com/privacy/</loc>
     <changefreq>yearly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/tr/privacy/</loc>
+    <loc>https://assureproof.com/tr/privacy/</loc>
     <changefreq>yearly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/de/privacy/</loc>
+    <loc>https://assureproof.com/de/privacy/</loc>
     <changefreq>yearly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/es/privacy/</loc>
+    <loc>https://assureproof.com/es/privacy/</loc>
     <changefreq>yearly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/fr/privacy/</loc>
+    <loc>https://assureproof.com/fr/privacy/</loc>
     <changefreq>yearly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/ja/privacy/</loc>
+    <loc>https://assureproof.com/ja/privacy/</loc>
     <changefreq>yearly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/zh/privacy/</loc>
+    <loc>https://assureproof.com/zh/privacy/</loc>
     <changefreq>yearly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/ar/privacy/</loc>
+    <loc>https://assureproof.com/ar/privacy/</loc>
     <changefreq>yearly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/contact-us/</loc>
+    <loc>https://assureproof.com/contact-us/</loc>
     <changefreq>yearly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/tr/contact-us/</loc>
+    <loc>https://assureproof.com/tr/contact-us/</loc>
     <changefreq>yearly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/de/contact-us/</loc>
+    <loc>https://assureproof.com/de/contact-us/</loc>
     <changefreq>yearly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/es/contact-us/</loc>
+    <loc>https://assureproof.com/es/contact-us/</loc>
     <changefreq>yearly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/fr/contact-us/</loc>
+    <loc>https://assureproof.com/fr/contact-us/</loc>
     <changefreq>yearly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/ja/contact-us/</loc>
+    <loc>https://assureproof.com/ja/contact-us/</loc>
     <changefreq>yearly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/zh/contact-us/</loc>
+    <loc>https://assureproof.com/zh/contact-us/</loc>
     <changefreq>yearly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/ar/contact-us/</loc>
+    <loc>https://assureproof.com/ar/contact-us/</loc>
     <changefreq>yearly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/terms/</loc>
+    <loc>https://assureproof.com/terms/</loc>
     <changefreq>yearly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/tr/terms/</loc>
+    <loc>https://assureproof.com/tr/terms/</loc>
     <changefreq>yearly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/de/terms/</loc>
+    <loc>https://assureproof.com/de/terms/</loc>
     <changefreq>yearly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/es/terms/</loc>
+    <loc>https://assureproof.com/es/terms/</loc>
     <changefreq>yearly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/fr/terms/</loc>
+    <loc>https://assureproof.com/fr/terms/</loc>
     <changefreq>yearly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/ja/terms/</loc>
+    <loc>https://assureproof.com/ja/terms/</loc>
     <changefreq>yearly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/zh/terms/</loc>
+    <loc>https://assureproof.com/zh/terms/</loc>
     <changefreq>yearly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/ar/terms/</loc>
+    <loc>https://assureproof.com/ar/terms/</loc>
     <changefreq>yearly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/about/</loc>
+    <loc>https://assureproof.com/about/</loc>
     <changefreq>yearly</changefreq>
     <priority>0.4</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/tr/about/</loc>
+    <loc>https://assureproof.com/tr/about/</loc>
     <changefreq>yearly</changefreq>
     <priority>0.4</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/de/about/</loc>
+    <loc>https://assureproof.com/de/about/</loc>
     <changefreq>yearly</changefreq>
     <priority>0.4</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/es/about/</loc>
+    <loc>https://assureproof.com/es/about/</loc>
     <changefreq>yearly</changefreq>
     <priority>0.4</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/fr/about/</loc>
+    <loc>https://assureproof.com/fr/about/</loc>
     <changefreq>yearly</changefreq>
     <priority>0.4</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/ja/about/</loc>
+    <loc>https://assureproof.com/ja/about/</loc>
     <changefreq>yearly</changefreq>
     <priority>0.4</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/zh/about/</loc>
+    <loc>https://assureproof.com/zh/about/</loc>
     <changefreq>yearly</changefreq>
     <priority>0.4</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/ar/about/</loc>
+    <loc>https://assureproof.com/ar/about/</loc>
     <changefreq>yearly</changefreq>
     <priority>0.4</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/security/</loc>
+    <loc>https://assureproof.com/security/</loc>
     <changefreq>yearly</changefreq>
     <priority>0.4</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/tr/security/</loc>
+    <loc>https://assureproof.com/tr/security/</loc>
     <changefreq>yearly</changefreq>
     <priority>0.4</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/de/security/</loc>
+    <loc>https://assureproof.com/de/security/</loc>
     <changefreq>yearly</changefreq>
     <priority>0.4</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/es/security/</loc>
+    <loc>https://assureproof.com/es/security/</loc>
     <changefreq>yearly</changefreq>
     <priority>0.4</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/fr/security/</loc>
+    <loc>https://assureproof.com/fr/security/</loc>
     <changefreq>yearly</changefreq>
     <priority>0.4</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/ja/security/</loc>
+    <loc>https://assureproof.com/ja/security/</loc>
     <changefreq>yearly</changefreq>
     <priority>0.4</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/zh/security/</loc>
+    <loc>https://assureproof.com/zh/security/</loc>
     <changefreq>yearly</changefreq>
     <priority>0.4</priority>
   </url>
   <url>
-    <loc>https://getassureai.com/ar/security/</loc>
+    <loc>https://assureproof.com/ar/security/</loc>
     <changefreq>yearly</changefreq>
     <priority>0.4</priority>
   </url>

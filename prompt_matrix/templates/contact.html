@@ -4,12 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title data-i18n="contact.page_title">{{ strings.get('contact.page_title', 'Enterprise contact · Assure AI') }}</title>
-    <link rel="canonical" href="https://getassureai.com/{{ page_suffix|default('contact/') }}">
+    <link rel="canonical" href="https://assureproof.com/{{ page_suffix|default('contact/') }}">
     {% if locale_paths is defined %}
     {% for code, path in locale_paths.items() %}
-    <link rel="alternate" hreflang="{{ code }}" href="https://getassureai.com{{ path }}{{ page_suffix|default('contact/') }}">
+    <link rel="alternate" hreflang="{{ code }}" href="https://assureproof.com{{ path }}{{ page_suffix|default('contact/') }}">
     {% endfor %}
-    <link rel="alternate" hreflang="x-default" href="https://getassureai.com/{{ page_suffix|default('contact/') }}">
+    <link rel="alternate" hreflang="x-default" href="https://assureproof.com/{{ page_suffix|default('contact/') }}">
     {% endif %}
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="{{ strings.get('contact.page_title', 'Enterprise contact · Assure AI') }}">
@@ -18,7 +18,7 @@
     <meta property="og:site_name" content="Assure AI">
     <meta property="og:title" content="{{ strings.get('contact.page_title', 'Enterprise contact · Assure AI') }}">
     <meta property="og:description" content="{{ strings.get('contact.meta', brand.meta_description) }}">
-    <meta property="og:url" content="https://getassureai.com/{{ page_suffix|default('contact/') }}">
+    <meta property="og:url" content="https://assureproof.com/{{ page_suffix|default('contact/') }}">
     <link rel="icon" href="{{ url_for('static', filename='assure-logo.png') }}" type="image/png">
     <meta name="description" content="{{ strings.get('contact.meta', brand.meta_description) }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -35,7 +35,7 @@
       "@context": "https://schema.org",
       "@type": "ContactPage",
       "name": "Contact sales · Assure AI",
-      "url": "https://getassureai.com/{{ page_suffix|default('contact/') }}",
+      "url": "https://assureproof.com/{{ page_suffix|default('contact/') }}",
       "description": "Book a demo or request enterprise pricing for Assure AI, the deterministic verification engine for high-stakes documents.",
       "about": {
         "@type": "SoftwareApplication",
@@ -46,7 +46,7 @@
       "mainEntity": {
         "@type": "Organization",
         "name": "Assure AI",
-        "url": "https://getassureai.com/",
+        "url": "https://assureproof.com/",
         "contactPoint": {
           "@type": "ContactPoint",
           "contactType": "sales",

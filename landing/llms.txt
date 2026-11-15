@@ -20,14 +20,14 @@ Runs in your own AWS account or on-premises. You choose where the models run, in
 
 ## Key pages
 
-- Home: https://getassureai.com/
-- Use cases: https://getassureai.com/use-cases/
-- Government use case: https://getassureai.com/use-cases/government/
-- Insurance use case: https://getassureai.com/use-cases/insurance/
-- Fuel retail use case: https://getassureai.com/use-cases/fuel-retail/
-- About: https://getassureai.com/about/
-- Security and data: https://getassureai.com/security/
-- Pricing: https://getassureai.com/pricing/
-- Contact: https://getassureai.com/contact-us/
-- Privacy: https://getassureai.com/privacy/
-- Terms: https://getassureai.com/terms/
+- Home: https://assureproof.com/
+- Use cases: https://assureproof.com/use-cases/
+- Government use case: https://assureproof.com/use-cases/government/
+- Insurance use case: https://assureproof.com/use-cases/insurance/
+- Fuel retail use case: https://assureproof.com/use-cases/fuel-retail/
+- About: https://assureproof.com/about/
+- Security and data: https://assureproof.com/security/
+- Pricing: https://assureproof.com/pricing/
+- Contact: https://assureproof.com/contact-us/
+- Privacy: https://assureproof.com/privacy/
+- Terms: https://assureproof.com/terms/

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-BASE="${ASSURE_CANARY_URL:-https://getassureai.com}"
+BASE="${ASSURE_CANARY_URL:-https://assureproof.com}"
 
 curl -sf "${BASE}/health" \
   -H "User-Agent: AssureSyntheticCanary/1.0" \
