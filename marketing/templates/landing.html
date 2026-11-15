@@ -56,9 +56,12 @@
                         <p class="lede" data-i18n="home.hero.proof.cap.value">{{ strings.get('home.hero.proof.cap.value', '120,000 EUR') }}</p>
                     </section>
                 </div>
-                <p class="hero-sub" data-i18n="home.hero.proof.line">{{ strings.get('home.hero.proof.line', 'Export is flagged. A person decides.') }}</p>
+                <p class="hero-sub hero-see" data-i18n="home.hero.see">{{ strings.get('home.hero.see', 'Invoice p.3 and Contract p.12 are both open. Export is flagged.') }}</p>
+                <p class="hero-sub" data-i18n="home.hero.proof.line">{{ strings.get('home.hero.proof.line', 'A person decides.') }}</p>
+                <p class="hero-icp" data-i18n="home.hero.icp">{{ strings.get('home.hero.icp', 'For Finance, Claims, and Procurement teams.') }}</p>
                 <div class="hero-cta-group">
                     <button type="button" class="btn-primary" data-demo-open data-i18n="landing.hero.cta_primary">{{ strings.get('landing.hero.cta_primary', 'Book a demo') }}</button>
+                    <a href="{{ locale_path }}poc/" class="btn-secondary" data-i18n="landing.hero.cta_secondary">{{ strings.get('landing.hero.cta_secondary', 'See the example') }}</a>
                 </div>
             </div>
         </section>
@@ -67,9 +70,9 @@
             <div class="container">
                 <h2 class="section-title" data-i18n="home.steps.title">{{ strings.get('home.steps.title', 'How it works') }}</h2>
                 <ol class="home-stages">
-                    <li><span>01</span><h3 data-i18n="home.steps.1.name">{{ strings.get('home.steps.1.name', 'Read') }}</h3><p data-i18n="home.steps.1.text">{{ strings.get('home.steps.1.text', 'Scans, PDFs, forms and SAP exports. Every figure keeps its source page.') }}</p></li>
-                    <li><span>02</span><h3 data-i18n="home.steps.2.name">{{ strings.get('home.steps.2.name', 'Draft and check') }}</h3><p data-i18n="home.steps.2.text">{{ strings.get('home.steps.2.text', "A language model writes the draft. The formal consistency check tests its figures against the values locked from the source.") }}</p></li>
-                    <li><span>03</span><h3 data-i18n="home.steps.3.name">{{ strings.get('home.steps.3.name', 'Decide') }}</h3><p data-i18n="home.steps.3.text">{{ strings.get('home.steps.3.text', 'The review screen marks export blocked. A person accepts or rejects each finding. The file stays downloadable.') }}</p></li>
+                    <li><span>01</span><h3 data-i18n="home.steps.1.name">{{ strings.get('home.steps.1.name', 'Both pages open') }}</h3><p data-i18n="home.steps.1.text">{{ strings.get('home.steps.1.text', 'The invoice and the contract cap sit side by side. Every figure keeps its source page.') }}</p></li>
+                    <li><span>02</span><h3 data-i18n="home.steps.2.name">{{ strings.get('home.steps.2.name', 'Contradiction marked') }}</h3><p data-i18n="home.steps.2.text">{{ strings.get('home.steps.2.text', "The formal consistency check flags the conflict. Export is blocked.") }}</p></li>
+                    <li><span>03</span><h3 data-i18n="home.steps.3.name">{{ strings.get('home.steps.3.name', 'Person decides') }}</h3><p data-i18n="home.steps.3.text">{{ strings.get('home.steps.3.text', 'A person accepts or rejects each finding. The file stays downloadable.') }}</p></li>
                 </ol>
             </div>
         </section>

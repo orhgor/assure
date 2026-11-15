@@ -59,8 +59,11 @@ def test_home_is_the_earlier_enterprise_page():
     assert "When two documents disagree, both pages are already open." in html
     assert "Invoice" in html and "142,500 EUR" in html
     assert "Contract cap" in html and "120,000 EUR" in html
-    assert "Export is flagged. A person decides." in html
-    assert "Book a demo" in html
+    assert "Invoice p.3 and Contract p.12 are both open." in html
+    assert "A person decides." in html
+    assert "For Finance, Claims, and Procurement teams." in html
+    assert "Book a demo" in html and "See the example" in html
+    assert "Both pages open" in html and "Contradiction marked" in html and "Person decides" in html
     # Retired copy and internal jargon are gone (visible copy and schema).
     assert "Before you pay, accept, or sign." not in html
     assert "Z3" not in html
