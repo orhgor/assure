@@ -389,7 +389,7 @@ body {
 
 .hero-section {
     padding: 4.5rem 0 3.25rem 0;
-    text-align: center;
+    text-align: left;
 }
 
 .hero-section .container {
@@ -416,10 +416,10 @@ body {
 .hero-sub {
     font-size: 1.25rem;
     color: var(--text-muted);
-    max-width: 21rem;
-    margin: 0 auto 2.5rem auto;
-    text-align: center;
-    text-wrap: balance;
+    max-width: 42rem;
+    margin: 0 0 2.5rem 0;
+    text-align: left;
+    text-wrap: pretty;
 }
 
 .hero-tagline {
@@ -433,7 +433,7 @@ body {
 .hero-cta-group {
     display: flex;
     flex-wrap: wrap;
-    justify-content: center;
+    justify-content: flex-start;
     gap: 1rem;
     margin-bottom: 3.5rem;
 }
@@ -4216,4 +4216,26 @@ body:not([class]) main a:not([class]):hover { color: #f0f2f5; }
 /* pr-n: mobile hero spacing */
 @media (max-width: 640px) {
     .enterprise-landing .home-hero-body { margin-top: -12px; }
+}
+
+
+/* ---- Solutions: side-by-side proof ---- */
+.price-grid--duo { grid-template-columns: 1fr 1fr; max-width: 60rem; justify-items: stretch; }
+.price-grid--duo .card { padding: 2rem; }
+@media (max-width: 760px) { .price-grid--duo { grid-template-columns: 1fr; } }
+
+/* ---- Pricing: card breathing room + supporting note ---- */
+.price-grid .card { width: 100%; padding: 2rem; }
+.price-note { margin: 1rem 0 0; color: var(--text-muted, #475569); font-size: 0.9375rem; line-height: 1.6; text-align: center; }
+
+/* ---- Architecture: numbered flow ---- */
+.arch-steps { list-style: none; margin: 0; padding: 0; counter-reset: arch; }
+.arch-steps li { counter-increment: arch; position: relative; padding: 14px 0 14px 3.25rem; border-top: 1px solid #e2e8f0; color: #334155; line-height: 1.55; }
+.arch-steps li::before { content: counter(arch); position: absolute; left: 0; top: 14px; width: 2rem; height: 2rem; border-radius: 50%; background: #0a0a0a; color: #fff; font-weight: 700; font-size: 0.875rem; display: flex; align-items: center; justify-content: center; }
+.arch-steps li:first-child { border-top: 0; }
+
+/* ---- No horizontal scrolling on any page ---- */
+html,
+body {
+    overflow-x: clip;
 }
