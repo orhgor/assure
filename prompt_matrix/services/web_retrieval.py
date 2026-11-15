@@ -96,7 +96,7 @@ SEARCH_CANDIDATES = 10
 RESULT_CARDS = 3
 MIN_PAGE_CHARS = 200
 QUERY_CHARS = 200
-USER_AGENT = "AssureBot/1.0 (+https://getassureai.com; source verification)"
+USER_AGENT = "AssureBot/1.0 (+https://assureproof.com; source verification)"
 
 # A page of these types is text the matcher can quote. An image is not a fetch
 # this path can read, so it is refused rather than stored as gibberish.
