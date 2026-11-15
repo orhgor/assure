@@ -54,12 +54,12 @@ for LOCALE in $PUBLISH_LOCALES; do
     --static-base "$CDN_BASE_URL"
 done
 
-if [ -f "$ROOT/landing/_headers" ]; then
-  cp "$ROOT/landing/_headers" "$DIST_DIR/_headers"
+if [ -f "$ROOT/marketing/_headers" ]; then
+  cp "$ROOT/marketing/_headers" "$DIST_DIR/_headers"
 fi
 
-if [ -f "$ROOT/landing/robots.txt" ]; then
-  cp "$ROOT/landing/robots.txt" "$DIST_DIR/robots.txt"
+if [ -f "$ROOT/marketing/robots.txt" ]; then
+  cp "$ROOT/marketing/robots.txt" "$DIST_DIR/robots.txt"
 fi
 "$PYTHON" - <<PY
 from pathlib import Path
