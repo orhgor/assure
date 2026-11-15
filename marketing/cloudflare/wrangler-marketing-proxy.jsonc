@@ -1,15 +1,19 @@
 {
   "$schema": "https://unpkg.com/wrangler@latest/config-schema.json",
   "name": "assure-marketing-proxy",
-  "main": "marketing-r2-worker.js",
+  "main": "marketing-worker.js",
   "compatibility_date": "2026-09-08",
   "workers_dev": false,
-  "r2_buckets": [
-    {
-      "binding": "MARKETING",
-      "bucket_name": "assure-marketing-prod"
-    }
-  ],
+  "assets": {
+    // dist/ ships with the Worker as static assets; run_worker_first routes
+    // every request through the Worker (redirects + contact form), which
+    // delegates page delivery to the ASSETS binding.
+    "directory": "../../dist",
+    "binding": "ASSETS",
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "404-page",
+    "run_worker_first": true
+  },
   "routes": [
     // assureproof.com/* and www.assureproof.com/* routes are asserted out-of-band (created via the API).
     // Add them here only once the deploy token has Workers Routes Edit on the assureproof.com zone.
@@ -17,3 +21,4 @@
     { "pattern": "www.getassureai.com/*", "zone_name": "getassureai.com" }
   ]
 }
+

@@ -1,12 +1,17 @@
 /**
- * Marketing site from R2. Wildcard routes on the zone mean every path hits
- * this Worker: pages come from R2, /app and /api (the old workbench paths)
- * redirect to /contact-us/, /contact* redirects to the matching
- * /contact-us/ page, unknown paths get the site's own 404 page with 404.
+ * Marketing site on Cloudflare Workers static assets.
+ *
+ * Wildcard routes on both zones route every request to this Worker:
+ * - /contact-submit (POST) -> Resend email to the sales inbox
+ * - /contact and /{locale}/contact -> 301 to /contact-us/
+ * - /government and /{locale}/government -> 301 to /use-cases/government/
+ * - /app and /api (legacy workbench paths) -> 301 to /contact-us/
+ * - everything else -> served from the static assets (dist/), with
+ *   locale-aware 404 pages on misses and security headers on responses.
+ *
+ * The dist/ directory is uploaded with the Worker as static assets
+ * (wrangler assets.directory); the ASSETS binding delivers the files.
  */
-const HTML = "text/html; charset=utf-8";
-
-// Security headers, mirrors landing/_headers (sync_r2 does not upload _headers).
 const SECURITY_HEADERS = {
   "X-Content-Type-Options": "nosniff",
   "X-Frame-Options": "DENY",
@@ -15,46 +20,8 @@ const SECURITY_HEADERS = {
   "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
 };
 
-function contentType(key) {
-  if (key.endsWith(".html")) return HTML;
-  if (key.endsWith(".css")) return "text/css; charset=utf-8";
-  if (key.endsWith(".js")) return "application/javascript; charset=utf-8";
-  if (key.endsWith(".svg")) return "image/svg+xml";
-  if (key.endsWith(".png")) return "image/png";
-  if (key.endsWith(".jpg") || key.endsWith(".jpeg")) return "image/jpeg";
-  if (key.endsWith(".webp")) return "image/webp";
-  if (key.endsWith(".xml")) return "application/xml";
-  if (key.endsWith(".ico")) return "image/x-icon";
-  if (key.endsWith(".txt")) return "text/plain; charset=utf-8";
-  return "application/octet-stream";
-}
-
-/** Map URL path to R2 object key (mirrors dist/ layout). */
-function objectKey(pathname) {
-  let p = pathname;
-  if (p.endsWith("/") && p.length > 1) {
-    p = p.slice(0, -1);
-  }
-  if (!p || p === "/") {
-    return "index.html";
-  }
-  if (p.startsWith("/")) {
-    p = p.slice(1);
-  }
-  if (/\.[a-z0-9]+$/i.test(p)) {
-    return p;
-  }
-  return `${p}/index.html`;
-}
-
-// Locale folders in dist/ (mirrors marketing/locales, en lives at the root).
+// Locale folders in dist/ (mirrors marketing/locales; en lives at the root).
 const LOCALES = ["de", "es", "fr", "tr", "ja", "zh", "ar"];
-
-/** Locale folder for a path like /de/..., or "" for the root site. */
-function pathLocale(pathname) {
-  const seg = pathname.split("/")[1] || "";
-  return LOCALES.includes(seg) ? seg : "";
-}
 
 const SALES_INBOX = "sales@getassureai.com";
 const EMAIL_FROM = "Assure Website <website@getassureai.com>";
@@ -95,23 +62,18 @@ async function handleContactSubmit(request, env) {
   if (!name) return json({ error: "Name is required." }, 400);
   if (!validEmail(email)) return json({ error: "Enter a valid email address." }, 400);
 
-  const subject =
-    "Enterprise demo request" +
-    (company ? " — " + company : "") +
-    " — " + name;
+  const subject = "Enterprise demo request" + (company ? ": " + company : "");
   const lines = [
     "Name: " + name,
-    "Work email: " + email,
-    company ? "Company: " + company : null,
-    "",
-    "Demo scope:",
-    message || "(not provided)",
-  ].filter((line) => line !== null);
+    "Email: " + email,
+    company ? "Company: " + company : "",
+    "Message: " + message,
+  ].filter(Boolean);
 
   const send = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: {
-      "Authorization": "Bearer " + env.RESEND_API_KEY,
+      Authorization: "Bearer " + env.RESEND_API_KEY,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
@@ -133,16 +95,38 @@ async function handleContactSubmit(request, env) {
   return json({ status: "ok" });
 }
 
+/** Locale folder for a path like /de/..., or "" for the root site. */
+function pathLocale(pathname) {
+  const seg = pathname.split("/")[1] || "";
+  return LOCALES.includes(seg) ? seg : "";
+}
+
+/** Add the security headers + cache policy to an asset or 404 response. */
+function withSecurityHeaders(response) {
+  const headers = new Headers(response.headers);
+  headers.set("Cache-Control", response.status === 404 ? "no-store" : "public, max-age=300");
+  for (const [name, value] of Object.entries(SECURITY_HEADERS)) {
+    headers.set(name, value);
+  }
+  return new Response(response.body, { status: response.status, headers });
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+
+    // Contact form → Resend email to the sales inbox.
     if (request.method === "POST" && url.pathname === "/contact-submit") {
       return handleContactSubmit(request, env);
     }
+    if (request.method !== "GET" && request.method !== "HEAD") {
+      return new Response("Method not allowed", { status: 405 });
+    }
+
+    // Legacy and convenience redirects.
     if (url.pathname === "/contact" || url.pathname === "/contact/") {
       return Response.redirect(new URL("/contact-us/", url.origin).toString(), 301);
     }
-    // /{locale}/contact and /{locale}/contact/ -> matching /{locale}/contact-us/
     const m = url.pathname.match(/^\/([a-z]{2})(\/contact)(\/?)$/i);
     if (m) {
       return Response.redirect(new URL(`/${m[1]}/contact-us/`, url.origin).toString(), 301);
@@ -156,53 +140,38 @@ export default {
       // The workbench is gone; these legacy paths go to the contact page.
       return Response.redirect(new URL("/contact-us/", url.origin).toString(), 301);
     }
-    if (request.method !== "GET" && request.method !== "HEAD") {
-      return new Response("Method not allowed", { status: 405 });
-    }
+
+    // Trailing-slash redirect for extension-less paths.
     if (url.pathname !== "/" && !url.pathname.endsWith("/") && !/\.[a-z0-9]+$/i.test(url.pathname)) {
       return Response.redirect(new URL(url.pathname + "/", url.origin).toString(), 301);
     }
 
-    const key = objectKey(url.pathname);
-    let object = await env.MARKETING.get(key);
-    if (!object && !key.endsWith("/index.html")) {
-      object = await env.MARKETING.get(`${key}/index.html`);
-    }
+    // Static assets (dist/ ships with the Worker; the 404-page handles misses).
+    let res = await env.ASSETS.fetch(request);
 
-    let status = 200;
-    if (!object) {
-      // Serve the site's own 404 page from R2, with status 404: the locale's
-      // 404 first, then the root one. If both are missing, fall back to a
-      // plain text 404 rather than throwing.
+    // Locale-aware 404: the assets 404-page is the root one; swap in the
+    // locale's own 404.html when the miss is inside a locale folder.
+    if (res.status === 404) {
       const loc = pathLocale(url.pathname);
       if (loc) {
-        object = await env.MARKETING.get(`${loc}/404.html`);
+        const locale404 = await env.ASSETS.fetch(
+          new Request(new URL(`/${loc}/404.html`, url.origin))
+        );
+        if (locale404.status === 200) {
+          res = new Response(locale404.body, { status: 404, headers: locale404.headers });
+        }
       }
-      if (!object) {
-        object = await env.MARKETING.get("404.html");
-      }
-      status = 404;
-    }
-
-    if (!object) {
-      return new Response("Not found", {
-        status: 404,
-        headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" },
-      });
-    }
-
-    const headers = new Headers();
-    object.writeHttpMetadata(headers);
-    headers.set("content-type", status === 404 ? HTML : contentType(key));
-    headers.set("Cache-Control", status === 404 ? "no-store" : "public, max-age=300");
-    headers.set("Access-Control-Allow-Origin", "*");
-    for (const [name, value] of Object.entries(SECURITY_HEADERS)) {
-      headers.set(name, value);
     }
 
     if (request.method === "HEAD") {
-      return new Response(null, { status, headers });
+      const headers = new Headers(res.headers);
+      for (const [name, value] of Object.entries(SECURITY_HEADERS)) {
+        headers.set(name, value);
+      }
+      return new Response(null, { status: res.status, headers });
     }
-    return new Response(object.body, { status, headers });
+
+    return withSecurityHeaders(res);
   },
 };
+
