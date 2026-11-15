@@ -369,24 +369,19 @@ def _render_page(app, page: dict, locale: str) -> str:
                 )
                 howto_steps = (
                     (
-                        "Source pages kept",
-                        "home.stages.1.text",
-                        "Reads every file, including scans and handwritten pages, and keeps the page, cell, or row for each figure it extracts.",
+                        "Read",
+                        "home.steps.1.text",
+                        "Scans, PDFs, forms and SAP exports. Every figure keeps its source page.",
                     ),
                     (
-                        "Draft written",
-                        "home.stages.2.text",
-                        "A language model writes the draft from those source files. The figure check runs only after this draft exists.",
+                        "Draft and check",
+                        "home.steps.2.text",
+                        "A language model writes the draft. The formal consistency check tests its figures against the values locked from the source.",
                     ),
                     (
-                        "Figures checked",
-                        "home.stages.3.text",
-                        "Z3 decides whether the draft's figures and the values locked from the source can all be true at the same time. For a labeled number, the language model does not make that call. For a sentence with no label, the language model turns it into a numeric comparison, and Z3 decides whether it holds.",
-                    ),
-                    (
-                        "Person decides",
-                        "home.stages.4.text",
-                        "Red-Hat review runs only when someone asks for it, on the draft just written. A language model tries to find what is wrong: a mismatch with the attached source sentence, an overstatement, a missing clause, or a figure that needs a citation.",
+                        "Decide",
+                        "home.steps.3.text",
+                        "The review screen marks export blocked. A person accepts or rejects each finding. The file stays downloadable.",
                     ),
                 )
                 json_ld.append(
@@ -394,8 +389,8 @@ def _render_page(app, page: dict, locale: str) -> str:
                         "@context": "https://schema.org",
                         "@type": "HowTo",
                         "name": full.get(
-                            "home.stages.title",
-                            "Four stages from the source file to a reviewed draft.",
+                            "home.steps.title",
+                            "How it works",
                         ),
                         "inLanguage": locale,
                         "step": [
@@ -409,19 +404,6 @@ def _render_page(app, page: dict, locale: str) -> str:
                         ],
                     }
                 )
-                faq = [(full.get(f"home.faq.{i}.q"), full.get(f"home.faq.{i}.a")) for i in range(1, 9)]
-                if all(q and a for q, a in faq):
-                    json_ld.append(
-                        {
-                            "@context": "https://schema.org",
-                            "@type": "FAQPage",
-                            "inLanguage": locale,
-                            "mainEntity": [
-                                {"@type": "Question", "name": q, "acceptedAnswer": {"@type": "Answer", "text": a}}
-                                for q, a in faq
-                            ],
-                        }
-                    )
             else:
                 home_name = full.get("meta.home.name", "Home")
                 json_ld.append(

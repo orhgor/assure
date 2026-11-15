@@ -392,6 +392,20 @@ body {
     text-align: left;
 }
 
+/* Homepage hero fills the first screen: the H1, the labeled proof duo, the
+   supporting line and the single primary CTA sit above the fold and nothing
+   else appears before it (desktop viewports). */
+@media (min-width: 1024px) {
+    .home-landing .hero-section {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+    }
+    .home-landing .hero-section .container {
+        width: 100%;
+    }
+}
+
 .hero-section .container {
     max-width: 1180px;
 }
