@@ -1,2 +1,2 @@
-# Redirects are enforced by worker/index.js (workers.dev → getassureai.com).
+# Redirects are enforced by worker/index.js (workers.dev → assureproof.com).
 # Cloudflare _redirects only supports relative targets; do not add apex URLs here.

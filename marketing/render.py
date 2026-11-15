@@ -155,7 +155,7 @@ LOCALE_TO_OG = {
     "ar": "ar_AE",
 }
 
-OG_IMAGE = "https://getassureai.com/static/og-image.png"
+OG_IMAGE = "https://assureproof.com/static/og-image.png"
 
 
 # ar is published with en, es, zh, fr, de, ja, and tr.
@@ -318,8 +318,8 @@ def _render_page(app, page: dict, locale: str) -> str:
                     full.get(f"meta.{meta_prefix}.description") if meta_prefix else None
                 ) or full.get("brand.meta_description", "")
             path = _locale_paths()[locale]
-            page_url = "https://getassureai.com" + path + page["suffix"]
-            en_url = "https://getassureai.com" + "/" + page["suffix"]
+            page_url = "https://assureproof.com" + path + page["suffix"]
+            en_url = "https://assureproof.com" + "/" + page["suffix"]
             og_locale = LOCALE_TO_OG.get(locale, "en_US")
 
             is_home = page["template"] == "landing.html" and page["suffix"] == ""
@@ -330,8 +330,8 @@ def _render_page(app, page: dict, locale: str) -> str:
                         "@context": "https://schema.org",
                         "@type": "Organization",
                         "name": "Assure",
-                        "url": "https://getassureai.com",
-                        "logo": "https://getassureai.com/static/assure-logo.png",
+                        "url": "https://assureproof.com",
+                        "logo": "https://assureproof.com/static/assure-logo.png",
                         "inLanguage": locale,
                     }
                 )
@@ -340,7 +340,7 @@ def _render_page(app, page: dict, locale: str) -> str:
                         "@context": "https://schema.org",
                         "@type": "WebSite",
                         "name": "Assure",
-                        "url": "https://getassureai.com/",
+                        "url": "https://assureproof.com/",
                         "inLanguage": locale,
                     }
                 )
@@ -357,7 +357,7 @@ def _render_page(app, page: dict, locale: str) -> str:
                         "provider": {
                             "@type": "Organization",
                             "name": "Assure",
-                            "url": "https://getassureai.com",
+                            "url": "https://assureproof.com",
                         },
                     }
                 )
@@ -437,7 +437,7 @@ def _render_page(app, page: dict, locale: str) -> str:
                                 "@type": "ListItem",
                                 "position": 1,
                                 "name": home_name,
-                                "item": "https://getassureai.com/",
+                                "item": "https://assureproof.com/",
                             },
                             {
                                 "@type": "ListItem",

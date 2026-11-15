@@ -1,7 +1,7 @@
 # marketing/ — the isolated webpage tree
 
 This directory is the complete, self-contained pipeline for the public
-marketing site (getassureai.com). It is fully independent of the workbench
+marketing site (assureproof.com). It is fully independent of the workbench
 (EC2, Docker): the build never reads the workbench tree and never needs a
 database. Everything the site needs lives here.
 

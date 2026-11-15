@@ -7,4 +7,4 @@ if [[ ! -x "$CF_DIR/node_modules/.bin/wrangler" ]]; then
   npm install --prefix "$CF_DIR" --no-fund --no-audit
 fi
 "$CF_DIR/node_modules/.bin/wrangler" deploy --config wrangler-marketing-proxy.jsonc
-echo "✅ Marketing proxy Worker deployed with routes on getassureai.com"
+echo "✅ Marketing proxy Worker deployed with routes on assureproof.com"

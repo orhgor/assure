@@ -54,12 +54,12 @@ for LOCALE in $PUBLISH_LOCALES; do
     --static-base "$CDN_BASE_URL"
 done
 
-if [ -f "$ROOT/landing/_headers" ]; then
-  cp "$ROOT/landing/_headers" "$DIST_DIR/_headers"
+if [ -f "$ROOT/marketing/_headers" ]; then
+  cp "$ROOT/marketing/_headers" "$DIST_DIR/_headers"
 fi
 
-if [ -f "$ROOT/landing/robots.txt" ]; then
-  cp "$ROOT/landing/robots.txt" "$DIST_DIR/robots.txt"
+if [ -f "$ROOT/marketing/robots.txt" ]; then
+  cp "$ROOT/marketing/robots.txt" "$DIST_DIR/robots.txt"
 fi
 "$PYTHON" - <<PY
 from pathlib import Path
@@ -68,13 +68,13 @@ locs = []
 for path in sorted(root.rglob("index.html")):
     rel = path.relative_to(root).as_posix()
     if rel == "index.html":
-        url = "https://getassureai.com/"
+        url = "https://assureproof.com/"
     else:
-        url = "https://getassureai.com/" + rel[: -len("index.html")]
+        url = "https://assureproof.com/" + rel[: -len("index.html")]
     locs.append(url)
 lines = ['<?xml version="1.0" encoding="UTF-8"?>', '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">']
 for url in locs:
-    tail = url.removeprefix("https://getassureai.com/")
+    tail = url.removeprefix("https://assureproof.com/")
     home = tail == "" or (tail.count("/") == 1 and len(tail.strip("/")) == 2)
     freq = "weekly" if home else "monthly"
     priority = "1.0" if home else "0.6"

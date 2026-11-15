@@ -2,7 +2,7 @@
   "$schema": "https://unpkg.com/wrangler@latest/config-schema.json",
   "name": "assure",
   // Legacy static site — apex/www now served by EC2 via Cloudflare Tunnel.
-  // Worker kept on workers.dev only; do not attach getassureai.com here.
+  // Worker kept on workers.dev only; do not attach assureproof.com here.
   "compatibility_date": "2026-09-01",
   "main": "worker/index.js",
   "workers_dev": true,
