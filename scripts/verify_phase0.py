@@ -51,7 +51,7 @@ def check_health() -> tuple[bool, str]:
 
 def check_cors() -> tuple[bool, str]:
     headers = {
-        "Origin": "https://getassureai.com",
+        "Origin": "https://assureproof.com",
         "Access-Control-Request-Method": "POST",
         "Access-Control-Request-Headers": "Authorization, X-Gemini-Key, X-Claude-Key",
     }
@@ -60,7 +60,7 @@ def check_cors() -> tuple[bool, str]:
         return False, f"HTTP {status}"
     allow_origin = resp_headers.get("Access-Control-Allow-Origin", "")
     allow_headers = resp_headers.get("Access-Control-Allow-Headers", "")
-    if allow_origin not in {"https://getassureai.com", "*"}:
+    if allow_origin not in {"https://assureproof.com", "*"}:
         return False, f"Allow-Origin={allow_origin!r}"
     needed = {"authorization", "x-gemini-key", "x-claude-key"}
     got = {h.strip().lower() for h in allow_headers.split(",") if h.strip()}

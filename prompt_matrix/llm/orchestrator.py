@@ -239,7 +239,7 @@ def _litellm_params_for(model: str, *, max_tokens: int | None = None) -> dict[st
     if provider_slug_for_litellm(model) == "openrouter":
         params["api_base"] = os.getenv("OPENROUTER_API_BASE", "https://openrouter.ai/api/v1")
         params["extra_headers"] = {
-            "HTTP-Referer": os.getenv("OPENROUTER_HTTP_REFERER", "https://staging.getassureai.com"),
+            "HTTP-Referer": os.getenv("OPENROUTER_HTTP_REFERER", "https://staging.assureproof.com"),
             "X-Title": os.getenv("OPENROUTER_APP_TITLE", "Assure AI"),
         }
     return params

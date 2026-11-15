@@ -275,7 +275,7 @@ def litellm_kwargs_for(target: str) -> dict:
         extra["api_base"] = os.environ.get("MOONSHOT_API_BASE", "https://api.moonshot.ai/v1")
     if target == "openrouter":
         extra["api_base"] = os.environ.get("OPENROUTER_API_BASE", "https://openrouter.ai/api/v1")
-        referer = os.environ.get("OPENROUTER_HTTP_REFERER", "https://staging.getassureai.com")
+        referer = os.environ.get("OPENROUTER_HTTP_REFERER", "https://staging.assureproof.com")
         title = os.environ.get("OPENROUTER_APP_TITLE", "Assure AI")
         extra["extra_headers"] = {"HTTP-Referer": referer, "X-Title": title}
     if target == "claude":
