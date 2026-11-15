@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="{{ locale|default('en') }}">
+<head>
+    {% include 'includes/gtag.html' %}
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ page_title }}</title>
+    <meta name="description" content="{{ page_description }}">
+    <link rel="canonical" href="{{ page_url }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='landing.css') }}?v={{ landing_css_version|default('88') }}">
+    <link rel="icon" href="{{ url_for('static', filename='assure-logo.png') }}" type="image/png">
+</head>
+<body id="top" class="enterprise-landing">
+    {% include 'includes/landing_header.html' %}
+    <main id="main-content" class="page">
+        <div class="page-hero">
+            <h1 data-i18n="poc.title">{{ strings.get('poc.title', 'Proof of concept') }}</h1>
+            <p class="lede" data-i18n="poc.lead">{{ strings.get('poc.lead', 'One workflow. Limited sample cases. A written “Yes, proceed” starts the assessment.') }}</p>
+        </div>
+        <div class="price-grid price-grid--duo">
+            <section class="card">
+                <h2 data-i18n="poc.invoice.label">{{ strings.get('poc.invoice.label', 'Invoice') }}</h2>
+                <p class="lede" data-i18n="poc.invoice.value">{{ strings.get('poc.invoice.value', '142,500 EUR') }}</p>
+            </section>
+            <section class="card">
+                <h2 data-i18n="poc.cap.label">{{ strings.get('poc.cap.label', 'Contract cap') }}</h2>
+                <p class="lede" data-i18n="poc.cap.value">{{ strings.get('poc.cap.value', '120,000 EUR') }}</p>
+            </section>
+        </div>
+        <section class="card">
+            <h2 data-i18n="poc.assessment.title">{{ strings.get('poc.assessment.title', 'The assessment') }}</h2>
+            <ul class="privacy-list">
+                <li data-i18n="poc.assessment.1">{{ strings.get('poc.assessment.1', '1 workflow') }}</li>
+                <li data-i18n="poc.assessment.2">{{ strings.get('poc.assessment.2', 'Limited sample cases') }}</li>
+                <li data-i18n="poc.assessment.3">{{ strings.get('poc.assessment.3', 'A written “Yes, proceed”') }}</li>
+            </ul>
+        </section>
+        <section class="card">
+            <h2 data-i18n="poc.trust.title">{{ strings.get('poc.trust.title', 'Trust & privacy') }}</h2>
+            <p data-i18n="poc.trust.body">{{ strings.get('poc.trust.body', 'The one-page Trust & Privacy FAQ covers deployment, data handling, and the model boundary.') }}</p>
+            <p><a href="{{ locale_path }}privacy/" data-i18n="poc.trust.link">{{ strings.get('poc.trust.link', 'Read the Trust & Privacy FAQ') }}</a> · <a href="{{ locale_path }}security/" data-i18n="poc.trust.link2">{{ strings.get('poc.trust.link2', 'Security and data') }}</a></p>
+        </section>
+        <p><a class="btn btn-primary" href="{{ locale_path }}contact-us/" data-i18n="poc.cta">{{ strings.get('poc.cta', 'Contact / request assessment') }}</a></p>
+    </main>
+    {% include 'includes/landing_footer.html' %}
+</body>
+</html>

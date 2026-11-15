@@ -112,6 +112,12 @@ PAGES: list[dict] = [
         "extra": {"stripe_ready": False},
     },
     {
+        "template": "poc.html",
+        "output": "poc/index.html",
+        "kind": "landing",
+        "suffix": "poc/",
+    },
+    {
         "template": "404.html",
         "output": "404.html",
         "kind": "landing",
@@ -363,22 +369,22 @@ def _render_page(app, page: dict, locale: str) -> str:
                 )
                 howto_steps = (
                     (
-                        "ParSure",
+                        "Source pages kept",
                         "home.stages.1.text",
                         "Reads every file, including scans and handwritten pages, and keeps the page, cell, or row for each figure it extracts.",
                     ),
                     (
-                        "DraftSure",
+                        "Draft written",
                         "home.stages.2.text",
                         "A language model writes the draft from those source files. The figure check runs only after this draft exists.",
                     ),
                     (
-                        "CrossSure",
+                        "Figures checked",
                         "home.stages.3.text",
                         "Z3 decides whether the draft's figures and the values locked from the source can all be true at the same time. For a labeled number, the language model does not make that call. For a sentence with no label, the language model turns it into a numeric comparison, and Z3 decides whether it holds.",
                     ),
                     (
-                        "Red-Hat review",
+                        "Person decides",
                         "home.stages.4.text",
                         "Red-Hat review runs only when someone asks for it, on the draft just written. A language model tries to find what is wrong: a mismatch with the attached source sentence, an overstatement, a missing clause, or a figure that needs a citation.",
                     ),

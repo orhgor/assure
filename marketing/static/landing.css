@@ -4239,3 +4239,7 @@ html,
 body {
     overflow-x: clip;
 }
+
+/* ---- Demo card separators: no text concatenation ---- */
+.hd-chip + .hd-chip { margin-inline-start: 4px; }
+.hd-fact .hd-src::after { content: '\00a0\00b7\00a0'; color: #64748b; }
