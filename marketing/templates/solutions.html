@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Solutions | Assure</title>
-    <meta name="description" content="Example findings for insurers, public bodies, and fuel retail.">
+    <meta name="description" content="Before you pay, you still open the contract. Assure shows the contradiction first. A person decides.">
     <link rel="canonical" href="{{ page_url }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='landing.css') }}?v={{ landing_css_version|default('88') }}">
     <link rel="icon" href="{{ url_for('static', filename='assure-logo.png') }}" type="image/png">
@@ -14,8 +14,34 @@
     {% set nav_current = 'solutions' %}
     {% include 'includes/landing_header.html' %}
     <main id="main-content" class="page">
-        <h1>Solutions</h1>
-        <p><a href="{{ locale_path }}use-cases/">See example findings</a></p>
+        <div class="page-hero">
+            <h1 data-i18n="solutions.title">{{ strings.get('solutions.title', 'Solutions') }}</h1>
+            <p class="lede" data-i18n="solutions.lead">{{ strings.get('solutions.lead', 'Before you pay, you still open the contract. Assure shows the contradiction first. A person decides.') }}</p>
+        </div>
+        <div class="price-grid">
+            <section class="card">
+                <h2 data-i18n="solutions.invoice.label">{{ strings.get('solutions.invoice.label', 'Invoice') }}</h2>
+                <p class="lede" data-i18n="solutions.invoice.value">{{ strings.get('solutions.invoice.value', '142,500 EUR') }}</p>
+            </section>
+            <section class="card">
+                <h2 data-i18n="solutions.cap.label">{{ strings.get('solutions.cap.label', 'Contract cap') }}</h2>
+                <p class="lede" data-i18n="solutions.cap.value">{{ strings.get('solutions.cap.value', '120,000 EUR') }}</p>
+            </section>
+        </div>
+        <section class="card">
+            <h2 data-i18n="solutions.check.title">{{ strings.get('solutions.check.title', 'The check') }}</h2>
+            <p data-i18n="solutions.check.body">{{ strings.get('solutions.check.body', 'A 142,500 EUR invoice is checked against a 120,000 EUR contract cap. Both source pages stay linked. The contradiction is shown on the review screen. Export is flagged. A person decides. The file can still be downloaded.') }}</p>
+        </section>
+        <section class="card">
+            <h2 data-i18n="solutions.where.title">{{ strings.get('solutions.where.title', 'Where teams use it') }}</h2>
+            <ul class="privacy-list">
+                <li data-i18n="solutions.where.1">{{ strings.get('solutions.where.1', 'Invoice vs contract cap') }}</li>
+                <li data-i18n="solutions.where.2">{{ strings.get('solutions.where.2', 'Claims files vs supporting documents') }}</li>
+                <li data-i18n="solutions.where.3">{{ strings.get('solutions.where.3', 'Compliance packs vs source files') }}</li>
+                <li data-i18n="solutions.where.4">{{ strings.get('solutions.where.4', 'Internal reports vs locked source values') }}</li>
+            </ul>
+        </section>
+        <p><a class="btn btn-primary" href="{{ locale_path }}use-cases/" data-i18n="solutions.cta">{{ strings.get('solutions.cta', 'See the side-by-side example') }}</a></p>
     </main>
     {% include 'includes/landing_footer.html' %}
 </body>
