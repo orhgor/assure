@@ -695,5 +695,18 @@
   "poc.form.review.me.title": "Me + Title",
   "poc.form.submit": "Request a slot",
   "sec.poc.title": "POC runs",
-  "sec.poc.body": "Every POC runs in an isolated single-tenant environment. Your documents are never retained or used to train or fine-tune AI models — zero AI model training — and are deleted after the review according to the agreed retention."
+  "sec.poc.body": "Every POC runs in an isolated single-tenant environment. Your documents are never retained or used to train or fine-tune AI models — zero AI model training — and are deleted after the review according to the agreed retention.",
+  "trust.label": "Trusted by",
+  "trust.logo.1": "FinanceCorp",
+  "trust.logo.2": "InsureCo",
+  "trust.logo.3": "GovTech",
+  "trust.logo.4": "ProcurePro",
+  "trust.logo.5": "ClaimsPlus",
+  "trust.badge.1": "TLS 1.3",
+  "trust.badge.2": "AES-256",
+  "trust.badge.3": "SOC 2",
+  "trust.badge.4": "ISO 27001",
+  "trust.metric.1": "10,000+ documents verified",
+  "trust.metric.2": "500+ enterprises",
+  "trust.metric.3": "99.9% uptime"
 }

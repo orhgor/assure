@@ -1,24 +1,24 @@
 :root {
-:    /* Light theme — Stripe/Linear/Vercel enterprise aesthetic */
-:    --bg: #fafafa;
-:    --surface: #ffffff;
-:    --border: #e5e7eb;
-:    --border-strong: #d1d5db;
-:    --text: #0a0a0a;
-:    --text-secondary: #525252;
-:    --text-muted: #a3a3a3;
-:    --black: #0a0a0a;
-:    --white: #ffffff;
-:    --radius: 8px;
+    /* Light theme — Stripe/Linear/Vercel enterprise aesthetic */
+    --bg: #fafafa;
+    --surface: #ffffff;
+    --border: #e5e7eb;
+    --border-strong: #d1d5db;
+    --text: #0a0a0a;
+    --text-secondary: #525252;
+    --text-muted: #a3a3a3;
+    --black: #0a0a0a;
+    --white: #ffffff;
+    --radius: 8px;
     
-:    /* Dark terminal cards (conflict viewer) */
-:    --terminal-bg: #0a0a0a;
-:    --terminal-surface: #1a1a1a;
-:    --terminal-border: #333333;
-:    --terminal-text: #fafafa;
-:    --terminal-text-muted: #a3a3a3;
-:    --terminal-red: #ef4444;
-:    --terminal-emerald: #10b981;
+    /* Dark terminal cards (conflict viewer) */
+    --terminal-bg: #0a0a0a;
+    --terminal-surface: #1a1a1a;
+    --terminal-border: #333333;
+    --terminal-text: #fafafa;
+    --terminal-text-muted: #a3a3a3;
+    --terminal-red: #ef4444;
+    --terminal-emerald: #10b981;
 }
 
 * {
@@ -4663,4 +4663,74 @@ body {
 }
 .home-landing .hero-section .container {
     display: none;
+}
+
+
+/* ── Trust signals ── */
+.trust-section {
+    padding: 4rem 0;
+    border-top: 1px solid var(--border);
+}
+.trust-logos {
+    margin-bottom: 2rem;
+}
+.trust-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 1rem;
+    display: block;
+}
+.trust-logos-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2rem;
+    justify-content: center;
+    align-items: center;
+}
+.trust-logo {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    letter-spacing: -0.02em;
+    opacity: 0.7;
+}
+.trust-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    justify-content: center;
+    margin-bottom: 2rem;
+}
+.trust-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--text);
+}
+.trust-badge::before {
+    content: '';
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--terminal-emerald);
+}
+.trust-metrics {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2rem;
+    justify-content: center;
+}
+.trust-metric {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
 }
