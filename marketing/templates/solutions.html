@@ -30,17 +30,13 @@
             </section>
         </div>
         <p class="lede" data-i18n="solutions.line">{{ strings.get('solutions.line', 'Invoice p.3 and Contract p.12 are both open. Export blocked — a person or an agent decides, and the file can still be downloaded.') }}</p>
-        <section class="card proof-z3">
-            <h2 data-i18n="proof.z3.title">{{ strings.get('proof.z3.title', 'Z3 Conflict Box') }}</h2>
-            <p class="lede" data-i18n="proof.z3.body">{{ strings.get('proof.z3.body', 'Export blocked — a person or an agent decides, and the file can still be downloaded.') }}</p>
-        </section>
         <ol class="pipeline">
             <li><strong data-i18n="pipeline.1.name">{{ strings.get('pipeline.1.name', 'Upload') }}</strong><span data-i18n="pipeline.1.line">{{ strings.get('pipeline.1.line', 'The file stack goes in.') }}</span></li>
-            <li><strong data-i18n="pipeline.2.name">{{ strings.get('pipeline.2.name', 'ParSure') }}</strong><span data-i18n="pipeline.2.line">{{ strings.get('pipeline.2.line', 'ParSure turns the file stack into a page-anchored, structured environment.') }}</span></li>
-            <li><strong data-i18n="pipeline.3.name">{{ strings.get('pipeline.3.name', 'DraftSure') }}</strong><span data-i18n="pipeline.3.line">{{ strings.get('pipeline.3.line', 'An LLM writes the draft (DraftSure).') }}</span></li>
-            <li><strong data-i18n="pipeline.4.name">{{ strings.get('pipeline.4.name', 'CrossSure') }}</strong><span data-i18n="pipeline.4.line">{{ strings.get('pipeline.4.line', 'Z3 is a formal consistency checker: it checks whether figures and source values can all be true at the same time.') }}</span></li>
-            <li><strong data-i18n="pipeline.5.name">{{ strings.get('pipeline.5.name', 'Optional Red-Hat review') }}</strong><span data-i18n="pipeline.5.line">{{ strings.get('pipeline.5.line', 'Red-Hat review is an optional, separate adversarial pass that runs only when requested by the user.') }}</span></li>
-            <li><strong data-i18n="pipeline.6.name">{{ strings.get('pipeline.6.name', 'Person or agent decides') }}</strong><span data-i18n="pipeline.6.line">{{ strings.get('pipeline.6.line', 'A person or an agent decides, and the file can still be downloaded.') }}</span></li>
+            <li><strong data-i18n="pipeline.2.name">{{ strings.get('pipeline.2.name', 'ParSure') }}</strong><span data-i18n="pipeline.2.line">{{ strings.get('pipeline.2.line', 'ParSure extracts every figure, clause, and citation and pins each to the page it came from.') }}</span></li>
+            <li><strong data-i18n="pipeline.3.name">{{ strings.get('pipeline.3.name', 'DraftSure') }}</strong><span data-i18n="pipeline.3.line">{{ strings.get('pipeline.3.line', 'DraftSure produces a first draft from the structured document set.') }}</span></li>
+            <li><strong data-i18n="pipeline.4.name">{{ strings.get('pipeline.4.name', 'Z3') }}</strong><span data-i18n="pipeline.4.line">{{ strings.get('pipeline.4.line', 'Z3 checks whether every figure, clause, and citation can all be true at the same time. A contradiction stops export.') }}</span></li>
+            <li><strong data-i18n="pipeline.5.name">{{ strings.get('pipeline.5.name', 'Red Hat review') }}</strong><span data-i18n="pipeline.5.line">{{ strings.get('pipeline.5.line', 'A separate adversarial pass that runs only when requested by the user.') }}</span></li>
+            <li><strong data-i18n="pipeline.6.name">{{ strings.get('pipeline.6.name', 'Person or agent decides') }}</strong><span data-i18n="pipeline.6.line">{{ strings.get('pipeline.6.line', 'Export is flagged while a contradiction is unresolved. A person decides. The file can still be downloaded, with the flag recorded.') }}</span></li>
         </ol>
         <section class="card">
             <h2 data-i18n="solutions.cards.1.name">{{ strings.get('solutions.cards.1.name', 'Invoice vs contract') }}</h2>

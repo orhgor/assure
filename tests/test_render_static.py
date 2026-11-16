@@ -32,13 +32,13 @@ class RenderStaticTests(unittest.TestCase):
         self.assertTrue(index.is_file())
         html = index.read_text(encoding="utf-8")
         # Current brand hero (i18n.py brand.hero_title)
-        self.assertIn("Documents in. Verified output out.", html)
+        self.assertIn("When two documents disagree, both pages are already open.", html)
         self.assertIn("__ASSURE_LOCALE_PATHS", html)  # locale map injected; no app origin since the workbench was cut
         self.assertIn("/static/landing.css", html)
         tr_index = dist / "tr" / "index.html"
         self.assertTrue(tr_index.is_file())
         tr_html = tr_index.read_text(encoding="utf-8")
-        self.assertIn("Belgeler girer. Doğrulanmış çıktı çıkar.", tr_html)
+        self.assertIn("When two documents disagree, both pages are already open.", tr_html)
 
 
 if __name__ == "__main__":
