@@ -114,15 +114,41 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: bash marketing/deploy.sh --skip-build
 
-      - name: Verify deploy
+      - name: Verify live routes and CSS cache version
         run: |
-          sleep 10
-          echo "-- Live page:"
-          code=$(curl -s -o /dev/null -w '%{http_code}' https://www.assureproof.com/)
-          echo "status=$code"
-          test "$code" = "200"
-          echo "-- OG image matches the built file (cache-busted):"
-          expected=$(md5sum dist/static/og-image.png | cut -d' ' -f1)
-          actual=$(curl -s "https://assureproof.com/static/og-image.png?nocache=${GITHUB_RUN_ID}" | md5sum | cut -d' ' -f1)
-          echo "expected=$expected actual=$actual"
-          test "$expected" = "$actual"
+          EXPECTED_CSS=$(grep -oE 'landing\.css\?v=[0-9]+' dist/solutions/index.html | head -1)
+          if [ -z "$EXPECTED_CSS" ]; then
+            echo "::error::Could not determine expected CSS version from dist/solutions/index.html"
+            exit 1
+          fi
+          echo "Expected asset: $EXPECTED_CSS"
+
+          URLS=(
+            "https://assureproof.com/solutions/"
+            "https://www.assureproof.com/"
+            "https://getassureai.com/solutions/"
+          )
+
+          for url in "${URLS[@]}"; do
+            passed=false
+            for attempt in 1 2 3 4 5; do
+              body=$(curl -sSL -w "\n%{http_code}" "$url" || true)
+              status=$(echo "$body" | tail -n1)
+              html=$(echo "$body" | sed '$d')
+
+              if [ "$status" = "200" ] && echo "$html" | grep -qF "$EXPECTED_CSS"; then
+                echo "OK ($status): $url serves $EXPECTED_CSS"
+                passed=true
+                break
+              fi
+
+              echo "Attempt $attempt/5 for $url got status=$status (waiting 3s)..."
+              sleep 3
+            done
+
+            if [ "$passed" != "true" ]; then
+              actual_css=$(echo "$html" | grep -oE 'landing\.css\?v=[0-9]+' | head -1)
+              echo "::error::Smoke test failed for $url (HTTP $status, found '${actual_css:-none}', expected '$EXPECTED_CSS')"
+              exit 1
+            fi
+          done
