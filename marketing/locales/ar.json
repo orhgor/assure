@@ -587,5 +587,11 @@
   "brand.hero_title": "When two documents disagree, both pages are already open.",
   "brand.hero_title_html": "عندما يختلف مستندان، تكون كلا الصفحتين مفتوحتين بالفعل.",
   "home.hero.sub": "Assure runs a formal consistency check across every figure, clause, and citation in your document set — and shows you exactly where they conflict.",
-  "landing.hero.cta_secondary": "Run a POC"
+  "landing.hero.cta_secondary": "Run a POC",
+  "home.hero.eyebrow": "Document verification platform",
+  "home.runs.title": "Where it runs",
+  "home.steps.title": "How it works",
+  "privacy.enterprise.summary": "This policy covers the assureproof.com website only. We use your contact details only to reply and arrange a review.",
+  "proof.a.cap": "Contract cap",
+  "proof.b.billed": "Amount billed"
 }

@@ -700,5 +700,10 @@
   "trust.badge.2": "AES-256",
   "trust.metric.1": "3,000+ documents parsed",
   "trust.metric.2": "2,300 cross-checks run",
-  "trust.metric.3": "800+ drafts produced"
+  "trust.metric.3": "800+ drafts produced",
+  "home.hero.eyebrow": "Document verification platform",
+  "home.hero.sub": "Assure runs a formal consistency check across every figure, clause, and citation in your document set — and shows you exactly where they conflict.",
+  "privacy.enterprise.summary": "This policy covers the assureproof.com website only. We use your contact details only to reply and arrange a review.",
+  "proof.a.cap": "Contract cap",
+  "proof.b.billed": "Amount billed"
 }

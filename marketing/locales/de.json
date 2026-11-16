@@ -587,5 +587,13 @@
   "uc.ins.sub": "Das Schadensformular wird gegen unterstützende Belege und medizinische Rechnungen geprüft. Quellseiten bleiben verlinkt. Widersprüche erscheinen auf dem Prüfbildschirm. Export auf dem Prüfbildschirm blockiert. Eine Person oder ein Agent entscheidet. Die Datei bleibt herunterladbar.",
   "uc.fuel.sub": "Die Kraftstofflieferprotokolle werden gegen Bonus- und Rabattabrechnungen geprüft. Quellseiten bleiben verlinkt. Widersprüche erscheinen auf dem Prüfbildschirm. Export auf dem Prüfbildschirm blockiert. Eine Person oder ein Agent entscheidet. Die Datei bleibt herunterladbar.",
   "poc.lead": "Ein Workflow. Begrenzte Beispielfälle. Eine schriftliche „Ja, fortfahren“-Notiz startet die Bewertung.",
-  "brand.hero_title_html": "Wenn zwei Dokumente nicht übereinstimmen, sind beide Seiten bereits offen."
+  "brand.hero_title_html": "Wenn zwei Dokumente nicht übereinstimmen, sind beide Seiten bereits offen.",
+  "home.hero.eyebrow": "Document verification platform",
+  "home.hero.sub": "Assure runs a formal consistency check across every figure, clause, and citation in your document set — and shows you exactly where they conflict.",
+  "home.runs.title": "Where it runs",
+  "home.steps.title": "How it works",
+  "landing.hero.cta_secondary": "Run a POC",
+  "privacy.enterprise.summary": "This policy covers the assureproof.com website only. We use your contact details only to reply and arrange a review.",
+  "proof.a.cap": "Contract cap",
+  "proof.b.billed": "Amount billed"
 }
