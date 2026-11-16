@@ -4345,11 +4345,12 @@ body {
 
 /* ---- Subpage design pass: hero treatment, card chrome, type hierarchy, rhythm ---- */
 
-/* Shared .page wrapper: centered, generous gutters */
+/* Shared .page wrapper: one centered column, same 1100px width + 2rem
+   gutters as the site's .container (header, homepage sections) */
 .enterprise-landing .page {
-    max-width: 72rem;
+    max-width: 1100px;
     margin: 0 auto;
-    padding: 0 1.5rem;
+    padding: 0 2rem;
 }
 
 /* Page hero: large left-aligned H1, same visual weight as the homepage */
@@ -4369,6 +4370,19 @@ body {
     color: #475569;
     max-width: 46rem;
     margin: 0;
+}
+
+/* Kill legacy inner max-widths so subpage grids fill the shared 1100px column */
+.enterprise-landing .page .price-grid--duo,
+.enterprise-landing .page .price-grid {
+    max-width: 100%;
+}
+
+/* Mobile: match .container's 1rem gutters so the column lines up exactly */
+@media (max-width: 640px) {
+    .enterprise-landing .page {
+        padding: 0 1rem;
+    }
 }
 
 /* Vertical rhythm: consistent breathing room between page blocks */
