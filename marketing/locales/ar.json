@@ -585,7 +585,7 @@
   "uc.fuel.sub": "تُطابق سجلات توصيل الوقود مقابل كشوفات المكافآت والحسومات. تبقى صفحات المصدر مرتبطة. تظهر التعارضات على شاشة المراجعة. التصدير محظور على شاشة المراجعة. يقرر شخص أو وكيل. يبقى الملف قابلاً للتنزيل.",
   "poc.lead": "سير عمل واحد. حالات نموذجية محدودة. موافقة مكتوبة بـ“نعم، تابع” تبدأ التقييم.",
   "brand.hero_title": "When two documents disagree, both pages are already open.",
-  "brand.hero_title_html": "When two documents disagree, both pages are already open.",
+  "brand.hero_title_html": "عندما يختلف مستندان، تكون كلا الصفحتين مفتوحتين بالفعل.",
   "home.hero.sub": "Assure runs a formal consistency check across every figure, clause, and citation in your document set — and shows you exactly where they conflict.",
   "landing.hero.cta_secondary": "Run a POC"
 }
