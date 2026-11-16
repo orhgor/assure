@@ -26,7 +26,7 @@
     <link rel="apple-touch-icon" href="{{ url_for('static', filename='assure-logo.png') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
     {% if locale|default('en') == 'ar' %}
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
     {% endif %}
@@ -43,31 +43,43 @@
     {% set nav_current = 'landing' %}
     {% include 'includes/landing_header.html' %}
 
-            <section class="hero-section">
-            <div class="container">
-                <h1 class="hero-title" data-i18n-html="brand.hero_title_html">{{ strings.get('brand.hero_title_html', 'When two documents disagree, both pages are already open.')|safe }}</h1>
-                <div class="price-grid price-grid--duo home-hero-proof" role="group" aria-label="{{ strings.get('proof.duo.aria', 'Source A — contract cap 120,000 EUR, compared with Source B — invoice 142,500 EUR') }}">
-                    <section class="card">
-                        <h2 data-i18n="proof.a.kicker">{{ strings.get('proof.a.kicker', 'Source A') }}</h2>
-                        <p class="lede" data-i18n="proof.a.title">{{ strings.get('proof.a.title', 'Master Services Agreement (MSA), Page 12, Clause 4.2') }}</p>
-                        <p class="lede" data-i18n="proof.a.value">{{ strings.get('proof.a.value', '120,000 EUR cap') }}</p>
-                    </section>
-                    <section class="card">
-                        <h2 data-i18n="proof.b.kicker">{{ strings.get('proof.b.kicker', 'Source B') }}</h2>
-                        <p class="lede" data-i18n="proof.b.title">{{ strings.get('proof.b.title', 'Vendor Invoice #884, Page 3, Line Item 8') }}</p>
-                        <p class="lede" data-i18n="proof.b.value">{{ strings.get('proof.b.value', '142,500 EUR billed') }}</p>
-                    </section>
+        <section class="hero-section">
+            <div class="hero-inner">
+                <div class="hero-eyebrow" data-i18n="home.hero.eyebrow">{{ strings.get('home.hero.eyebrow', 'Document verification platform') }}</div>
+                <h1 class="hero-title" data-i18n-html="brand.hero_title_html">{{ strings.get('brand.hero_title_html', 'When two documents disagree, both pages are already open.') }}</h1>
+                <p class="hero-sub" data-i18n="home.hero.sub">{{ strings.get('home.hero.sub', 'Assure runs a formal consistency check across every figure, clause, and citation in your document set — and shows you exactly where they conflict.') }}</p>
+                <div class="proof-terminal" role="group" aria-label="{{ strings.get('proof.duo.aria', 'Source A — contract cap 120,000 EUR, compared with Source B — invoice 142,500 EUR') }}">
+                    <div class="proof-terminal-source">
+                        <div class="terminal-header" data-i18n="proof.a.kicker">{{ strings.get('proof.a.kicker', 'Source A') }}</div>
+                        <div class="terminal-body">
+                            <div class="terminal-line" data-i18n="proof.a.title">{{ strings.get('proof.a.title', 'MSA · Page 12 · Clause 4.2') }}</div>
+                            <div class="terminal-value" data-i18n="proof.a.value">{{ strings.get('proof.a.value', '120,000 EUR') }}</div>
+                            <div class="terminal-line" data-i18n="proof.a.cap">{{ strings.get('proof.a.cap', 'Contract cap') }}</div>
+                        </div>
+                    </div>
+                    <div class="conflict-delta">
+                        <div class="delta-label" data-i18n="proof.delta.label">{{ strings.get('proof.delta.label', 'Overage') }}</div>
+                        <div class="delta-value" data-i18n="proof.delta.value">{{ strings.get('proof.delta.value', '+22,500') }}</div>
+                        <div class="delta-label" data-i18n="proof.delta.currency">{{ strings.get('proof.delta.currency', 'EUR') }}</div>
+                    </div>
+                    <div class="proof-terminal-source">
+                        <div class="terminal-header" data-i18n="proof.b.kicker">{{ strings.get('proof.b.kicker', 'Source B') }}</div>
+                        <div class="terminal-body">
+                            <div class="terminal-line" data-i18n="proof.b.title">{{ strings.get('proof.b.title', 'Invoice #884 · Page 3 · Line 8') }}</div>
+                            <div class="terminal-value" data-i18n="proof.b.value">{{ strings.get('proof.b.value', '142,500 EUR') }}</div>
+                            <div class="terminal-line" data-i18n="proof.b.billed">{{ strings.get('proof.b.billed', 'Amount billed') }}</div>
+                        </div>
+                    </div>
                 </div>
-                <section class="card proof-z3">
-                    <h2 data-i18n="proof.z3.title">{{ strings.get('proof.z3.title', 'Z3 Conflict Box') }}</h2>
-                    <p class="lede" data-i18n="proof.z3.body">{{ strings.get('proof.z3.body', 'Export blocked — a person or an agent decides, and the file can still be downloaded.') }}</p>
+                <section class="conflict-z3-terminal">
+                    <div class="terminal-header" data-i18n="proof.z3.title">{{ strings.get('proof.z3.title', 'Z3 Conflict') }}</div>
+                    <div class="terminal-body">
+                        <div class="terminal-line" data-i18n="proof.z3.body">{{ strings.get('proof.z3.body', 'Export blocked — the two sources cannot both be true. A person or an agent decides, and the file can still be downloaded.') }}</div>
+                    </div>
                 </section>
-                <p class="hero-sub hero-see" data-i18n="home.hero.see">{{ strings.get('home.hero.see', 'Invoice p.3 and Contract p.12 are both open. Export is flagged.') }}</p>
-                <p class="hero-sub" data-i18n="home.hero.proof.line">{{ strings.get('home.hero.proof.line', 'A person decides.') }}</p>
-                <p class="hero-icp" data-i18n="home.hero.icp">{{ strings.get('home.hero.icp', 'For Finance, Claims, and Procurement teams.') }}</p>
                 <div class="hero-cta-group">
-                    <button type="button" class="btn-primary" data-demo-open data-i18n="landing.hero.cta_primary">{{ strings.get('landing.hero.cta_primary', 'Book a demo') }}</button>
-                    <a href="{{ locale_path }}poc/" class="btn-secondary" data-i18n="landing.hero.cta_secondary">{{ strings.get('landing.hero.cta_secondary', 'See the example') }}</a>
+                    <button type="button" class="btn-primary" data-demo-open data-i18n="landing.hero.cta_primary">{{ strings.get('landing.hero.cta_primary', 'See the proof') }}</button>
+                    <a href="{{ locale_path }}poc/" class="btn-secondary" data-i18n="landing.hero.cta_secondary">{{ strings.get('landing.hero.cta_secondary', 'Run a POC') }}</a>
                 </div>
             </div>
         </section>
