@@ -4294,6 +4294,34 @@ body:not([class]) main a:not([class]):hover { color: #f0f2f5; }
 
 /* ---- Pricing: card breathing room + supporting note ---- */
 .price-grid .card { width: 100%; padding: 2rem; }
+
+/* Solutions proof duo — dark terminal cards */
+.price-grid--duo .card {
+    background: var(--terminal-bg);
+    border: 1px solid var(--terminal-border);
+    color: var(--terminal-text);
+}
+.price-grid--duo .card h2 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--terminal-text-muted);
+    margin-bottom: 0.75rem;
+}
+.price-grid--duo .card .lede {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    color: var(--terminal-text);
+    line-height: 1.5;
+}
+.price-grid--duo .card .lede:last-child {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--terminal-text);
+    margin-top: 0.5rem;
+}
 .price-note { margin: 1rem 0 0; color: var(--text-muted, #475569); font-size: 0.9375rem; line-height: 1.6; text-align: center; }
 
 /* ---- Architecture: numbered flow ---- */
@@ -4494,12 +4522,9 @@ body {
 }
 
 /* ---- V3: proof duo (Source A | Z3 Conflict Box | Source B) + pipeline ---- */
-.proof-z3 { margin-top: 1.5rem; border: 1px solid #b45309; background: #fffbeb; }
-.proof-z3 h2 { color: #92400e; }
-.proof-z3 .lede { color: #57534e; }
 .pipeline { display: flex; flex-wrap: wrap; gap: .75rem; list-style: none; padding: 0; margin: 1.5rem 0; }
 .pipeline li { flex: 1 1 9rem; border: 1px solid #e2e8f0; border-radius: .5rem; padding: .75rem .85rem; background: #fff; }
-.pipeline strong { display: block; font-weight: 700; }
+.pipeline strong { display: block; font-weight: 700; font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; }
 .pipeline span { display: block; font-size: .85rem; color: #475569; margin-top: .3rem; line-height: 1.4; }
 .poc-form fieldset { border: 1px solid #e2e8f0; border-radius: .5rem; padding: .75rem 1rem; margin: 1rem 0; }
 .poc-form legend { font-weight: 600; padding: 0 .4rem; }
