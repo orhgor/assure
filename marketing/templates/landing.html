@@ -46,16 +46,22 @@
             <section class="hero-section">
             <div class="container">
                 <h1 class="hero-title" data-i18n-html="brand.hero_title_html">{{ strings.get('brand.hero_title_html', 'When two documents disagree, both pages are already open.')|safe }}</h1>
-                <div class="price-grid price-grid--duo home-hero-proof" role="group" aria-label="{{ strings.get('home.hero.proof.aria', 'Invoice — 142,500 EUR compared with contract cap — 120,000 EUR') }}">
+                <div class="price-grid price-grid--duo home-hero-proof" role="group" aria-label="{{ strings.get('proof.duo.aria', 'Source A — contract cap 120,000 EUR, compared with Source B — invoice 142,500 EUR') }}">
                     <section class="card">
-                        <h2 data-i18n="home.hero.proof.invoice.label">{{ strings.get('home.hero.proof.invoice.label', 'Invoice') }}</h2>
-                        <p class="lede" data-i18n="home.hero.proof.invoice.value">{{ strings.get('home.hero.proof.invoice.value', '142,500 EUR') }}</p>
+                        <h2 data-i18n="proof.a.kicker">{{ strings.get('proof.a.kicker', 'Source A') }}</h2>
+                        <p class="lede" data-i18n="proof.a.title">{{ strings.get('proof.a.title', 'Master Services Agreement (MSA), Page 12, Clause 4.2') }}</p>
+                        <p class="lede" data-i18n="proof.a.value">{{ strings.get('proof.a.value', '120,000 EUR cap') }}</p>
                     </section>
                     <section class="card">
-                        <h2 data-i18n="home.hero.proof.cap.label">{{ strings.get('home.hero.proof.cap.label', 'Contract cap') }}</h2>
-                        <p class="lede" data-i18n="home.hero.proof.cap.value">{{ strings.get('home.hero.proof.cap.value', '120,000 EUR') }}</p>
+                        <h2 data-i18n="proof.b.kicker">{{ strings.get('proof.b.kicker', 'Source B') }}</h2>
+                        <p class="lede" data-i18n="proof.b.title">{{ strings.get('proof.b.title', 'Vendor Invoice #884, Page 3, Line Item 8') }}</p>
+                        <p class="lede" data-i18n="proof.b.value">{{ strings.get('proof.b.value', '142,500 EUR billed') }}</p>
                     </section>
                 </div>
+                <section class="card proof-z3">
+                    <h2 data-i18n="proof.z3.title">{{ strings.get('proof.z3.title', 'Z3 Conflict Box') }}</h2>
+                    <p class="lede" data-i18n="proof.z3.body">{{ strings.get('proof.z3.body', 'Export blocked — a person or an agent decides, and the file can still be downloaded.') }}</p>
+                </section>
                 <p class="hero-sub hero-see" data-i18n="home.hero.see">{{ strings.get('home.hero.see', 'Invoice p.3 and Contract p.12 are both open. Export is flagged.') }}</p>
                 <p class="hero-sub" data-i18n="home.hero.proof.line">{{ strings.get('home.hero.proof.line', 'A person decides.') }}</p>
                 <p class="hero-icp" data-i18n="home.hero.icp">{{ strings.get('home.hero.icp', 'For Finance, Claims, and Procurement teams.') }}</p>
@@ -69,10 +75,13 @@
         <section id="how" class="home-section">
             <div class="container">
                 <h2 class="section-title" data-i18n="home.steps.title">{{ strings.get('home.steps.title', 'How it works') }}</h2>
-                <ol class="home-stages">
-                    <li><span>01</span><h3 data-i18n="home.steps.1.name">{{ strings.get('home.steps.1.name', 'Both pages open') }}</h3><p data-i18n="home.steps.1.text">{{ strings.get('home.steps.1.text', 'The invoice and the contract cap sit side by side. Every figure keeps its source page.') }}</p></li>
-                    <li><span>02</span><h3 data-i18n="home.steps.2.name">{{ strings.get('home.steps.2.name', 'Contradiction marked') }}</h3><p data-i18n="home.steps.2.text">{{ strings.get('home.steps.2.text', "The formal consistency check flags the conflict. Export is blocked.") }}</p></li>
-                    <li><span>03</span><h3 data-i18n="home.steps.3.name">{{ strings.get('home.steps.3.name', 'Person decides') }}</h3><p data-i18n="home.steps.3.text">{{ strings.get('home.steps.3.text', 'A person accepts or rejects each finding. The file stays downloadable.') }}</p></li>
+                <ol class="pipeline">
+                    <li><strong data-i18n="pipeline.1.name">{{ strings.get('pipeline.1.name', 'Upload') }}</strong><span data-i18n="pipeline.1.line">{{ strings.get('pipeline.1.line', 'The file stack goes in.') }}</span></li>
+                    <li><strong data-i18n="pipeline.2.name">{{ strings.get('pipeline.2.name', 'ParSure') }}</strong><span data-i18n="pipeline.2.line">{{ strings.get('pipeline.2.line', 'ParSure turns the file stack into a page-anchored, structured environment.') }}</span></li>
+                    <li><strong data-i18n="pipeline.3.name">{{ strings.get('pipeline.3.name', 'DraftSure') }}</strong><span data-i18n="pipeline.3.line">{{ strings.get('pipeline.3.line', 'An LLM writes the draft (DraftSure).') }}</span></li>
+                    <li><strong data-i18n="pipeline.4.name">{{ strings.get('pipeline.4.name', 'CrossSure') }}</strong><span data-i18n="pipeline.4.line">{{ strings.get('pipeline.4.line', 'Z3 is a formal consistency checker: it checks whether figures and source values can all be true at the same time.') }}</span></li>
+                    <li><strong data-i18n="pipeline.5.name">{{ strings.get('pipeline.5.name', 'Optional Red-Hat review') }}</strong><span data-i18n="pipeline.5.line">{{ strings.get('pipeline.5.line', 'Red-Hat review is an optional, separate adversarial pass that runs only when requested by the user.') }}</span></li>
+                    <li><strong data-i18n="pipeline.6.name">{{ strings.get('pipeline.6.name', 'Person or agent decides') }}</strong><span data-i18n="pipeline.6.line">{{ strings.get('pipeline.6.line', 'A person or an agent decides, and the file can still be downloaded.') }}</span></li>
                 </ol>
             </div>
         </section>
@@ -80,7 +89,7 @@
         <section id="runs" class="home-section">
             <div class="container">
                 <h2 class="section-title" data-i18n="home.runs.title">{{ strings.get('home.runs.title', 'Where it runs') }}</h2>
-                <p class="section-sub" data-i18n="landing.hero.deployment">{{ strings.get('landing.hero.deployment', 'Runs in your AWS account or on-prem. You pick where the models run.') }}</p>
+                <p class="section-sub" data-i18n="sovereign.body">{{ strings.get('sovereign.body', 'Runs in your own AWS account, on-premises, or private GPU environment. You choose where the models run. When the model is local, documents stay inside that boundary.') }}</p>
                 <p class="home-more"><a href="{{ locale_path }}security/" data-i18n="home.trust.link">{{ strings.get('home.trust.link', 'Security and data') }}</a> <span aria-hidden="true">→</span></p>
             </div>
         </section>

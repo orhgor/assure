@@ -19,15 +19,29 @@
         </div>
         <div class="price-grid price-grid--duo">
             <section class="card">
-                <h2 data-i18n="solutions.invoice.label">{{ strings.get('solutions.invoice.label', 'Invoice') }}</h2>
-                <p class="lede" data-i18n="solutions.invoice.value">{{ strings.get('solutions.invoice.value', '142,500 EUR') }}</p>
+                <h2 data-i18n="proof.a.kicker">{{ strings.get('proof.a.kicker', 'Source A') }}</h2>
+                <p class="lede" data-i18n="proof.a.title">{{ strings.get('proof.a.title', 'Master Services Agreement (MSA), Page 12, Clause 4.2') }}</p>
+                <p class="lede" data-i18n="proof.a.value">{{ strings.get('proof.a.value', '120,000 EUR cap') }}</p>
             </section>
             <section class="card">
-                <h2 data-i18n="solutions.cap.label">{{ strings.get('solutions.cap.label', 'Contract cap') }}</h2>
-                <p class="lede" data-i18n="solutions.cap.value">{{ strings.get('solutions.cap.value', '120,000 EUR') }}</p>
+                <h2 data-i18n="proof.b.kicker">{{ strings.get('proof.b.kicker', 'Source B') }}</h2>
+                <p class="lede" data-i18n="proof.b.title">{{ strings.get('proof.b.title', 'Vendor Invoice #884, Page 3, Line Item 8') }}</p>
+                <p class="lede" data-i18n="proof.b.value">{{ strings.get('proof.b.value', '142,500 EUR billed') }}</p>
             </section>
         </div>
-        <p class="lede" data-i18n="solutions.line">{{ strings.get('solutions.line', 'Invoice p.3 and Contract p.12 are both open. Export is flagged. A person decides.') }}</p>
+        <p class="lede" data-i18n="solutions.line">{{ strings.get('solutions.line', 'Invoice p.3 and Contract p.12 are both open. Export blocked — a person or an agent decides, and the file can still be downloaded.') }}</p>
+        <section class="card proof-z3">
+            <h2 data-i18n="proof.z3.title">{{ strings.get('proof.z3.title', 'Z3 Conflict Box') }}</h2>
+            <p class="lede" data-i18n="proof.z3.body">{{ strings.get('proof.z3.body', 'Export blocked — a person or an agent decides, and the file can still be downloaded.') }}</p>
+        </section>
+        <ol class="pipeline">
+            <li><strong data-i18n="pipeline.1.name">{{ strings.get('pipeline.1.name', 'Upload') }}</strong><span data-i18n="pipeline.1.line">{{ strings.get('pipeline.1.line', 'The file stack goes in.') }}</span></li>
+            <li><strong data-i18n="pipeline.2.name">{{ strings.get('pipeline.2.name', 'ParSure') }}</strong><span data-i18n="pipeline.2.line">{{ strings.get('pipeline.2.line', 'ParSure turns the file stack into a page-anchored, structured environment.') }}</span></li>
+            <li><strong data-i18n="pipeline.3.name">{{ strings.get('pipeline.3.name', 'DraftSure') }}</strong><span data-i18n="pipeline.3.line">{{ strings.get('pipeline.3.line', 'An LLM writes the draft (DraftSure).') }}</span></li>
+            <li><strong data-i18n="pipeline.4.name">{{ strings.get('pipeline.4.name', 'CrossSure') }}</strong><span data-i18n="pipeline.4.line">{{ strings.get('pipeline.4.line', 'Z3 is a formal consistency checker: it checks whether figures and source values can all be true at the same time.') }}</span></li>
+            <li><strong data-i18n="pipeline.5.name">{{ strings.get('pipeline.5.name', 'Optional Red-Hat review') }}</strong><span data-i18n="pipeline.5.line">{{ strings.get('pipeline.5.line', 'Red-Hat review is an optional, separate adversarial pass that runs only when requested by the user.') }}</span></li>
+            <li><strong data-i18n="pipeline.6.name">{{ strings.get('pipeline.6.name', 'Person or agent decides') }}</strong><span data-i18n="pipeline.6.line">{{ strings.get('pipeline.6.line', 'A person or an agent decides, and the file can still be downloaded.') }}</span></li>
+        </ol>
         <section class="card">
             <h2 data-i18n="solutions.cards.1.name">{{ strings.get('solutions.cards.1.name', 'Invoice vs contract') }}</h2>
             <p data-i18n="solutions.cards.1.finding">{{ strings.get('solutions.cards.1.finding', 'The invoice total is 142,500 EUR. The contract cap is 120,000 EUR. Both source pages stay open.') }}</p>

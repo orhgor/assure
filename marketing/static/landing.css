@@ -4491,3 +4491,16 @@ body {
     .enterprise-landing .page .arch-steps li { padding: 1rem 0 1rem 3rem; }
     .enterprise-landing .page .arch-steps li::before { width: 2rem; height: 2rem; top: 1rem; }
 }
+
+/* ---- V3: proof duo (Source A | Z3 Conflict Box | Source B) + pipeline ---- */
+.proof-z3 { margin-top: 1.5rem; border: 1px solid #b45309; background: #fffbeb; }
+.proof-z3 h2 { color: #92400e; }
+.proof-z3 .lede { color: #57534e; }
+.pipeline { display: flex; flex-wrap: wrap; gap: .75rem; list-style: none; padding: 0; margin: 1.5rem 0; }
+.pipeline li { flex: 1 1 9rem; border: 1px solid #e2e8f0; border-radius: .5rem; padding: .75rem .85rem; background: #fff; }
+.pipeline strong { display: block; font-weight: 700; }
+.pipeline span { display: block; font-size: .85rem; color: #475569; margin-top: .3rem; line-height: 1.4; }
+.poc-form fieldset { border: 1px solid #e2e8f0; border-radius: .5rem; padding: .75rem 1rem; margin: 1rem 0; }
+.poc-form legend { font-weight: 600; padding: 0 .4rem; }
+.poc-form label { display: block; margin-top: .75rem; }
+.poc-form .text-small { font-size: .85rem; color: #64748b; }

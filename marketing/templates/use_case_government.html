@@ -38,15 +38,19 @@
     {% set nav_current = 'use-cases' %}
     {% include 'includes/landing_header.html' %}
 
-    <main id="main-content">
-        <section class="hero-section gov-hero">
+    <main id="main-content" class="page">
+        <section class="hero-section gov-hero page-hero">
             <div class="container">
                 <a href="{{ locale_path }}use-cases/" class="back-link" data-i18n="uc.back">{{ strings.get('uc.back', '← All use cases') }}</a>
                 <h1 class="hero-title" data-i18n="uc.gov.title">{{ strings.get('uc.gov.title', 'Government document checks') }}</h1>
-                <p class="hero-sub" data-i18n="uc.gov.sub">{{ strings.get('uc.gov.sub', 'Applicant files are checked against ID documents and certificates. Source pages stay linked. Contradictions appear on the review screen. Export is flagged. A person decides. The file can still be downloaded.') }}</p>
+                <p class="hero-sub" data-i18n="uc.gov.sub">{{ strings.get('uc.gov.sub', 'Grant Applications/Dossiers are checked against the Attached Expense Audit. Source pages stay linked. Contradictions appear on the review screen. Export blocked on the review screen. A person or an agent decides. The file can still be downloaded.') }}</p>
                 <p data-i18n="gov.sub">{{ strings.get('gov.sub', 'Applicants upload one file. Assure keeps the page for each figure and checks the draft against the source. Staff decide.') }}</p>
                 <p data-i18n="gov.human.body2">{{ strings.get('gov.human.body2', 'Every finding cites its source page, so staff and applicants can see exactly where it came from.') }}</p>
             </div>
+        </section>
+        <section class="card">
+            <h2 data-i18n="sovereign.title">{{ strings.get('sovereign.title', 'Where it runs') }}</h2>
+            <p data-i18n="sovereign.body">{{ strings.get('sovereign.body', 'Runs in your own AWS account, on-premises, or private GPU environment. You choose where the models run. When the model is local, documents stay inside that boundary.') }}</p>
         </section>
 
         {% set flow_line1 = strings.get('flow.1.line', '') %}

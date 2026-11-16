@@ -12,9 +12,11 @@
       <h2 data-i18n="sec.2.title">{{ strings.get('sec.2.title', 'Model boundary') }}</h2>
       <p data-i18n="sec.2.body">{{ strings.get('sec.2.body', 'Local: documents stay inside your environment. Hosted: customer data is never used for training.') }}</p>
       <h2 data-i18n="sec.3.title">{{ strings.get('sec.3.title', 'Encryption') }}</h2>
-      <p data-i18n="sec.3.body">{{ strings.get('sec.3.body', 'Data is encrypted at rest and in transit.') }}</p>
+      <p data-i18n="sec.3.body">{{ strings.get('sec.3.body', 'Data is encrypted in transit with TLS 1.3 and at rest with AES-256. Each check keeps its own review record, kept under your retention settings, with the source page linked to every figure.') }}</p>
       <h2 data-i18n="sec.4.title">{{ strings.get('sec.4.title', 'Access') }}</h2>
       <p data-i18n="sec.4.body">{{ strings.get('sec.4.body', 'Every user signs in. Each project is visible only to its owner and the people they add.') }}</p>
+      <h2 data-i18n="sec.poc.title">{{ strings.get('sec.poc.title', 'POC runs') }}</h2>
+      <p data-i18n="sec.poc.body">{{ strings.get('sec.poc.body', 'Every POC runs in an isolated single-tenant environment. Your documents are never retained or used to train or fine-tune AI models — zero AI model training — and are deleted after the review according to the agreed retention.') }}</p>
     </section>
   </div>
   {% include 'includes/demo_cta.html' %}

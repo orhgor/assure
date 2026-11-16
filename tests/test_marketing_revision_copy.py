@@ -55,24 +55,119 @@ def test_no_table_leaks_or_confirm():
 
 def test_home_is_the_earlier_enterprise_page():
     html = _pages()["/"]
-    # The fold: H1, the labeled proof duo, one supporting line, one CTA.
+    # The fold: H1, the labeled proof duo (Source A | Source B + Z3 Conflict Box), CTAs.
     assert "When two documents disagree, both pages are already open." in html
-    assert "Invoice" in html and "142,500 EUR" in html
-    assert "Contract cap" in html and "120,000 EUR" in html
+    assert "Source A" in html and "Source B" in html
+    assert "Master Services Agreement (MSA), Page 12, Clause 4.2" in html and "120,000 EUR" in html
+    assert "Vendor Invoice #884, Page 3, Line Item 8" in html and "142,500 EUR" in html
+    assert "Z3 Conflict Box" in html
+    assert "Export blocked — a person or an agent decides, and the file can still be downloaded." in html
     assert "Invoice p.3 and Contract p.12 are both open." in html
-    assert "A person decides." in html
     assert "For Finance, Claims, and Procurement teams." in html
     assert "Book a demo" in html and "See the example" in html
-    assert "Both pages open" in html and "Contradiction marked" in html and "Person decides" in html
+    # V3 pipeline: Upload → ParSure → DraftSure → CrossSure → Red-Hat → person or agent decides
+    for stage in ("Upload", "ParSure", "DraftSure", "CrossSure", "Red-Hat", "Person or agent decides"):
+        assert stage in html
+    # Sovereign boundary wording, full V3 text on /
+    assert "Runs in your own AWS account, on-premises, or private GPU environment." in html
+    assert "When the model is local, documents stay inside that boundary." in html
     # Retired copy and internal jargon are gone (visible copy and schema).
     assert "Before you pay, accept, or sign." not in html
-    assert "Z3" not in html
-    assert "ParSure" not in html and "DraftSure" not in html and "CrossSure" not in html
     assert "For teams that check before they act." not in html
     assert "Launch App" not in html
     assert "0F5C4D" not in html
+    assert "A person decides." not in _visible(html)  # V3 wording replaces it everywhere
     # The Open Graph image meta must point at the canonical URL, exactly.
     assert '<meta property="og:image" content="https://assureproof.com/static/og-image.png">' in html
+
+
+def _visible(html: str) -> str:
+    return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", unescape(html))).strip()
+
+
+def test_v3_pipeline_order_on_core_pages():
+    for rel in ["index.html", "architecture/index.html", "solutions/index.html", "poc/index.html"]:
+        p = DIST / rel
+        if not p.is_file():
+            pytest.skip("marketing dist is not built: " + rel)
+        t = _visible(p.read_text(encoding="utf-8"))
+        stages = ["Upload", "ParSure", "DraftSure", "CrossSure", "Red-Hat", "Person or agent decides"]
+        pos = [t.find(s) for s in stages]
+        assert all(i >= 0 for i in pos), (rel, [s for s, i in zip(stages, pos) if i < 0])
+        assert pos == sorted(pos), (rel, pos)
+
+
+def test_v3_export_blocked_phrasing():
+    for rel in ["index.html", "architecture/index.html", "solutions/index.html", "poc/index.html",
+                "use-cases/insurance/index.html", "use-cases/fuel-retail/index.html",
+                "use-cases/government/index.html"]:
+        p = DIST / rel
+        if not p.is_file():
+            pytest.skip("marketing dist is not built: " + rel)
+        t = _visible(p.read_text(encoding="utf-8")).lower()
+        if "export" not in t:
+            continue
+        assert "export blocked" in t, rel
+        assert "a person or an agent decides" in t, rel
+        assert "file can still be downloaded" in t, rel
+
+
+def test_v3_poc_conversion_hub():
+    p = DIST / "poc" / "index.html"
+    if not p.is_file():
+        pytest.skip("marketing dist is not built: poc")
+    html = p.read_text(encoding="utf-8")
+    t = _visible(html)
+    for token in ("4 selective, assessment-gated free POC slots", "1 workflow",
+                  "sample cases", "max 50 files", "5-day turnaround", "zero IT setup",
+                  "Yes, proceed", "Dec 10", "Dec 20", "Trust & Privacy FAQ",
+                  "Work email", "Document pair to cross-check", "Just me", "Me + Title"):
+        assert token in t, token
+    assert "<form" in html and "/contact-submit" in html
+    assert "<iframe" not in html.lower(), "no third-party form iframes"
+
+
+def test_v3_security_trust_faq():
+    for rel in ["security/index.html", "privacy/index.html"]:
+        p = DIST / rel
+        if not p.is_file():
+            pytest.skip("marketing dist is not built: " + rel)
+        t = _visible(p.read_text(encoding="utf-8"))
+        for token in ("TLS 1.3", "AES-256", "isolated single-tenant", "zero AI model training",
+                      "deleted after the review", "agreed retention"):
+            assert token in t, (rel, token)
+
+
+def test_v3_vertical_pages():
+    pages = {
+        "use-cases/insurance/index.html": ("Claim Form", "Receipts", "Medical Bills"),
+        "use-cases/fuel-retail/index.html": ("Fuel Delivery", "Bonus Rebate"),
+        "use-cases/government/index.html": ("Grant Application", "Dossier", "Expense Audit",
+                                            "Runs in your own AWS account"),
+    }
+    for rel, tokens in pages.items():
+        p = DIST / rel
+        if not p.is_file():
+            pytest.skip("marketing dist is not built: " + rel)
+        html = p.read_text(encoding="utf-8")
+        assert "page-hero" in html, rel
+        assert re.search(r'class="[^"]*\bpage\b', html), rel
+        assert "landing.css?v=124" in html, rel
+        t = _visible(html)
+        for token in tokens:
+            assert token in t, (rel, token)
+
+
+def test_v3_locale_parity():
+    for locale in ("es", "zh", "fr", "de", "ja", "tr", "ar"):
+        p = DIST / locale / "poc" / "index.html"
+        if not p.is_file():
+            pytest.skip("marketing dist is not built: " + locale)
+        t = _visible(p.read_text(encoding="utf-8"))
+        assert re.search(r"142[.,\u00a0\u2009 ]?500", t), locale
+        assert re.search(r"120[.,\u00a0\u2009 ]?000", t), locale
+        for stale in ("Contract cap", "The assessment", "1 workflow", "Limited sample cases"):
+            assert stale not in t, (locale, stale)
 
 
 def _og_png_dimensions(path: Path) -> tuple[int, int]:
