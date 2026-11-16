@@ -15,10 +15,14 @@
     "run_worker_first": true
   },
   "routes": [
-    // assureproof.com/* and www.assureproof.com/* routes are asserted out-of-band (created via the API).
-    // Add them here only once the deploy token has Workers Routes Edit on the assureproof.com zone.
+    // NOTE: wrangler deploy syncs triggers to exactly this list — any route NOT
+    // listed here is DELETED on the next deploy. Keep every live domain here.
+    // (This bit us once: dropping assureproof.com/* from the list took the site
+    // down on the next successful deploy.)
     { "pattern": "getassureai.com/*", "zone_name": "getassureai.com" },
-    { "pattern": "www.getassureai.com/*", "zone_name": "getassureai.com" }
+    { "pattern": "www.getassureai.com/*", "zone_name": "getassureai.com" },
+    { "pattern": "assureproof.com/*", "zone_name": "assureproof.com" },
+    { "pattern": "www.assureproof.com/*", "zone_name": "assureproof.com" }
   ]
 }
 
