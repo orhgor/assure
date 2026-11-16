@@ -586,5 +586,9 @@
   "arch.flow.3.text": "存在未解决的矛盾时无法导出文档。复核界面上导出已阻止。由人或智能体决定，文件仍可下载。",
   "uc.ins.sub": "理赔单与支持性收据和医疗账单进行核对。来源页保持链接。矛盾显示在复核界面。复核界面上导出已阻止。由人或智能体决定。文件仍可下载。",
   "uc.fuel.sub": "燃油配送日志与奖励返利结算单进行核对。来源页保持链接。矛盾显示在复核界面。复核界面上导出已阻止。由人或智能体决定。文件仍可下载。",
-  "poc.lead": "1 个工作流。样例数量有限。书面“确认进行”确认后开始评估。"
+  "poc.lead": "1 个工作流。样例数量有限。书面“确认进行”确认后开始评估。",
+  "brand.hero_title": "When two documents disagree, both pages are already open.",
+  "brand.hero_title_html": "When two documents disagree, both pages are already open.",
+  "home.hero.sub": "Assure runs a formal consistency check across every figure, clause, and citation in your document set — and shows you exactly where they conflict.",
+  "landing.hero.cta_secondary": "Run a POC"
 }

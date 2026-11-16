@@ -586,5 +586,9 @@
   "arch.flow.3.text": "Le document ne peut pas être exporté tant qu'une contradiction n'est pas résolue. Export bloqué sur l'écran de revue. Une personne ou un agent décide, et le fichier reste téléchargeable.",
   "uc.ins.sub": "Le formulaire de réclamation est vérifié par rapport aux reçus et aux factures médicales à l'appui. Les pages sources restent liées. Les contradictions apparaissent sur l'écran de revue. Export bloqué sur l'écran de revue. Une personne ou un agent décide. Le fichier reste téléchargeable.",
   "uc.fuel.sub": "Les journaux de livraison de carburant sont vérifiés par rapport aux relevés de bonus et ristournes. Les pages sources restent liées. Les contradictions apparaissent sur l'écran de revue. Export bloqué sur l'écran de revue. Une personne ou un agent décide. Le fichier reste téléchargeable.",
-  "poc.lead": "Un flux de travail. Cas d'échantillon limités. Une note écrite « Oui, procéder » lance l'évaluation."
+  "poc.lead": "Un flux de travail. Cas d'échantillon limités. Une note écrite « Oui, procéder » lance l'évaluation.",
+  "brand.hero_title": "When two documents disagree, both pages are already open.",
+  "brand.hero_title_html": "When two documents disagree, both pages are already open.",
+  "home.hero.sub": "Assure runs a formal consistency check across every figure, clause, and citation in your document set — and shows you exactly where they conflict.",
+  "landing.hero.cta_secondary": "Run a POC"
 }

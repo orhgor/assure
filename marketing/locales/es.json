@@ -586,5 +586,9 @@
   "arch.flow.3.text": "El documento no se puede exportar mientras haya una contradicción sin resolver. Exportación bloqueada en la pantalla de revisión. Una persona o un agente decide, y el archivo se puede seguir descargando.",
   "uc.ins.sub": "El formulario de reclamación se verifica contra los recibos y las facturas médicas de apoyo. Las páginas de origen permanecen vinculadas. Las contradicciones aparecen en la pantalla de revisión. Exportación bloqueada en la pantalla de revisión. Una persona o un agente decide. El archivo se puede seguir descargando.",
   "uc.fuel.sub": "Los registros de entrega de combustible se verifican contra los estados de bonificación y descuento. Las páginas de origen permanecen vinculadas. Las contradicciones aparecen en la pantalla de revisión. Exportación bloqueada en la pantalla de revisión. Una persona o un agente decide. El archivo se puede seguir descargando.",
-  "poc.lead": "Un flujo de trabajo. Casos de muestra limitados. Una nota escrita «Sí, proceder» inicia la evaluación."
+  "poc.lead": "Un flujo de trabajo. Casos de muestra limitados. Una nota escrita «Sí, proceder» inicia la evaluación.",
+  "brand.hero_title": "When two documents disagree, both pages are already open.",
+  "brand.hero_title_html": "When two documents disagree, both pages are already open.",
+  "home.hero.sub": "Assure runs a formal consistency check across every figure, clause, and citation in your document set — and shows you exactly where they conflict.",
+  "landing.hero.cta_secondary": "Run a POC"
 }

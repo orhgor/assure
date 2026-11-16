@@ -583,5 +583,9 @@
   "arch.flow.3.text": "لا يمكن تصدير المستند طالما هناك تعارض لم يُحل. التصدير محظور على شاشة المراجعة. يقرر شخص أو وكيل، ويبقى الملف قابلاً للتنزيل.",
   "uc.ins.sub": "يُطابق نموذج المطالبة مقابل الإيصالات والفواتير الطبية الداعمة. تبقى صفحات المصدر مرتبطة. تظهر التعارضات على شاشة المراجعة. التصدير محظور على شاشة المراجعة. يقرر شخص أو وكيل. يبقى الملف قابلاً للتنزيل.",
   "uc.fuel.sub": "تُطابق سجلات توصيل الوقود مقابل كشوفات المكافآت والحسومات. تبقى صفحات المصدر مرتبطة. تظهر التعارضات على شاشة المراجعة. التصدير محظور على شاشة المراجعة. يقرر شخص أو وكيل. يبقى الملف قابلاً للتنزيل.",
-  "poc.lead": "سير عمل واحد. حالات نموذجية محدودة. موافقة مكتوبة بـ“نعم، تابع” تبدأ التقييم."
+  "poc.lead": "سير عمل واحد. حالات نموذجية محدودة. موافقة مكتوبة بـ“نعم، تابع” تبدأ التقييم.",
+  "brand.hero_title": "When two documents disagree, both pages are already open.",
+  "brand.hero_title_html": "When two documents disagree, both pages are already open.",
+  "home.hero.sub": "Assure runs a formal consistency check across every figure, clause, and citation in your document set — and shows you exactly where they conflict.",
+  "landing.hero.cta_secondary": "Run a POC"
 }
