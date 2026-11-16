@@ -442,10 +442,6 @@ body {
 }
 
 /* Proof-dominant hero: the labeled duo is the main object, larger than the H1. */
-.home-landing .hero-title {
-    font-size: clamp(2rem, 3.4vw, 2.9rem);
-    margin-bottom: 1.25rem;
-}
 .home-landing .home-hero-proof {
     max-width: 62rem;
     gap: 2.5rem;
