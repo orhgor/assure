@@ -586,5 +586,6 @@
   "arch.flow.3.text": "Das Dokument kann nicht exportiert werden, solange ein Widerspruch offen ist. Export auf dem Prüfbildschirm blockiert. Eine Person oder ein Agent entscheidet, und die Datei bleibt herunterladbar.",
   "uc.ins.sub": "Das Schadensformular wird gegen unterstützende Belege und medizinische Rechnungen geprüft. Quellseiten bleiben verlinkt. Widersprüche erscheinen auf dem Prüfbildschirm. Export auf dem Prüfbildschirm blockiert. Eine Person oder ein Agent entscheidet. Die Datei bleibt herunterladbar.",
   "uc.fuel.sub": "Die Kraftstofflieferprotokolle werden gegen Bonus- und Rabattabrechnungen geprüft. Quellseiten bleiben verlinkt. Widersprüche erscheinen auf dem Prüfbildschirm. Export auf dem Prüfbildschirm blockiert. Eine Person oder ein Agent entscheidet. Die Datei bleibt herunterladbar.",
-  "poc.lead": "Ein Workflow. Begrenzte Beispielfälle. Eine schriftliche „Ja, fortfahren“-Notiz startet die Bewertung."
+  "poc.lead": "Ein Workflow. Begrenzte Beispielfälle. Eine schriftliche „Ja, fortfahren“-Notiz startet die Bewertung.",
+  "brand.hero_title_html": "Wenn zwei Dokumente nicht übereinstimmen, sind beide Seiten bereits offen."
 }

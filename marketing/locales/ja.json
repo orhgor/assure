@@ -588,7 +588,7 @@
   "uc.fuel.sub": "燃料配送ログはボーナスリベート明細と照合されます。ソースページはリンクされたまま。矛盾はレビュー画面に表示。レビュー画面でエクスポート禁止。人またはエージェントが判断します。ファイルは引き続きダウンロードできます。",
   "poc.lead": "1 つのワークフロー。サンプルケースは限定。書面による「はい、進めます」確認から評価を開始します。",
   "brand.hero_title": "When two documents disagree, both pages are already open.",
-  "brand.hero_title_html": "When two documents disagree, both pages are already open.",
+  "brand.hero_title_html": "二つの書類が意見が異なる場合、両方のページはすでに開いています。",
   "home.hero.sub": "Assure runs a formal consistency check across every figure, clause, and citation in your document set — and shows you exactly where they conflict.",
   "landing.hero.cta_secondary": "Run a POC"
 }
