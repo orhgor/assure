@@ -586,5 +586,6 @@
   "arch.flow.3.text": "Çözülmemiş bir çelişki varken belge dışa aktarılamaz. İnceleme ekranında dışa aktarım engellendi. Bir kişi veya bir ajan karar verir ve dosya indirilebilir kalır.",
   "uc.ins.sub": "Hasar Formu, destekleyici makbuzlar ve tıbbi faturalarla karşılaştırılır. Kaynak sayfalar bağlantılı kalır. Çelişkiler inceleme ekranında görünür. İnceleme ekranında dışa aktarım engellendi. Bir kişi veya bir ajan karar verir. Dosya indirilebilir kalır.",
   "uc.fuel.sub": "Yakıt Teslim Kayıtları, Prim ve İade Beyanları ile karşılaştırılır. Kaynak sayfalar bağlantılı kalır. Çelişkiler inceleme ekranında görünür. İnceleme ekranında dışa aktarım engellendi. Bir kişi veya bir ajan karar verir. Dosya indirilebilir kalır.",
-  "poc.lead": "Tek iş akışı. Sınırlı örnek vaka. Yazılı “Evet, devam et” onayı değerlendirmeyi başlatır."
+  "poc.lead": "Tek iş akışı. Sınırlı örnek vaka. Yazılı “Evet, devam et” onayı değerlendirmeyi başlatır.",
+  "brand.hero_title_html": "İki belge karşılaştığında her ikisi de zaten açık."
 }
