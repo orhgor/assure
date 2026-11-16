@@ -4668,7 +4668,7 @@ body {
     color: var(--text-muted);
     margin-bottom: 1rem;
 }
-.home-landing .hero-title {
+.home-landing .hero-section .hero-title {
     font-size: clamp(3rem, 8vw, 5rem);
     font-weight: 300;
     letter-spacing: -0.02em;
