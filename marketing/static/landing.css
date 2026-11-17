@@ -1915,3 +1915,18 @@ document.addEventListener('DOMContentLoaded', () => {
     gap: 0.5rem;
   }
 }
+
+.footer-logo-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+.footer-logo-img {
+  border-radius: 6px;
+}
+.footer-logo-row .footer-logo {
+  font-weight: 700;
+  font-size: 1.125rem;
+  margin-bottom: 0;
+}

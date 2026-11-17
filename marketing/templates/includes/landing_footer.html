@@ -3,7 +3,10 @@
     <div class="container">
         <div class="footer-grid">
             <div class="footer-brand">
-                <p class="footer-logo" data-i18n="brand.name">{{ strings.get('brand.name', 'AssureProof') }}</p>
+                <div class="footer-logo-row">
+                    <img src="{{ url_for('static', filename='assure-logo.png') }}" alt="AssureProof logo" width="28" height="28" class="footer-logo-img">
+                    <span class="footer-logo" data-i18n="brand.name">{{ strings.get('brand.name', 'AssureProof') }}</span>
+                </div>
                 <p class="footer-tagline" data-i18n="landing.footer.engineer_tagline">{{ strings.get('landing.footer.engineer_tagline', 'Deterministic document verification. Checked against the source, decided by a person.') }}</p>
                 <p class="footer-deployment" data-i18n="footer.deployment">{{ strings.get('footer.deployment', 'Available for AWS VPC, Private GPU & Air-Gapped On-Premises') }}</p>
             </div>
