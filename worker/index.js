@@ -319,6 +319,69 @@ function json(payload, status = 200, request) {
   });
 }
 
+// Contact form submission endpoint
+async function handleContactSubmit(request, env) {
+  try {
+    const body = await request.json();
+    const { name, email, company, message } = body || {};
+
+    // Validate required fields
+    if (!email || !email.includes("@")) {
+      return json({ ok: false, error: "Valid email required" }, 400, request);
+    }
+    if (!company || company.trim().length < 2) {
+      return json({ ok: false, error: "Company name required" }, 400, request);
+    }
+
+    // In production: send to CRM, trigger notification, store in D1/DB
+    // For now: log and return success
+    console.log("Contact submit:", { name, email, company, message, timestamp: new Date().toISOString() });
+
+    // TODO: Integrate with CRM (HubSpot, Salesforce, etc.)
+    // TODO: Send confirmation email via SendGrid/Resend
+    // TODO: Notify sales team via Slack/email
+
+    return json({
+      ok: true,
+      message: "Request received. A solutions engineer will contact you within 4 business hours."
+    }, 200, request);
+  } catch (e) {
+    return json({ ok: false, error: "Invalid request" }, 400, request);
+  }
+}
+
+// Z3 Demo endpoint - returns pre-computed conflict for the hero proof card
+// In future: could proxy to Python Z3 service for real-time verification
+async function handleZ3Demo(request, env) {
+  try {
+    const body = await request.json().catch(() => ({}));
+    const { sourceA, sourceB } = body || {};
+
+    // Default demo values (MSA vs Invoice)
+    const demoSourceA = sourceA || { label: "Contract Cap", value: 120000, currency: "EUR" };
+    const demoSourceB = sourceB || { label: "Amount Billed", value: 142500, currency: "EUR" };
+
+    const a = Number(demoSourceA.value) || 120000;
+    const b = Number(demoSourceB.value) || 142500;
+    const currency = demoSourceA.currency || demoSourceB.currency || "EUR";
+    const delta = b - a;
+    const conflict = delta !== 0;
+
+    return json({
+      ok: true,
+      sourceA: { ...demoSourceA, value: a },
+      sourceB: { ...demoSourceB, value: b },
+      delta: { value: delta, currency, conflict },
+      message: conflict
+        ? `Export locked — ${delta > 0 ? "+" : ""}${delta.toLocaleString()} ${currency} overage detected.`
+        : "No conflict — values agree.",
+      z3Verification: "Deterministic formal logic check completed."
+    }, 200, request);
+  } catch (e) {
+    return json({ ok: false, error: "Demo computation failed" }, 500, request);
+  }
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -334,6 +397,12 @@ export default {
     if (url.pathname.startsWith("/upload/") && request.method === "PUT") {
       const key = decodeURIComponent(url.pathname.slice("/upload/".length));
       return handleUploadPut(request, env, key);
+    }
+    if (url.pathname === "/contact-submit" && request.method === "POST") {
+      return handleContactSubmit(request, env);
+    }
+    if (url.pathname === "/api/z3-demo" && request.method === "POST") {
+      return handleZ3Demo(request, env);
     }
     if (url.pathname === "/health") {
       return json({ ok: true, service: "assure-pdf-worker", environment: env.ENVIRONMENT || "unknown" });

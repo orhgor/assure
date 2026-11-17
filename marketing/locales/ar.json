@@ -732,5 +732,7 @@
   "security.pillar3.title": "Immutable Governance & Audit Logs",
   "security.pillar3.desc": "Every extracted figure, flagged contradiction, reviewer sign-off, and manual override is cryptographically timestamped—giving internal auditors and regulators a complete chain of custody.",
   "security.whitepaper": "Request the Security & Architecture Whitepaper →",
-  "landing.pilot.privacy": "No file upload required today • Mutual NDA provided prior to sharing sample documents • Zero data retention"
+  "landing.pilot.privacy": "No file upload required today • Mutual NDA provided prior to sharing sample documents • Zero data retention",
+  "proof.z3.recalculate": "Recalculate",
+  "proof.z3.verify": "Verify with Z3"
 }

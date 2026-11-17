@@ -54,33 +54,42 @@
                 <p class="hero-sub" data-i18n="home.hero.sub">{{ strings.get('home.hero.sub', 'AssureProof cross-checks every number, clause, and citation across your entire document set—pinpointing exact conflicts to the page and line before you approve, pay, or publish.') }}</p>
 
                 <!-- Hero Interactive Proof Card -->
-                <div class="proof-terminal" role="group" aria-label="{{ strings.get('proof.duo.aria', 'Source A — contract cap 120,000 EUR, compared with Source B — invoice 142,500 EUR') }}">
+                <div class="proof-terminal" role="group" aria-label="{{ strings.get('proof.duo.aria', 'Source A — contract cap 120,000 EUR, compared with Source B — invoice 142,500 EUR') }}" id="hero-proof-card">
                     <div class="proof-terminal-source">
                         <div class="terminal-header" data-i18n="proof.a.kicker">{{ strings.get('proof.a.kicker', 'Source A') }}</div>
                         <div class="terminal-body">
                             <div class="terminal-line" data-i18n="proof.a.title">{{ strings.get('proof.a.title', 'Master Services Agreement (MSA) • Page 12 • Clause 4.2') }}</div>
-                            <div class="terminal-value" data-i18n="proof.a.value">{{ strings.get('proof.a.value', '120,000 EUR cap') }}</div>
+                            <div class="terminal-value">
+                                <input type="number" class="proof-input" id="proof-source-a-value" value="120000" min="0" step="1000" aria-label="{{ strings.get('proof.a.value', 'Contract cap') }}" />
+                                <span class="proof-currency" id="proof-source-a-currency">EUR</span>
+                            </div>
                             <div class="terminal-line" data-i18n="proof.a.cap">{{ strings.get('proof.a.cap', 'Contract cap') }}</div>
                         </div>
                     </div>
                     <div class="conflict-delta">
                         <div class="delta-label" data-i18n="proof.delta.label">{{ strings.get('proof.delta.label', 'Overage') }}</div>
-                        <div class="delta-value" data-i18n="proof.delta.value">{{ strings.get('proof.delta.value', '+22,500') }}</div>
-                        <div class="delta-label" data-i18n="proof.delta.currency">{{ strings.get('proof.delta.currency', 'EUR') }}</div>
+                        <div class="delta-value" id="proof-delta-value">+22,500</div>
+                        <div class="delta-label" id="proof-delta-currency">EUR</div>
                     </div>
                     <div class="proof-terminal-source">
                         <div class="terminal-header" data-i18n="proof.b.kicker">{{ strings.get('proof.b.kicker', 'Source B') }}</div>
                         <div class="terminal-body">
                             <div class="terminal-line" data-i18n="proof.b.title">{{ strings.get('proof.b.title', 'Vendor Invoice #884 • Page 3 • Line 8') }}</div>
-                            <div class="terminal-value" data-i18n="proof.b.value">{{ strings.get('proof.b.value', '142,500 EUR') }}</div>
+                            <div class="terminal-value">
+                                <input type="number" class="proof-input" id="proof-source-b-value" value="142500" min="0" step="1000" aria-label="{{ strings.get('proof.b.value', 'Amount billed') }}" />
+                                <span class="proof-currency" id="proof-source-b-currency">EUR</span>
+                            </div>
                             <div class="terminal-line" data-i18n="proof.b.billed">{{ strings.get('proof.b.billed', 'Amount billed') }}</div>
                         </div>
                     </div>
                 </div>
-                <section class="conflict-z3-terminal">
+                <section class="conflict-z3-terminal" id="z3-result">
                     <div class="terminal-header" data-i18n="proof.z3.title">{{ strings.get('proof.z3.title', 'Z3 Conflict') }}</div>
                     <div class="terminal-body">
-                        <div class="terminal-line" data-i18n="proof.z3.body">{{ strings.get('proof.z3.body', 'Export locked — the two sources cannot both be true. A person or an agent decides, and the file can still be downloaded.') }}</div>
+                        <div class="terminal-line" id="z3-result-text" data-i18n="proof.z3.body">{{ strings.get('proof.z3.body', 'Export locked — the two sources cannot both be true. A person or an agent decides, and the file can still be downloaded.') }}</div>
+                    </div>
+                    <div class="z3-actions">
+                        <button type="button" class="btn-secondary z3-recalculate" id="z3-recalculate-btn" data-i18n="proof.z3.recalculate">{{ strings.get('proof.z3.recalculate', 'Recalculate') }}</button>
                     </div>
                 </section>
                 <div class="hero-cta-group">
