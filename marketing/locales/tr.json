@@ -734,5 +734,7 @@
   "security.whitepaper": "Request the Security & Architecture Whitepaper →",
   "landing.pilot.privacy": "No file upload required today • Mutual NDA provided prior to sharing sample documents • Zero data retention",
   "proof.z3.recalculate": "Recalculate",
-  "proof.z3.verify": "Verify with Z3"
+  "proof.z3.verify": "Verify with Z3",
+  "landing.nav.how": "How it works",
+  "landing.nav.why": "Why not an LLM?"
 }

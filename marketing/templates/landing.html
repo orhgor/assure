@@ -419,21 +419,19 @@
     <script>
         // Mobile nav toggle
         document.addEventListener('DOMContentLoaded', () => {
-            const mobileBtn = document.getElementById('nav-menu-toggle');
-            const mobileMenu = document.getElementById('landing-nav-links');
+            const mobileBtn = document.getElementById('mobile-menu-btn');
+            const mobileMenu = document.getElementById('mobile-menu');
 
             mobileBtn?.addEventListener('click', () => {
                 const isExpanded = mobileBtn.getAttribute('aria-expanded') === 'true';
                 mobileBtn.setAttribute('aria-expanded', String(!isExpanded));
-                mobileMenu?.classList.toggle('is-collapsed');
-                mobileMenu?.classList.toggle('open');
+                mobileMenu?.hidden = !isExpanded;
             });
 
-            // Close mobile menu on link click
+            // Close mobile menu on link/button click
             mobileMenu?.querySelectorAll('a, button').forEach((item) => {
                 item.addEventListener('click', () => {
-                    mobileMenu?.classList.add('is-collapsed');
-                    mobileMenu?.classList.remove('open');
+                    mobileMenu.hidden = true;
                     mobileBtn?.setAttribute('aria-expanded', 'false');
                 });
             });
