@@ -25,7 +25,7 @@
     <link rel="icon" href="{{ url_for('static', filename='assure-logo.png') }}" type="image/png">
     <link rel="apple-touch-icon" href="{{ url_for('static', filename='assure-logo.png') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
     {% if locale|default('en') == 'ar' %}
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -33,7 +33,7 @@
     {% for item in json_ld %}
     <script type="application/ld+json">{{ item|tojson }}</script>
     {% endfor %}
-    <link rel="stylesheet" href="{{ url_for('static', filename='landing.css') }}?v={{ landing_css_version|default('125') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='landing.css') }}?v={{ landing_css_version|default('128') }}">
     <script>
       window.__assureLandingStrings = {{ strings|tojson }};
     </script>
@@ -46,6 +46,7 @@
     <main id="main-content" class="privacy-page">
         <header class="privacy-header">
             <h1 data-i18n="privacy.enterprise.title">{{ strings.get('privacy.enterprise.title', 'Privacy Policy') }}</h1>
+            <hr class="divider-center" />
             <p class="last-updated" data-i18n="privacy.enterprise.updated">{{ strings.get('privacy.enterprise.updated', 'Last updated: September 8, 2026') }}</p>
             <div class="summary-box" data-i18n="privacy.enterprise.summary">{{ strings.get('privacy.enterprise.summary', '') }}</div>
             <nav class="privacy-toc" aria-label="{{ strings.get('privacy.enterprise.toc_label', 'On this page') }}">
@@ -73,6 +74,7 @@
     </main>
 
     {% include 'includes/landing_footer.html' %}
-    <script src="{{ url_for('static', filename='landing-pilot.js') }}?v={{ landing_js_version|default('43') }}"></script>
+    <script src="{{ url_for('static', filename='landing-pilot.js') }}?v={{ landing_js_version|default('47') }}"></script>
+    <script src="{{ url_for('static', filename='landing-i18n.js') }}"></script>
 </body>
 </html>

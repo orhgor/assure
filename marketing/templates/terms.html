@@ -25,7 +25,7 @@
     <link rel="icon" href="{{ url_for('static', filename='assure-logo.png') }}" type="image/png">
     <link rel="apple-touch-icon" href="{{ url_for('static', filename='assure-logo.png') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
     {% if locale|default('en') == 'ar' %}
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -33,7 +33,7 @@
     {% for item in json_ld %}
     <script type="application/ld+json">{{ item|tojson }}</script>
     {% endfor %}
-    <link rel="stylesheet" href="{{ url_for('static', filename='landing.css') }}?v={{ landing_css_version|default('125') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='landing.css') }}?v={{ landing_css_version|default('128') }}">
     <script>
       window.__assureLandingStrings = {{ strings|tojson }};
     </script>
@@ -47,26 +47,35 @@
     <div class="page">
         <div class="page-hero">
             <h1 data-i18n="terms.title">{{ strings.get('terms.title', 'Terms of use') }}</h1>
+            <hr class="divider-center" />
             <p class="lede" data-i18n="terms.lead">{{ strings.get('terms.lead', 'How AssureProof works, what you are responsible for, and what we do not promise.') }}</p>
             <p class="hint" data-i18n="terms.updated">{{ strings.get('terms.updated', 'Updated 6 September 2026.') }}</p>
         </div>
         <section class="card">
             <h2 data-i18n="terms.accuracy.h">{{ strings.get('terms.accuracy.h', 'Accuracy') }}</h2>
             <p data-i18n="terms.accuracy">{{ strings.get('terms.accuracy', 'AI systems are probabilistic and can hallucinate. Verification is a filter, not a promise of accuracy. We do not promise that output is flawless, complete, or free from errors. Independently verify critical information.') }}</p>
+            <hr class="divider-center" />
             <h2 data-i18n="terms.advice.h">{{ strings.get('terms.advice.h', 'Not professional advice') }}</h2>
             <p data-i18n="terms.advice">{{ strings.get('terms.advice', 'Assure performs document analysis, verification, and compilation. It does not give legal, financial, or professional advice. Consult qualified professionals before you act on any output.') }}</p>
+            <hr class="divider-center" />
             <h2 data-i18n="terms.answers.h">{{ strings.get('terms.answers.h', 'Answers can be wrong') }}</h2>
             <p data-i18n="terms.answers">{{ strings.get('terms.answers', 'Assure rewrites your question, can send it to models you connect, and can drop claims that were not in your files. That is a filter, not a promise of accuracy. You check the result before you use it with a client, a paper, or a decision.') }}</p>
+            <hr class="divider-center" />
             <h2 data-i18n="terms.as_is.h">{{ strings.get('terms.as_is.h', 'No warranty') }}</h2>
             <p data-i18n="terms.as_is">{{ strings.get('terms.as_is', 'The software is provided "as is", without warranties. We are not liable for damages or other consequences of your use. We do not promise uptime, accuracy, or fitness for a particular job. Any service levels are set only in your signed enterprise agreement.') }}</p>
+            <hr class="divider-center" />
             <h2 data-i18n="terms.duty.h">{{ strings.get('terms.duty.h', 'Your responsibility') }}</h2>
             <p data-i18n="terms.duty">{{ strings.get('terms.duty', 'You are solely responsible for how you use Assure. You agree not to use it for any unlawful, harmful, or abusive purpose.') }}</p>
+            <hr class="divider-center" />
             <h2 data-i18n="terms.files.h">{{ strings.get('terms.files.h', 'Your files') }}</h2>
             <p data-i18n="terms.files">{{ strings.get('terms.files', 'Only upload files you have the right to use. Do not upload privileged, confidential, or sensitive information unless you are authorised to do so. Do not send health or other sensitive text to a provider that is open to the internet unless you mean to. We are not responsible for uploads that violate your own obligations.') }}</p>
+            <hr class="divider-center" />
             <h2 data-i18n="terms.indemnity.h">{{ strings.get('terms.indemnity.h', 'Liability') }}</h2>
             <p data-i18n="terms.indemnity">{{ strings.get('terms.indemnity', 'You cover losses that arise from your use of Assure. Our total liability is capped at the amount you paid for the service. We are not liable for indirect, consequential, or punitive damages.') }}</p>
+            <hr class="divider-center" />
             <h2 data-i18n="terms.law.h">{{ strings.get('terms.law.h', 'If something goes wrong') }}</h2>
             <p data-i18n="terms.law">{{ strings.get('terms.law', 'You are responsible for how you use the output. If these terms cannot be enforced in your location, the rest still apply.') }}</p>
+            <hr class="divider-center" />
             <h2 data-i18n="terms.prohibit.h">{{ strings.get('terms.prohibit.h', 'Prohibited uses') }}</h2>
             <p data-i18n="terms.prohibit">{{ strings.get('terms.prohibit', 'You may not use Assure to generate or promote:') }}</p>
             <ul>
@@ -76,20 +85,25 @@
                 <li data-i18n="terms.prohibit.rights">{{ strings.get('terms.prohibit.rights', 'Content that violates the rights of others') }}</li>
                 <li data-i18n="terms.prohibit.violence">{{ strings.get('terms.prohibit.violence', 'Violence, threats, or harassment') }}</li>
             </ul>
+            <hr class="divider-center" />
             <h2 data-i18n="terms.providers.h">{{ strings.get('terms.providers.h', 'Provider policies') }}</h2>
             <p data-i18n="terms.providers">{{ strings.get('terms.providers', 'You must also follow the terms of the AI provider you connect. A Send to a connected provider is subject to that provider\'s rules. Assure does not replace them.') }}</p>
+            <hr class="divider-center" />
             <h2 data-i18n="terms.send.h">{{ strings.get('terms.send.h', 'Copy and Send') }}</h2>
             <p data-i18n="terms.send">{{ strings.get('terms.send', 'Assure keeps the source page with every figure and shows the contradiction before you pay. A person decides. The file can still be downloaded. Runs in your own AWS account, on-premises, or private GPU environment. You choose where the models run.') }}</p>
+            <hr class="divider-center" />
             <h2 data-i18n="terms.third.h">{{ strings.get('terms.third.h', 'Third parties') }}</h2>
             <p data-i18n="terms.third">{{ strings.get('terms.third', 'We are not liable for decisions made by third parties who rely on the output. Do not share output with others without your own verification.') }}</p>
+            <hr class="divider-center" />
             <h2 data-i18n="terms.use.h">{{ strings.get('terms.use.h', 'What this is for') }}</h2>
             <p data-i18n="terms.use">{{ strings.get('terms.use', 'Assure is designed for document compilation, verification, and compliance review. It is not a substitute for binding legal, financial, or regulatory decisions. If you rely on the output as your sole verification, that responsibility stays with you.') }}</p>
-            <h2 data-i18n="terms.updated">{{ strings.get('terms.updated', 'Updated 6 September 2026.') }}</p>
+            <hr class="divider-center" />
+            <h2 data-i18n="terms.updated">{{ strings.get('terms.updated', 'Updated 6 September 2026.') }}</h2>
         </section>
     </main>
 
     {% include 'includes/landing_footer.html' %}
-    <script src="{{ url_for('static', filename='landing-pilot.js') }}?v={{ landing_js_version|default('42') }}"></script>
+    <script src="{{ url_for('static', filename='landing-pilot.js') }}?v={{ landing_js_version|default('47') }}"></script>
     <script src="{{ url_for('static', filename='landing-i18n.js') }}"></script>
 </body>
 </html>

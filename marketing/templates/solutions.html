@@ -25,7 +25,7 @@
     <link rel="icon" href="{{ url_for('static', filename='assure-logo.png') }}" type="image/png">
     <link rel="apple-touch-icon" href="{{ url_for('static', filename='assure-logo.png') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
     {% if locale|default('en') == 'ar' %}
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -33,7 +33,7 @@
     {% for item in json_ld %}
     <script type="application/ld+json">{{ item|tojson }}</script>
     {% endfor %}
-    <link rel="stylesheet" href="{{ url_for('static', filename='landing.css') }}?v={{ landing_css_version|default('125') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='landing.css') }}?v={{ landing_css_version|default('128') }}">
     <script>
       window.__assureLandingStrings = {{ strings|tojson }};
     </script>
@@ -61,16 +61,45 @@
                 </div>
                 <section class="card proof-z3">
                     <h2 data-i18n="proof.z3.title">{{ strings.get('proof.z3.title', 'Z3 Conflict') }}</h2>
-                    <p class="lede" data-i18n="proof.z3.body">{{ strings.get('proof.z3.body', 'Export blocked — the two sources cannot both be true. A person or an agent decides, and the file can still be downloaded.') }}</p>
+                    <p class="lede" data-i18n="proof.z3.body">{{ strings.get('proof.z3.body', 'Export locked — the two sources cannot both be true. A person or an agent decides, and the file can still be downloaded.') }}</p>
                 </section>
                 <p class="lede" data-i18n="solutions.line">{{ strings.get('solutions.line', 'Invoice p.3 and Contract p.12 are both open. Export is flagged.') }}</p>
                 <ol class="pipeline">
-                    <li><strong data-i18n="pipeline.1.name">{{ strings.get('pipeline.1.name', 'Upload') }}</strong><span data-i18n="pipeline.1.line">{{ strings.get('pipeline.1.line', 'The file stack goes in.') }}</span></li>
-                    <li><strong data-i18n="pipeline.2.name">{{ strings.get('pipeline.2.name', 'ParSure') }}</strong><span data-i18n="pipeline.2.line">{{ strings.get('pipeline.2.line', 'ParSure turns the file stack into a page-anchored, structured environment.') }}</span></li>
-                    <li><strong data-i18n="pipeline.3.name">{{ strings.get('pipeline.3.name', 'DraftSure') }}</strong><span data-i18n="pipeline.3.line">{{ strings.get('pipeline.3.line', 'An LLM writes the draft (DraftSure).') }}</span></li>
-                    <li><strong data-i18n="pipeline.4.name">{{ strings.get('pipeline.4.name', 'CrossSure') }}</strong><span data-i18n="pipeline.4.line">{{ strings.get('pipeline.4.line', 'Z3 is a formal consistency checker: it checks whether figures and source values can all be true at the same time.') }}</span></li>
-                    <li><strong data-i18n="pipeline.5.name">{{ strings.get('pipeline.5.name', 'Optional Red-Hat review') }}</strong><span data-i18n="pipeline.5.line">{{ strings.get('pipeline.5.line', 'Red-Hat review is an optional, separate adversarial pass that runs only when requested by the user.') }}</span></li>
-                    <li><strong data-i18n="pipeline.6.name">{{ strings.get('pipeline.6.name', 'Person or agent decides') }}</strong><span data-i18n="pipeline.6.line">{{ strings.get('pipeline.6.line', 'A person or an agent decides, and the file can still be downloaded.') }}</span></li>
+                    <li class="pipeline-step" data-step="01">
+                        <span class="pipeline-step-number">01</span>
+                        <h3 data-i18n="pipeline.1.name">{{ strings.get('pipeline.1.name', 'Ingest Your File Stack') }}</h3>
+                        <p data-i18n="pipeline.1.line">{{ strings.get('pipeline.1.line', 'Upload contracts, invoices, claims, or regulatory filings in any format. Every document stays isolated inside your environment.') }}</p>
+                    </li>
+
+                    <li class="pipeline-step" data-step="02">
+                        <span class="pipeline-step-number">02</span>
+                        <h3 data-i18n="pipeline.2.name">{{ strings.get('pipeline.2.name', 'Page-Pinned Extraction (ParSure)') }}</h3>
+                        <p data-i18n="pipeline.2.line">{{ strings.get('pipeline.2.line', 'Extracts every figure, obligation, and cross-reference—linking each data point directly to the exact page and line it came from.') }}</p>
+                    </li>
+
+                    <li class="pipeline-step" data-step="03">
+                        <span class="pipeline-step-number">03</span>
+                        <h3 data-i18n="pipeline.3.name">{{ strings.get('pipeline.3.name', 'Structured Drafting (DraftSure)') }}</h3>
+                        <p data-i18n="pipeline.3.line">{{ strings.get('pipeline.3.line', 'Generates reports, summaries, or approval memos built strictly from verified source facts, with zero ungrounded claims.') }}</p>
+                    </li>
+
+                    <li class="pipeline-step" data-step="04">
+                        <span class="pipeline-step-number">04</span>
+                        <h3 data-i18n="pipeline.4.name">{{ strings.get('pipeline.4.name', 'Mathematical Consistency Check (Z3 Solver)') }}</h3>
+                        <p data-i18n="pipeline.4.line">{{ strings.get('pipeline.4.line', 'Our formal logic engine tests whether every number and clause across all files can be true at the same time. If two facts conflict, export is automatically locked.') }}</p>
+                    </li>
+
+                    <li class="pipeline-step" data-step="05">
+                        <span class="pipeline-step-number">05</span>
+                        <h3 data-i18n="pipeline.5.name">{{ strings.get('pipeline.5.name', 'Optional Adversarial Stress-Test (Red Hat Review)') }}</h3>
+                        <p data-i18n="pipeline.5.line">{{ strings.get('pipeline.5.line', 'Trigger a separate, independent audit pass to hunt for edge-case ambiguities, missing attachments, or hidden compliance risks.') }}</p>
+                    </li>
+
+                    <li class="pipeline-step" data-step="06">
+                        <span class="pipeline-step-number">06</span>
+                        <h3 data-i18n="pipeline.6.name">{{ strings.get('pipeline.6.name', 'Human Sign-Off & Audit Trail') }}</h3>
+                        <p data-i18n="pipeline.6.line">{{ strings.get('pipeline.6.line', 'No document moves forward silently. An authorized reviewer resolves the conflict—or logs a formal override—before downloading the final file.') }}</p>
+                    </li>
                 </ol>
                 <section class="card">
                     <h2 data-i18n="solutions.cards.1.name">{{ strings.get('solutions.cards.1.name', 'Invoice vs contract') }}</h2>
@@ -88,13 +117,13 @@
                     <h2 data-i18n="solutions.cards.4.name">{{ strings.get('solutions.cards.4.name', 'Internal report') }}</h2>
                     <p data-i18n="solutions.cards.4.finding">{{ strings.get('solutions.cards.4.finding', 'The volume on the report is different from the sales records.') }}</p>
                 </section>
-                <p><a href="{{ locale_path }}poc/" class="btn-primary" data-i18n="landing.pilot.cta_primary">{{ strings.get('landing.pilot.cta_primary', 'Book a demo') }}</a></p>
+                <button type="button" class="btn-primary" data-demo-open data-i18n="landing.pilot.cta_primary">{{ strings.get('landing.pilot.cta_primary', 'Request Live Proof Walkthrough →') }}</button>
             </div>
         </section>
     </main>
 
     {% include 'includes/landing_footer.html' %}
-    <script src="{{ url_for('static', filename='landing-pilot.js') }}?v={{ landing_js_version|default('43') }}"></script>
+    <script src="{{ url_for('static', filename='landing-pilot.js') }}?v={{ landing_js_version|default('47') }}"></script>
     <script src="{{ url_for('static', filename='landing-i18n.js') }}"></script>
 </body>
 </html>
