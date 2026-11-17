@@ -135,7 +135,6 @@ TEMPLATES_DIR = ROOT / "marketing" / "templates"
 
 TEMPLATE_TO_META = {
     "landing.html": "landing",
-    "government.html": "government",
     "use_cases_index.html": "use_cases_index",
     "use_case_government.html": "use_case_government",
     "use_case_insurance.html": "use_case_insurance",
