@@ -1,709 +1,913 @@
 {
-  "about.checks.1": "Assure reads every document and keeps each figure tied to its source page. A language model then writes the draft. A formal consistency checker then tests whether the draft's figures and the values locked from the source can all be true at the same time. For a labeled figure, the language model does not make that call. For a sentence with no label, the language model turns it into a numeric comparison, and the formal consistency checker tests whether it holds. When a file is first read, the formal consistency checker can also flag figures in that file that contradict each other.",
-  "about.checks.2": "Red-Hat review is separate, and it runs only when someone asks for it. A language model reads the draft the way a skeptical reviewer would and tries to find what is wrong: a mismatch with the attached source sentence, an overstatement, a missing clause, or a figure that needs a citation. It does not decide the numeric conflict. The review screen shows the contradiction and export is flagged. A person accepts or rejects each finding. The file can still be downloaded.",
-  "about.checks.title": "How Assure checks a case file",
-  "about.compare.caption": "How Assure differs from document extraction tools",
-  "about.compare.col1": "Document extraction tools",
-  "about.compare.col2": "Assure",
-  "about.compare.note": "Document extraction tools are the tools that pull fields out of a file.",
-  "about.compare.row1.a": "Fields pulled out of the file",
-  "about.compare.row1.b": "Figures, each tied to its source page, cell, or row",
-  "about.compare.row1.label": "What you get",
-  "about.compare.row2.a": "The field, without a decision on whether it matches the source",
-  "about.compare.row2.b": "A formal consistency checker tests whether the draft's figure conflicts with the value locked from the source",
-  "about.compare.row2.label": "The figure check",
-  "about.compare.row3.a": "The two fields sit side by side",
-  "about.compare.row3.b": "The check marks the conflict, and both source pages stay attached",
-  "about.compare.row3.label": "When sources conflict",
-  "about.compare.row4.a": "The extracted fields",
-  "about.compare.row4.b": "A language model writes the draft, then the formal consistency check runs on it. Red-Hat review, if someone runs it, tries to find what is wrong in that draft.",
-  "about.compare.row4.label": "The draft",
-  "about.compare.row5.a": "A person may review outside the tool",
-  "about.compare.row5.b": "A person accepts or rejects each finding. The review screen shows the contradiction and export is flagged. The file can still be downloaded.",
-  "about.compare.row5.label": "Before export",
-  "about.compare.row6.a": "Wherever that product is hosted",
-  "about.compare.row6.b": "Your AWS account or your own machines. You choose where the models run.",
-  "about.compare.row6.label": "Where it runs",
-  "about.defining": "Assure keeps the source page with every figure. A language model writes the draft from those files. A formal consistency checker tests whether the draft's figures and the locked source values can all be true at the same time. Red-Hat review is a separate language-model pass that tries to find what is wrong in that draft, and it runs only when someone asks for it. A person decides.",
-  "about.diff.1.name": "The page stays with the figure.",
-  "about.diff.1.text": "Assure keeps the page, cell, or row for every figure, and every finding links back to it.",
-  "about.diff.2.name": "The formal consistency checker tests the figures.",
-  "about.diff.2.text": "A formal consistency checker tests whether the draft's figures conflict with the values locked from the source. The language model does not make that call for a labeled figure.",
-  "about.diff.3.name": "Red-Hat review is a second reading.",
-  "about.diff.3.text": "Red-Hat review is a language-model pass on the draft, and it runs only when someone asks for it. It tries to find a mismatch, an overstatement, a missing clause, or a figure that needs a citation.",
-  "about.diff.4.name": "A person decides.",
-  "about.diff.4.text": "The review screen shows the contradiction and export is flagged. A person accepts or rejects each finding. The file can still be downloaded. You choose where it runs: your AWS account or your own machines.",
-  "about.diff.lead": "Four things set Assure apart from tools that only pull fields out of a file.",
-  "about.engine": "Who it is for",
-  "about.title": "About",
-  "about.use": "How to use it",
-  "about.what": "What it does",
-  "about.what.body": "Assure checks one document against another. Both source pages stay open while the check runs, and the contradiction is shown on the review screen before you pay. Export is flagged while a conflict is unresolved, and a person decides whether the figure is right. The check runs inside your environment. Nothing is approved automatically.",
-  "action.group.audit": "Audit",
-  "action.group.write": "Write",
-  "adoption.citation.page": "Page",
-  "adoption.citation.title": "Source",
-  "answer": "Answer",
-  "arch.flow.1": "Both pages open",
-  "arch.flow.2": "Contradiction marked",
-  "arch.flow.3": "Export flagged",
-  "arch.flow.4": "A person or an agent decides",
-  "arch.where.body": "Runs in your own AWS account, on-premises, or private GPU environment. You choose where the models run, and nothing is shared with other tenants. When the model is local, documents stay inside that boundary at every step of the check.",
-  "arch.where.title": "Where it runs",
-  "audience.general": "General",
-  "audience.technical": "Technical",
-  "audit.disclaimer.h": "Disclaimer",
-  "audit.how": "How to use",
-  "aws.action.edit": "Edit",
-  "aws.form.close": "Close",
-  "brand.architecture_title": "About · Assure",
-  "brand.eyebrow": "Compile. Verify. Trust what you ship.",
-  "brand.hero_title": "When two documents disagree, both pages are already open.",
-  "brand.hero_title_html": "When two documents disagree, both pages are already open.",
-  "brand.meta_description": "Assure keeps the source page with every figure and shows the contradiction before you pay.",
-  "brand.page_title": "Assure AI | Verified document compilation for claims and regulated teams",
-  "brand.tagline": "Compile. Verify. Trust what you ship.",
-  "classes.custom": "custom",
-  "conflict.modal.close": "Close",
-  "connect.open_keys": "Open to the internet",
-  "contact.alt": "Prefer email?",
-  "contact.done": "Thanks, we will be in touch.",
-  "contact.f_company": "Company",
-  "contact.f_email": "Work email",
-  "contact.f_message": "What should the demo cover?",
-  "contact.f_name": "Name",
-  "contact.form_title": "Request form",
-  "contact.lead": "Before you pay, accept, or sign, you still open the contract and the invoice side by side. Tell us the workflow you want checked. We reply with a short scope note.",
-  "contact.submit": "Send request",
-  "contact.title": "Contact",
-  "edition.free": "Free",
-  "error404.body": "The page you asked for does not exist on this site. It may have moved, or the address may be wrong.",
-  "error404.home": "Back to the homepage",
-  "error404.title": "Page not found",
-  "flow.1.line": "Assure reads both documents and keeps the page, cell, or row for every figure.",
-  "flow.1.name": "Both pages open",
-  "flow.2.line": "Figures are compared one to one. Where two labeled numbers cannot both be true, the conflict is marked on the review screen.",
-  "flow.2.name": "Contradiction marked",
-  "flow.3.line": "The document cannot be exported while a contradiction is unresolved. Export blocked on the review screen. A person or an agent decides, and the file can still be downloaded.",
-  "flow.3.name": "Export flagged",
-  "flow.4.line": "A person or an agent decides, and the file can still be downloaded.",
-  "flow.4.name": "A person or an agent decides",
-  "flow.aria": "From upload to a person's decision",
-  "flow.badge": "",
-  "flow.gov.1.line": "Checks the applicant's file",
-  "flow.gov.3.line": "Tells the applicant exactly what is missing",
-  "flow.human": "The review screen shows the contradiction. The file can still be downloaded.",
-  "flow.source": "Every finding links to its source page.",
-  "footer.contact_sales": "Contact sales",
-  "footer.copy": "Runs in your cloud or on-premises, with your own keys.",
-  "footer.rights": "© 2026 Assure. All rights reserved.",
-  "generate.ast.list": "List",
-  "generate.ast.paragraph": "Paragraph",
-  "generate.ast.table": "Table",
-  "generate.audit_manifest.claim": "Claim",
-  "generate.redhat_short": "Red-Hat",
-  "generate.redhat_skip": "Skip",
-  "gov.cta": "Request a government demo",
-  "gov.eyebrow": "Government services",
-  "gov.flow.1.name": "Assure",
-  "gov.flow.2.name": "the formal consistency check",
-  "gov.flow.2.role": "Cross-check",
-  "gov.flow.3.name": "Assure",
-  "gov.human.body2": "Every finding cites its source page, so staff and applicants can see exactly where it came from.",
-  "gov.human.title": "People decide. Every finding shows its source.",
-  "gov.meta": "Assure keeps the page for each figure in an applicant file and checks the draft against the source. Staff decide.",
-  "gov.page_title": "Paperless government services, verified · Assure",
-  "gov.sub": "Applicants upload one file. Assure keeps the page for each figure and checks the draft against the source. Staff decide.",
-  "gov.title": "Government document checks",
-  "hero": "Assure",
-  "history.answer": "Answer",
-  "history.close": "Close",
-  "history.copy": "Copy",
-  "history.export.pdf": "PDF",
-  "home.caps.1.name": "Reads every file.",
-  "home.caps.1.text": "Assure reads handwritten and scanned reports, PDFs and forms, and pulls out the facts that matter.",
-  "home.caps.2.name": "Links facts across documents.",
-  "home.caps.2.text": "One case file holds the facts from every document in it.",
-  "home.caps.3.name": "Checks the figures.",
-  "home.caps.3.text": "Then the formal consistency check runs on the draft. It tests whether a figure conflicts with the value locked from the source. The language model does not make that call for a labeled figure.",
-  "home.caps.4.name": "Uses the locked source values.",
-  "home.caps.4.text": "Figures in the draft are compared with the values locked from your source files.",
-  "home.caps.5.name": "Shows the source page.",
-  "home.caps.5.text": "Every finding links to the exact page behind it.",
-  "home.caps.6.name": "Writes the draft, then the check.",
-  "home.caps.6.text": "A language model writes the draft from the source files. The formal consistency check and any Red-Hat review run on that draft.",
-  "home.caps.title": "Everything a team needs to work a document file.",
-  "home.diff.1.name": "Document extraction tools",
-  "home.diff.1.text": "pull fields out of a file.",
-  "home.diff.2.name": "AI chat assistants",
-  "home.diff.2.text": "answer in prose, and a reviewer still has to check each page.",
-  "home.diff.4.name": "Assure",
-  "home.diff.4.text": "keeps the source page, runs a formal consistency check on the figures, and can run a Red-Hat review that tries to find what is wrong in the draft.",
-  "home.diff.title": "Reading a document is not the same as checking it.",
-  "home.fit.1.name": "Read.",
-  "home.fit.1.text": "Assure reads every scan, PDF, and form, and keeps the page for each figure.",
-  "home.fit.2.name": "Link.",
-  "home.fit.2.text": "Figures from different documents are joined into one case file, each tied to its source page.",
-  "home.fit.3.name": "Draft.",
-  "home.fit.3.text": "A language model writes the draft from those files. The figure check runs after this draft exists.",
-  "home.fit.4.name": "Check.",
-  "home.fit.4.text": "the formal consistency check runs the formal consistency check. A formal consistency checker tests whether the draft's figures conflict with the values locked from the source. The language model does not make that call for a labeled number.",
-  "home.fit.5.name": "Red-Hat review.",
-  "home.fit.5.text": "Red-Hat review is optional. When someone runs it, a language model tries to find what is wrong in the draft: a mismatch with the source sentence, an overstatement, a missing clause, or a figure that needs a citation.",
-  "home.fit.6.name": "Decide.",
-  "home.fit.6.text": "A person accepts or rejects each finding.",
-  "home.fit.inputs": "Works with your SAP exports alongside contracts, invoices and receipts.",
-  "home.fit.sub": "Keep your forms, portals and case systems. The layer sits underneath and makes the documents usable.",
-  "home.fit.title": "From a pile of files to a file your team can work.",
-  "home.hero.icp": "For Finance, Claims, and Procurement teams.",
-  "home.hero.proof.aria": "Invoice — 142,500 EUR compared with contract cap — 120,000 EUR",
-  "home.hero.proof.cap.label": "Contract cap",
-  "home.hero.proof.cap.value": "120,000 EUR",
-  "home.hero.proof.invoice.label": "Invoice",
-  "home.hero.proof.invoice.value": "142,500 EUR",
-  "home.hero.proof.line": "A person or an agent decides, and the file can still be downloaded.",
-  "home.hero.see": "Invoice p.3 and Contract p.12 are both open. Export is flagged.",
-  "home.icp.fuel.name": "Fuel retailers and distributors",
-  "home.icp.fuel.text": "Bonus statements checked against supplier agreements and sales records, catching a wrong rate or a volume that does not match. The finance team decides.",
-  "home.icp.gov.name": "Public bodies and government services",
-  "home.icp.gov.text": "Applicant files checked against eligibility rules and registers, catching a missing certificate or a name that does not match the ID. A case officer decides.",
-  "home.icp.ind.name": "Industrial and manufacturing groups",
-  "home.icp.ind.text": "Supplier invoices checked against contracts, purchase orders and delivery notes, and certificates checked against shipping and customs documents across group companies, catching a price above the agreed rate or a certificate that does not match the shipment. The procurement or finance team decides.",
-  "home.icp.ins.name": "Insurers",
-  "home.icp.ins.text": "Claim files checked against the policy and supporting documents, catching a treatment date outside cover or the same invoice sent twice. The adjuster decides.",
-  "home.icp.mro.name": "Aviation and engineering maintenance",
-  "home.icp.mro.text": "Part release certificates checked against work orders, maintenance records and supplier documents, catching a part serial number that does not match its certificate. The engineer decides.",
-  "home.icp.title": "For teams that check before they act.",
-  "home.pain.body": "Before you pay, you still open the contract. You already extract the numbers. You still have to open the contract to check whether the invoice is allowed. Assure keeps the source page with every figure and shows the contradiction before you pay. A person decides.",
-  "home.pain.title": "Your decisions run on documents.",
-  "home.proof.who": "For procurement. A supplier invoice against the contract.",
-  "home.runs.title": "Where it runs",
-  "home.start.body": "Bring a real document set. We run it with your team and walk you through the findings.",
-  "home.start.title": "Try it on your own files.",
-  "home.steps.1.name": "Both pages open",
-  "home.steps.1.text": "The invoice and the contract cap sit side by side. Every figure keeps its source page.",
-  "home.steps.2.name": "Contradiction marked",
-  "home.steps.2.text": "The formal consistency check flags the conflict. Export is blocked.",
-  "home.steps.3.name": "Person decides",
-  "home.steps.3.text": "A person accepts or rejects each finding. The file stays downloadable.",
-  "home.steps.title": "How it works",
-  "home.trust.1.name": "Your infrastructure.",
-  "home.trust.1.text": "Deploy in your own AWS account or on-premises.",
-  "home.trust.2.name": "Your choice of models.",
-  "home.trust.2.text": "You choose where the models run. Can run on your own GPU servers, so the models stay on your hardware.",
-  "home.trust.link": "Security and data",
-  "home.uses.1.name": "Onboarding and KYC files.",
-  "home.uses.1.text": "IDs, certificates and forms: each figure stays on its source page.",
-  "home.uses.2.name": "Claims and payouts.",
-  "home.uses.2.text": "Claim files: figures are compared with the source pages.",
-  "home.uses.3.name": "Supplier invoices and contracts.",
-  "home.uses.3.text": "Supplier invoices and contracts: invoice figures are compared with the figures on the source pages.",
-  "home.uses.4.name": "Tenders and procurement.",
-  "home.uses.4.text": "Tenders and procurement: bid figures are compared with the figures on the source pages.",
-  "home.uses.5.name": "Grants and subsidies.",
-  "home.uses.5.text": "Grants and subsidies: application figures are compared with the source pages.",
-  "home.uses.6.name": "Compliance and audit evidence.",
-  "home.uses.6.text": "Compliance and audit evidence: evidence figures are compared with the source pages.",
-  "home.uses.7.name": "Reconciliations.",
-  "home.uses.7.text": "Reconciliations: statement figures are compared with the figures on the source pages.",
-  "home.uses.8.name": "Certificates and shipping files.",
-  "home.uses.8.text": "Certificates and shipping files: certificate figures are compared with the figures on the source pages.",
-  "home.uses.sub": "Wherever a decision depends on documents, the layer can check them first.",
-  "home.uses.title": "The same checks, across your document work.",
-  "home.wf.1": "Onboarding and KYC files",
-  "home.wf.2": "Claims and payouts",
-  "home.wf.3": "Supplier invoices and contracts",
-  "home.wf.4": "Tenders and procurement",
-  "home.wf.5": "Grants and subsidies",
-  "home.wf.6": "Compliance and audit evidence",
-  "home.wf.7": "Reconciliations",
-  "home.wf.8": "Certificates and shipping files",
-  "home.wf.label": "Also used for:",
-  "home.wf.line": "Also used for onboarding, claims, invoices, tenders, grants, audit files, reconciliations, and shipping files.",
-  "home.wf.more": "See all use cases",
-  "home.who.fuel": "Bonus statements: a rate that does not match the agreement. The finance team decides.",
-  "home.who.gov": "Applicant files: a missing certificate. A case officer decides.",
-  "home.who.ind": "Supplier invoices: a price above the agreed rate. Procurement decides.",
-  "home.who.ins": "Claim files: a treatment date outside cover. The adjuster decides.",
-  "home.who.mro": "Release certificates: a serial number that does not match. The engineer decides.",
-  "ingest.report.nodes": "nodes",
-  "jdf.confidence.verified": "Verified",
-  "jdf.export.pdf": "PDF",
-  "jdf.menu.edit": "Edit",
-  "jdf.provenance.page": "Page",
-  "jdf.redhat": "Stress Test",
-  "jdf.toolbar.edit": "Edit",
-  "jdf.truth.pass": "✅ Verified",
-  "landing.closing.cta": "See the proof",
-  "landing.compare.col.assure": "Assure",
-  "landing.demo.academic.c1": "This study builds on prior fieldwork examining social capital among cooperative farmers in flood-prone regions.",
-  "landing.demo.academic.c2": "62% reported increased trust in neighboring households following the 2019 flood season, based on 340 survey participants.",
-  "landing.demo.academic.c3": "These findings are consistent with bonding social capital theory in post-disaster contexts.",
-  "landing.demo.academic.err.body": "Uploaded dataset shows <b>340 respondents</b> and a trust increase of <b>48%</b>, not <b>62%</b>. This claim doesn't match the source table.",
-  "landing.demo.academic.err.title": "Citation Mismatch",
-  "landing.demo.academic.p1": "This study builds on prior fieldwork examining social capital among cooperative farmers in flood-prone regions.",
-  "landing.demo.academic.p2": "Across the sampled cooperatives, <span class=\"flaw-underline\">62% reported increased trust</span> in neighboring households following the 2019 flood season, drawing on survey responses from 340 participants.",
-  "landing.demo.academic.p3": "These findings are consistent with bonding social capital theory in post-disaster contexts.",
-  "landing.demo.academic.prompt": "Rewrite the finding to reflect the 48% figure in Table 3...",
-  "landing.demo.aria": "Interactive product preview",
-  "landing.demo.badge.locked": "✅ Verified",
-  "landing.demo.compile": "Compile",
-  "landing.demo.journalism.c1": "The internal memo, obtained by our newsroom, outlines the airline's revised cost-cutting plan for Q3.",
-  "landing.demo.journalism.c2": "Maintenance budgets fall by 15% of the division's $45M allocation, saving the company $7.5M annually.",
-  "landing.demo.journalism.c3": "Union representatives were not consulted before the memo circulated to regional managers.",
-  "landing.demo.journalism.err.body": "15% of <b>$45M</b> is <b>$6.75M</b>, not <b>$7.5M</b>. The savings figure in this claim does not follow from the source memo.",
-  "landing.demo.journalism.p1": "The internal memo, obtained by our newsroom, outlines the airline's revised cost-cutting plan for Q3.",
-  "landing.demo.journalism.p2": "Under the proposal, maintenance budgets fall by 15% of the division's $45M allocation, saving the company <span class=\"flaw-underline\">$7.5M annually</span>.",
-  "landing.demo.journalism.p3": "Union representatives were not consulted before the memo circulated to regional managers.",
-  "landing.demo.journalism.prompt": "Rewrite the savings figure to match the $6.75M the memo actually supports...",
-  "landing.demo.legal.c1": "Pursuant to Section 4.2, the Acquirer shall assume all liabilities disclosed in Schedule C as of the Closing Date.",
-  "landing.demo.legal.c2": "The earn-out consideration is capped at $12M, payable over 24 months contingent on EBITDA milestones.",
-  "landing.demo.legal.c3": "Any indemnification claims must be submitted within eighteen months following Closing.",
-  "landing.demo.legal.err.body": "Schedule C caps the earn-out at <b>$9M over 36 months</b>. This draft clause conflicts with the uploaded schedule.",
-  "landing.demo.legal.err.title": "Clause Conflict Detected",
-  "landing.demo.legal.p1": "Pursuant to Section 4.2, the Acquirer shall assume all liabilities disclosed in Schedule C as of the Closing Date.",
-  "landing.demo.legal.p2": "The earn-out consideration is capped at <span class=\"flaw-underline\">$12M, payable over 24 months</span> contingent on the Target achieving specified EBITDA milestones.",
-  "landing.demo.legal.p3": "Any indemnification claims must be submitted within eighteen months following Closing.",
-  "landing.demo.legal.prompt": "Rewrite the earn-out clause to match Schedule C, $9M over 36 months...",
-  "landing.demo.pane.ast": "Verified Document",
-  "landing.demo.pane.raw": "RAW INPUT",
-  "landing.demo.refine": "Refine",
-  "landing.demo.tab.academic": "Academic Researcher",
-  "landing.demo.tab.journalism": "Investigative Journalist",
-  "landing.demo.tab.legal": "Legal & M&A",
-  "landing.demo.tablist": "Choose a profession",
-  "landing.demo.titlebar": "Assure · Session Lock: Active",
-  "landing.diff.callout": "The output is a document. The product is verification.",
-  "landing.diff.cat1.examples": "AI assistants for legal drafting, research and review",
-  "landing.diff.cat1.gap": "The proof layer, deterministic grounding, page-level provenance, and reusable verification.",
-  "landing.diff.cat1.strength": "Speed up drafting, research, and review.",
-  "landing.diff.cat1.title": "Legal copilots",
-  "landing.diff.cat2.examples": "OCR, extraction and intelligent document processing platforms",
-  "landing.diff.cat2.gap": "Claim-level verification and a durable audit trail.",
-  "landing.diff.cat2.strength": "OCR, extraction, tables, forms, and layout understanding.",
-  "landing.diff.cat2.title": "Document AI / IDP tools",
-  "landing.diff.cat3.examples": "General-purpose language models + prompts + RAG + internal scripts",
-  "landing.diff.cat3.gap": "Trust, consistency, auditability, and reusable evidence.",
-  "landing.diff.cat3.strength": "Fast to prototype and flexible to customize.",
-  "landing.diff.cat3.title": "DIY LLM stacks",
-  "landing.diff.cat4.body": "Structured evidence. Deterministic logic. Adversarial review. Page-level provenance.",
-  "landing.diff.cat4.title": "Assure",
-  "landing.diff.close": "The market is full of tools that process documents. Assure is built to prove them.",
-  "landing.diff.intro": "Most enterprise AI tools help you extract, draft, or search. Assure is built for the harder problem: proving that every output is grounded in the source.",
-  "landing.diff.label.examples": "Typical tools",
-  "landing.diff.label.gap": "What's missing",
-  "landing.diff.label.strength": "What they do well",
-  "landing.diff.title": "Why Assure is different",
-  "landing.disclaimer.body": "Assure compiles and verifies documents so you can ship with a trail. Outputs are not legal, financial, or professional advice. Human review is required before you rely on any document.",
-  "landing.disclaimer.link": "Read the terms of use",
-  "landing.disclaimer.title": "A note on verification",
-  "landing.footer.about": "About",
-  "landing.footer.back_top": "Back to top",
-  "landing.footer.copy": "© 2026 Assure",
-  "landing.footer.deployment": "Runs in your own AWS account or on-premises. You choose where the models run.",
-  "landing.footer.docs": "Developer documentation",
-  "landing.footer.engineer_tagline": "Checked against the source. Decided by a person.",
-  "landing.footer.owner": "© 2026 Assure. All rights reserved.",
-  "landing.gov.title": "Paperless government services, verified",
-  "landing.hero.cta.paste": "Paste your documents",
-  "landing.hero.cta_line1": "See the proof",
-  "landing.hero.cta_line2": "for your role",
-  "landing.hero.cta_primary": "See the proof",
-  "landing.hero.cta_secondary": "Run a POC",
-  "landing.hero.deployment": "Runs in your AWS account or on-prem. You pick where the models run.",
-  "landing.lang": "Language",
-  "landing.modal.close": "Close",
-  "landing.nav.about": "About",
-  "landing.nav.architecture": "Architecture",
-  "landing.nav.aria": "Primary",
-  "landing.nav.contact": "Contact",
-  "landing.nav.docs": "Use cases",
-  "landing.nav.government": "Government",
-  "landing.nav.menu": "Menu",
-  "landing.nav.pricing": "Pricing",
-  "landing.nav.privacy": "Privacy",
-  "landing.nav.sandbox": "Pricing",
-  "landing.nav.solutions": "Solutions",
-  "landing.nav.usecases": "Use cases",
-  "landing.onprem.alt": "On-prem",
-  "landing.onprem.title": "On-prem deployment",
-  "landing.persona.bankers": "Investment Bankers",
-  "landing.persona.journalists": "Journalists",
-  "landing.persona.legal": "Legal Counsel",
-  "landing.persona.researchers": "Researchers",
-  "landing.personas.architects.body": "<strong>Banish Documentation Rot.</strong> Componentize specs and architecture proposals into version-controlled nodes that stay synchronized.",
-  "landing.personas.architects.title": "For Technical Architects",
-  "landing.personas.bankers.title": "For Investment Bankers & Analysts",
-  "landing.personas.creators.title": "For Solo High-Stakes Creators",
-  "landing.personas.journalists.body": "<strong>Source-Grounded Truth.</strong> Lock every quote, date, and statistic to its original transcript or court record to eliminate defamation risk.",
-  "landing.personas.journalists.title": "For Journalists & Fact-Checkers",
-  "landing.personas.legal.body": "<strong>Audit-Ready Precision.</strong> Treat complex documentation like source code. Every variable is symbolically verified, leaving a permanent audit trail.",
-  "landing.personas.legal.title": "For Legal Counsel & Compliance",
-  "landing.personas.researchers.title": "For Clinical & Grant Researchers",
-  "landing.personas.title": "Engineered for High-Stakes Work",
-  "landing.pilot.company": "Company name",
-  "landing.pilot.email": "Work email",
-  "landing.pilot.error": "Could not send your request. Please try again.",
-  "landing.pilot.lead": "Three fields. We will contact you to show you the proof.",
-  "landing.pilot.ready_badge": "Proof request received",
-  "landing.pilot.ready_body": "Our team will contact you at your work email to show you the proof.",
-  "landing.pilot.ready_title": "Proof request received",
-  "landing.pilot.submit": "See the proof",
-  "landing.pilot.title": "See the proof",
-  "landing.pilot.workflow": "Primary document workflow",
-  "landing.pilot.workflow.binders": "Insurance Binders",
-  "landing.pilot.workflow.contract": "Contract Review",
-  "landing.pilot.workflow.finance": "Finance / AP",
-  "landing.pilot.workflow.fuel": "Bonus reconciliation",
-  "landing.pilot.workflow.gov": "Government document checks",
-  "landing.pilot.workflow.ins": "Insurance claims review",
-  "landing.pilot.workflow.invoice": "Invoice vs contract / Procurement",
-  "landing.pilot.workflow.other": "Other",
-  "landing.pilot.workflow.regulatory": "Regulatory Submissions",
-  "landing.pilot.workflow.select": "Select a workflow",
-  "landing.plans.contact": "Contact sales",
-  "landing.plans.ent.1": "Dedicated sandbox",
-  "landing.plans.ent.2": "Audit packages for regulated work",
-  "landing.plans.ent.3": "Your keys or managed routers",
-  "landing.plans.enterprise": "Enterprise",
-  "landing.plans.lead": "You bring your own keys. Model usage is billed directly to you, Assure is licensed per team.",
-  "landing.plans.pilot": "Custom pricing",
-  "landing.plans.title": "Plans",
-  "landing.proof.tab.compliance": "Compliance Officers",
-  "landing.proof.tab1.title": "Coverage Counsel & Litigators",
-  "landing.proof.tab2.title": "Public Adjusters & Risk Managers",
-  "landing.proof.tab3.body": "Every claim in your compliance drafts traces back to a source. Assure anchors each figure and citation to the exact page of the policy or regulation you uploaded, so nothing ships that you can't immediately defend.",
-  "landing.proof.tab3.title": "Compliance Officers",
-  "landing.proof.tablist": "Roles",
-  "landing.proof.title": "See how Assure works for your role.",
-  "landing.sandbox.node.claim": "Claim",
-  "landing.sandbox.node.paragraph": "Paragraph",
-  "landing.sandbox.node.section": "Section",
-  "landing.skip": "Skip to content",
-  "landing.steps.1.name": "Assure",
-  "landing.steps.1.role": "Read and check",
-  "landing.steps.2.name": "the formal consistency check",
-  "landing.steps.2.role": "Cross-check",
-  "landing.steps.3.name": "Assure",
-  "landing.trust.card1.body": "One intent. Multiple specialized models working in concert. No prompt engineering required.",
-  "landing.trust.card1.title": "Orchestration Engine",
-  "landing.trust.card2.body": "LLMs guess. Assure verifies. Each number is grounded in your source documents.",
-  "landing.trust.card2.title": "Mathematical Logic Engine",
-  "landing.trust.card3.body": "Before you ship, Assure attacks your own work. It finds the contradictions and unsupported claims that others would exploit.",
-  "landing.trust.card3.title": "Adversarial Audit",
-  "landing.trust.card4.title": "Audit-Ready Export",
-  "landing.trust.lead": "Grounded in your documents, not the model's memory. Every check points at a real source, not a statistical guess.",
-  "landing.trust.logos_aria": "On-prem, AWS and Amazon S3",
-  "landing.trust.title": "Enterprise trust architecture",
-  "landing.why.a1": "AI writes the text.",
-  "landing.why.a2": "Deterministic checks verify it.",
-  "landing.why.a3": "The contradiction is shown on the review screen and export is flagged. The file can still be downloaded.",
-  "landing.why.copy": "Generative AI is fast, but it is fundamentally unverified. In enterprise compliance, guessing is a liability. Assure AI places a deterministic verification engine between your models and your output. It checks math with formal logic, tracks source provenance down to the exact page, and flags every logical gap before a human ever has to look twice.",
-  "landing.why.q1": "AI writes the text.",
-  "landing.why.q2": "Humans trust it by hand.",
-  "landing.why.q3": "Liability hides in drafts.",
-  "landing.why.standard": "The Assure AI standard",
-  "landing.why.status_quo": "The status quo",
-  "landing.why.title": "Why now",
-  "lang": "Language",
-  "learn.role": "Role",
-  "meta.about.description": "Assure checks one document against another. Both source pages stay open, and the contradiction is shown before you pay.",
-  "meta.about.title": "About Assure AI | How a draft is checked against its source pages",
-  "meta.architecture.description": "Both pages open, the contradiction is marked, export is flagged, and a person decides. Runs in your own AWS account, on-premises, or private GPU.",
-  "meta.architecture.title": "Architecture | Assure AI",
-  "meta.contact.description": "Before you pay, accept, or sign, you still open the contract and the invoice side by side. Tell us the workflow to be checked.",
-  "meta.contact.title": "Contact | Assure AI",
-  "meta.government.description": "Assure keeps the page for each figure in an applicant file and checks the draft against the source. Staff decide.",
-  "meta.government.title": "Government document checks · Assure",
-  "meta.home.name": "Home",
-  "meta.landing.description": "Assure keeps the source page with every figure and shows the contradiction before you pay. Export blocked — a person or an agent decides, and the file can still be downloaded.",
-  "meta.landing.title": "Assure | When two documents disagree, both pages are already open.",
-  "meta.landing_privacy.description": "How deployment affects what Assure stores, and how the marketing site handles contact details.",
-  "meta.landing_privacy.title": "Privacy | Assure AI",
-  "meta.poc.description": "1 workflow, limited sample cases. A written “Yes, proceed” starts the assessment. The 142,500 EUR invoice is checked against the 120,000 EUR contract cap.",
-  "meta.poc.title": "Proof of concept | Assure",
-  "meta.pricing.description": "Enterprise deployment. Custom to your team. Runs in your own AWS account, on-premises, or private GPU environment. You choose where the models run.",
-  "meta.pricing.title": "Pricing · Assure",
-  "meta.security.description": "Runs in your environment. You choose where the models run. Data is encrypted at rest and in transit.",
-  "meta.security.title": "Security | Assure AI",
-  "meta.solutions.description": "A 142,500 EUR invoice is checked against a 120,000 EUR contract cap. Invoice p.3 and Contract p.12 are both open.",
-  "meta.solutions.title": "Solutions | Assure AI",
-  "meta.terms.description": "Assure checks configured figures and rules. Professional judgment stays with the reviewer.",
-  "meta.terms.title": "Terms | Assure AI",
-  "meta.use_case_fuel.description": "How fuel retail teams reconcile bonus statements against agreements and sales records.",
-  "meta.use_case_fuel.title": "Fuel retail bonus reconciliation · Assure",
-  "meta.use_case_government.description": "Read an applicant file and keep the page for each figure. The draft’s figures are checked against the source.",
-  "meta.use_case_government.title": "Government document checks · Assure",
-  "meta.use_case_insurance.description": "See where figures in a claim file do not match the source pages.",
-  "meta.use_case_insurance.title": "Insurance claims review · Assure",
-  "meta.use_cases_index.description": "The 142,500 EUR invoice checked against a 120,000 EUR contract cap, claims, and government document checks.",
-  "meta.use_cases_index.title": "Use cases · Assure",
-  "mode.label.example": "Example",
-  "mode.label.how": "How it works",
-  "mode.open.title": "Open to the internet",
-  "mode.privacy": "Privacy",
-  "nav.about": "About",
-  "nav.generate": "Draft",
-  "nav.language_aria": "Language",
-  "nav.main": "Main",
-  "nav.main_aria": "Main",
-  "nav.pricing": "Pricing",
-  "nav.privacy": "Privacy",
-  "nav.projects": "Write",
-  "nav.security": "Security",
-  "nav.terms": "Terms",
-  "persona.pro": "Pro",
-  "poc.assessment.1": "1 workflow",
-  "poc.assessment.2": "Limited sample cases",
-  "poc.assessment.3": "A written “Yes, proceed”",
-  "poc.assessment.title": "The assessment",
-  "poc.cap.label": "Contract cap",
-  "poc.cap.value": "120,000 EUR",
-  "poc.cta": "Contact / request assessment",
-  "poc.invoice.label": "Invoice",
-  "poc.invoice.value": "142,500 EUR",
-  "poc.lead": "One workflow. Limited sample cases. A written “Yes, proceed” starts the assessment.",
-  "poc.title": "Proof of concept",
-  "pricing.contact": "Contact sales",
-  "pricing.lead": "Enterprise deployment, priced per team and per workflow. Custom to your document set.",
-  "pricing.price": "Custom pricing, per team and per workflow.",
-  "pricing.pro": "Enterprise",
-  "pricing.pro.1": "Runs in your own AWS account, on-premises, or private GPU environment, inside a boundary you control. Nothing runs on shared infrastructure, and nothing leaves it without your say-so.",
-  "pricing.pro.2": "You choose where the models run: local, documents stay inside your environment; hosted, customer data is never used for training on your documents.",
-  "pricing.pro.3": "Source pages stay linked: every figure keeps the page, cell, or row it came from, so anyone on the team can review the check without hunting for the original document.",
-  "pricing.pro.4": "Export is flagged while a contradiction is unresolved. A person decides. The file can still be downloaded, with the flag recorded.",
-  "pricing.selective": "1 workflow. Limited sample cases. A written “Yes, proceed” is required. The assessment runs on your documents, in your environment, with a fixed scope agreed up front and a written review at the end.",
-  "pricing.subscribe": "Contact sales",
-  "pricing.title": "Pricing",
-  "privacy.enterprise.s1.title": "What data we collect",
-  "privacy.enterprise.s10.title": "International transfers",
-  "privacy.enterprise.s11.title": "Changes to this policy",
-  "privacy.enterprise.s12.title": "Contact us",
-  "privacy.enterprise.s2.title": "How we use your data",
-  "privacy.enterprise.s3.title": "Sharing your data",
-  "privacy.enterprise.s4.title": "Your rights",
-  "privacy.enterprise.s5.title": "Data security",
-  "privacy.enterprise.s6.title": "Data retention",
-  "privacy.enterprise.s7.title": "Children's privacy",
-  "privacy.enterprise.s8.title": "Disclaimer",
-  "privacy.enterprise.s9.title": "Data processing agreement",
-  "privacy.enterprise.title": "Privacy Policy",
-  "privacy.enterprise.toc_label": "On this page",
-  "privacy.enterprise.toc_title": "Quick links",
-  "privacy.enterprise.updated": "Last updated: September 8, 2026",
-  "privacy.page.title": "Privacy",
-  "privacy.updated": "Updated 6 September 2026.",
-  "projects.lock": "lock",
-  "projects.locks": "locks",
-  "role.compliance": "Compliance",
-  "role.developer": "Developer",
-  "role.label": "Role",
-  "sec.1.body": "In your own AWS account, on-premises, or private GPU environment. You choose where the models run, and the deployment stays inside your network boundary. Nothing is shared with other tenants, and the infrastructure stays under your control.",
-  "sec.1.title": "Where it runs",
-  "sec.2.body": "Local: documents stay inside your environment, and nothing leaves it. Hosted: customer data is never used for training. With a local model, documents do not leave your boundary at any point in the check.",
-  "sec.2.title": "Model boundary",
-  "sec.3.body": "Data is encrypted in transit with TLS 1.3 and at rest with AES-256. Each check keeps its own review record, kept under your retention settings, with the source page linked to every figure.",
-  "sec.3.title": "Encryption",
-  "sec.4.body": "Every user signs in. Each project is visible only to its owner and the people they add. Access can be reviewed and revoked by your own administrators at any time.",
-  "sec.4.title": "Access",
-  "sec.link": "Security and data",
-  "sec.sub": "Where Assure runs, what it stores and who can see it. Four sections, no fine print.",
-  "sec.title": "Security and data",
-  "solutions.cap.label": "Contract cap",
-  "solutions.cap.value": "120,000 EUR",
-  "solutions.invoice.label": "Invoice",
-  "solutions.invoice.value": "142,500 EUR",
-  "spine.error": "Error",
-  "spine.locked": "Locked number",
-  "spine.verified": "Verified",
-  "substrate.vault.verified": "Verified",
-  "surgical.click.ground": "Ground",
-  "terms.accuracy": "AI systems are probabilistic and can hallucinate. Verification is a filter, not a promise of accuracy. We do not promise that output is flawless, complete, or free from errors. Independently verify critical information.",
-  "terms.accuracy.h": "Accuracy",
-  "terms.advice": "Assure performs document analysis, verification, and compilation. It does not give legal, financial, or professional advice. Consult qualified professionals before you act on any output.",
-  "terms.advice.h": "Not professional advice",
-  "terms.answers": "Assure rewrites your question, can send it to models you connect, and can drop claims that were not in your files. That is a filter, not a promise of accuracy. You check the result before you use it with a client, a paper, or a decision.",
-  "terms.answers.h": "Answers can be wrong",
-  "terms.as_is": "The software is provided \"as is\", without warranties. We are not liable for damages or other consequences of your use. We do not promise uptime, accuracy, or fitness for a particular job. Any service levels are set only in your signed enterprise agreement.",
-  "terms.as_is.h": "No warranty",
-  "terms.duty": "You are solely responsible for how you use Assure. You agree not to use it for any unlawful, harmful, or abusive purpose.",
-  "terms.duty.h": "Your responsibility",
-  "terms.files": "Only upload files you have the right to use. Do not upload privileged, confidential, or sensitive information unless you are authorised to do so. Do not send health or other sensitive text to a provider that is open to the internet unless you mean to. We are not responsible for uploads that violate your own obligations.",
-  "terms.files.h": "Your files",
-  "terms.indemnity": "You cover losses that arise from your use of Assure. Our total liability is capped at the amount you paid for the service. We are not liable for indirect, consequential, or punitive damages.",
-  "terms.indemnity.h": "Liability",
-  "terms.law": "You are responsible for how you use the output. If these terms cannot be enforced in your location, the rest still apply.",
-  "terms.law.h": "If something goes wrong",
-  "terms.lead": "How Assure works, what you are responsible for, and what we do not promise.",
-  "terms.prohibit": "You may not use Assure to generate or promote:",
-  "terms.prohibit.deceive": "Deceptive or fraudulent material",
-  "terms.prohibit.h": "Prohibited uses",
-  "terms.prohibit.hate": "Hate speech or discrimination",
-  "terms.prohibit.illegal": "Illegal content or activities",
-  "terms.prohibit.rights": "Content that violates the rights of others",
-  "terms.prohibit.violence": "Violence, threats, or harassment",
-  "terms.providers": "You must also follow the terms of the AI provider you connect. A Send to a connected provider is subject to that provider's rules. Assure does not replace them.",
-  "terms.providers.h": "Provider policies",
-  "terms.send": "Assure keeps the source page with every figure and shows the contradiction before you pay. A person decides. The file can still be downloaded. Runs in your own AWS account, on-premises, or private GPU environment. You choose where the models run.",
-  "terms.send.h": "Copy and Send",
-  "terms.third": "We are not liable for decisions made by third parties who rely on the output. Do not share output with others without your own verification.",
-  "terms.third.h": "Third parties",
-  "terms.title": "Terms of use",
-  "terms.updated": "Updated 6 September 2026.",
-  "terms.use": "Assure is designed for document compilation, verification, and compliance review. It is not a substitute for binding legal, financial, or regulatory decisions. If you rely on the output as your sole verification, that responsibility stays with you.",
-  "terms.use.h": "What this is for",
-  "terms.verify": "You are solely responsible for verifying outputs before you take action. Assure is an aid to human judgment, not a replacement for it. Human review is mandatory before you rely on any document.",
-  "terms.verify.h": "Human review",
-  "terms.who": "These terms apply when you use Assure or read assureproof.com. They are not legal advice.",
-  "terms.who.h": "Who this covers",
-  "tester.feedback.submit": "Send",
-  "title": "Assure",
-  "tour.back": "Back",
-  "trust.verified": "Verified",
-  "tx.send": "Send",
-  "uc.back": "← All use cases",
-  "uc.cta": "See the proof",
-  "uc.fuel.meta": "How fuel retail teams reconcile bonus statements against agreements and sales records.",
-  "uc.fuel.page_title": "Fuel retail bonus reconciliation · Assure",
-  "uc.fuel.sample.finding": "The bonus rate on the statement is different from the rate in the agreement. The rate on page 4 and the rate in clause 6 cannot both be true.",
-  "uc.fuel.sample.source": "Statement, page 4 · Agreement, clause 6",
-  "uc.fuel.sub": "Fuel Delivery Logs are checked against Bonus Rebate Statements. Source pages stay linked. Contradictions appear on the review screen. Export blocked on the review screen. A person or an agent decides. The file can still be downloaded.",
-  "uc.fuel.title": "Fuel retail bonus reconciliation",
-  "uc.gov.meta": "Read an applicant file and keep the page for each figure. The draft's figures are checked against the source. A person decides.",
-  "uc.gov.page_title": "Government document checks · Assure",
-  "uc.gov.sample.finding": "The name on the ID does not match the name on the application form.",
-  "uc.gov.sample.source": "ID, page 2 · Application form, page 1",
-  "uc.gov.sub": "Grant Applications/Dossiers are checked against the Attached Expense Audit. Source pages stay linked. Contradictions appear on the review screen. Export blocked on the review screen. A person or an agent decides. The file can still be downloaded.",
-  "uc.gov.title": "Government document checks",
-  "uc.index.page_title": "Use cases · Assure",
-  "uc.index.title": "Use cases",
-  "uc.ins.headline": "Catch fraud and errors before you pay a claim, with both pages open on every figure.",
-  "uc.ins.meta": "See where figures in a claim file do not match the source pages. A person decides.",
-  "uc.ins.page_title": "Insurance claims review · Assure",
-  "uc.ins.sample.finding": "The invoice total is different from the amount on the claim form.",
-  "uc.ins.sample.source": "Invoice, page 1 · Claim form, page 3",
-  "uc.ins.sub": "Claim Form is checked against Supporting Receipts & Medical Bills. Source pages stay linked. Contradictions appear on the review screen. Export blocked on the review screen. A person or an agent decides. The file can still be downloaded.",
-  "uc.ins.title": "Insurance claims review",
-  "uc.label.before": "What you send",
-  "uc.label.checks": "What Assure checks",
-  "uc.label.sees": "What the reviewer sees",
-  "uc.more": "See how it works",
-  "uc.sample.label": "Sample finding",
-  "uc3.col.against": "Checked against",
-  "uc3.col.finding": "Finding",
-  "uc3.col.source": "Source",
-  "uc3.col.statement": "Statement",
-  "uc3.gov.doc.1": "Application form",
-  "uc3.gov.doc.2": "ID document",
-  "uc3.gov.doc.3": "Supporting certificates",
-  "uc3.gov.f.1": "The name on the ID does not match the name on the application form.",
-  "uc3.gov.f.2": "The certificate number on the form does not match the number on the certificate.",
-  "uc3.gov.f.3": "The date of birth on the ID does not match the date of birth on the application form.",
-  "uc3.gov.outcome": "A person sees each finding with its source page.",
-  "uc3.gov.s.1": "ID, page 2 · Application form, page 1",
-  "uc3.gov.s.2": "Certificate, page 1 · Application form, page 2",
-  "uc3.gov.s.3": "ID, page 2 · Application form, page 3",
-  "uc3.gov.sk.1": "ID card",
-  "uc3.gov.sk.2": "Application form",
-  "uc3.ins.doc.1": "Claim form",
-  "uc3.ins.doc.2": "Policy",
-  "uc3.ins.doc.3": "Invoices and reports",
-  "uc3.ins.f.1": "The invoice total is different from the amount on the claim form.",
-  "uc3.ins.f.2": "The date on the medical report does not match the date on the claim form.",
-  "uc3.ins.f.3": "The same invoice is submitted twice.",
-  "uc3.ins.outcome": "A person sees each finding with its source page, and the flagged figure keeps its source before the payout is made.",
-  "uc3.ins.s.1": "Invoice, page 1 · Claim form, page 3",
-  "uc3.ins.s.2": "Medical report, page 2 · Claim form, page 1",
-  "uc3.ins.s.3": "Invoice 2 · Invoice 5",
-  "uc3.ins.sk.1": "Invoice",
-  "uc3.ins.sk.2": "Claim form",
-  "uc3.inv.a.1": "Invoice, page 1: 142,500 EUR",
-  "uc3.inv.b.1": "Contract, cap, page 2: 120,000 EUR",
-  "uc3.inv.doc.1": "Supplier invoice",
-  "uc3.inv.doc.2": "Contract with cap",
-  "uc3.inv.doc.3": "Source pages",
-  "uc3.inv.f.1": "The invoice total is 142,500 EUR. The contract cap is 120,000 EUR.",
-  "uc3.inv.outcome": "The contradiction is shown on the review screen with both source pages.",
-  "uc3.inv.s.1": "Invoice, page 1 · Contract, cap, page 2",
-  "uc3.inv.sk.1": "Invoice",
-  "uc3.inv.sk.2": "Contract cap",
-  "uc3.inv.title": "Invoice vs contract / Procurement",
-  "uc3.label.docs": "Documents in",
-  "uc3.label.findings": "Typical findings",
-  "uc3.label.outcome": "Outcome",
-  "usage.tier": "Plan",
-  "usage.type": "Type",
-  "vault.prompts.class.research": "Research",
-  "vault.prompts.content": "Content",
-  "vault.prompts.edit": "Edit",
-  "vault.prompts.name": "Name",
-  "wizard.back": "Back",
-  "solutions.line": "Invoice p.3 and Contract p.12 are both open. Export blocked — a person or an agent decides, and the file can still be downloaded.",
-  "solutions.cards.1.name": "Invoice vs contract",
-  "solutions.cards.1.finding": "The invoice total is 142,500 EUR. The contract cap is 120,000 EUR. The difference is 22,500 EUR above the cap. Both source pages stay open, and the mismatch is flagged before payment.",
-  "solutions.cards.2.name": "Claims",
-  "solutions.cards.2.finding": "A claim file is checked against the policy and the supporting invoices. The billed amount is compared with the policy terms, the certificate on file is compared with the claim, and every figure keeps its source page.",
-  "solutions.cards.3.name": "Compliance pack",
-  "solutions.cards.3.finding": "Every certificate and form in the pack is checked against its source. The certificate number on the form did not match the certificate, so the mismatch is marked.",
-  "solutions.cards.4.name": "Internal report",
-  "solutions.cards.4.finding": "The report is checked against the sales records and locked volumes. The volume on the report is different from the sales records, so the figure is flagged before the report goes out.",
-  "about.who.1": "Finance: supplier invoices checked against contract caps and agreed terms before the payment run, with the contract page open next to the invoice.",
-  "about.who.2": "Claims: claim files checked against policies and the supporting documents that back each figure, before the payout.",
-  "about.who.3": "Procurement: tenders and supplier packs checked against requirements and the documents behind each bid.",
-  "about.proof": "The side-by-side example is the proof: a 142,500 EUR invoice is checked against a 120,000 EUR contract cap, both source pages stay open, the difference of 22,500 EUR is marked, and the mismatch is flagged before payment.",
-  "about.proof.link": "See the example",
-  "about.cta": "See the proof",
-  "arch.flow.1.text": "Assure reads both documents side by side and keeps the page, cell, or row for every figure it extracts, so the source stays reachable.",
-  "arch.flow.2.text": "Figures are compared one to one. Where two labeled numbers cannot both be true at the same time, the conflict is marked on the review screen.",
-  "arch.flow.3.text": "The document cannot be exported while a contradiction is unresolved. Export blocked on the review screen. A person or an agent decides, and the file can still be downloaded.",
-  "arch.flow.4.text": "A person or an agent decides, and the file can still be downloaded.",
-  "contact.note": "Written “Yes, proceed” required. 1 workflow. Limited sample cases.",
-  "proof.a.kicker": "Source A",
-  "proof.a.title": "Master Services Agreement (MSA), Page 12, Clause 4.2",
-  "proof.a.value": "120,000 EUR cap",
-  "proof.b.kicker": "Source B",
-  "proof.b.title": "Vendor Invoice #884, Page 3, Line Item 8",
-  "proof.b.value": "142,500 EUR billed",
-  "proof.z3.title": "Z3 Conflict Box",
-  "proof.z3.body": "Export blocked — a person or an agent decides, and the file can still be downloaded.",
-  "pipeline.1.name": "Upload",
-  "pipeline.1.line": "The file stack goes in.",
-  "pipeline.2.name": "ParSure",
-  "pipeline.2.line": "ParSure extracts every figure, clause, and citation and pins each to the page it came from.",
-  "pipeline.3.name": "DraftSure",
-  "pipeline.3.line": "DraftSure produces a first draft from the structured document set.",
-  "pipeline.4.name": "Z3",
-  "pipeline.4.line": "Z3 checks whether every figure, clause, and citation can all be true at the same time. A contradiction stops export.",
-  "pipeline.5.name": "Red Hat review",
-  "pipeline.5.line": "A separate adversarial pass that runs only when requested by the user.",
-  "pipeline.6.name": "Person or agent decides",
-  "pipeline.6.line": "Export is flagged while a contradiction is unresolved. A person decides. The file can still be downloaded, with the flag recorded.",
-  "sovereign.title": "Where it runs",
-  "sovereign.body": "Runs in your own AWS account, on-premises, or private GPU environment. You choose where the models run. When the model is local, documents stay inside that boundary.",
-  "poc.offer.title": "4 selective, assessment-gated free POC slots",
-  "poc.offer.body": "Before year-end freezes: 1 workflow, 5–10 sample cases (max 50 files), 5-day turnaround, zero IT setup.",
-  "poc.scope.title": "Written “Yes, proceed” Scope Note",
-  "poc.form.email": "Work email",
-  "poc.form.pair": "Document pair to cross-check",
-  "poc.form.pair.example": "e.g., Invoice vs. Contract Cap / Claim Form vs. Receipts / Grant Application vs. Attachments",
-  "poc.form.cases": "5–10 sample cases (up to 50 files) sharable before Dec 10",
-  "poc.form.cases.yes": "Yes",
-  "poc.form.cases.check": "Need to check",
-  "poc.form.faq": "Shared under the 1-Page Trust & Privacy FAQ.",
-  "poc.form.review": "Who joins the 30-min live findings review before Dec 20?",
-  "poc.form.review.me": "Just me",
-  "poc.form.review.me.title": "Me + Title",
-  "poc.form.submit": "Request a slot",
-  "sec.poc.title": "POC runs",
-  "sec.poc.body": "Every POC runs in an isolated single-tenant environment. Your documents are never retained or used to train or fine-tune AI models — zero AI model training — and are deleted after the review according to the agreed retention.",
-  "trust.badge.1": "TLS 1.3",
-  "trust.badge.2": "AES-256",
-  "trust.metric.1": "3,000+ documents parsed",
-  "trust.metric.2": "2,300 cross-checks run",
-  "trust.metric.3": "800+ drafts produced",
-  "home.hero.eyebrow": "Document verification platform",
-  "home.hero.sub": "Assure runs a formal consistency check across every figure, clause, and citation in your document set — and shows you exactly where they conflict.",
-  "privacy.enterprise.summary": "This policy covers the assureproof.com website only. We use your contact details only to reply and arrange a review.",
-  "proof.a.cap": "Contract cap",
-  "proof.b.billed": "Amount billed"
+  "brand": {
+    "name": "AssureProof",
+    "architecture_title": "About · AssureProof",
+    "hero_title": "When two documents disagree, both pages are already open.",
+    "hero_title_html": "When two documents disagree, both pages are already open.",
+    "hero_eyebrow": "Deterministic Document Verification",
+    "hero_sub": "AssureProof cross-checks every number, clause, and citation across your entire document set—pinpointing exact conflicts to the page and line before you approve, pay, or publish."
+  },
+  "landing": {
+    "hero": {
+      "cta_primary": "See the proof",
+      "cta_secondary": "Run a POC",
+      "eyebrow": "Deterministic Document Verification",
+      "sub": "AssureProof cross-checks every number, clause, and citation across your entire document set—pinpointing exact conflicts to the page and line before you approve, pay, or publish."
+    },
+    "hero": {
+      "cta_primary": "See the proof",
+      "cta_secondary": "Run a POC"
+    },
+    "closing": {
+      "cta": "See the proof"
+    },
+    "nav": {
+      "usecases": "Use cases",
+      "solutions": "Solutions",
+      "architecture": "Architecture",
+      "about": "About",
+      "pricing": "Pricing",
+      "security": "Security",
+      "contact": "Contact",
+      "privacy": "Privacy",
+      "menu": "Menu",
+      "lang": "Language"
+    },
+    "hero": {
+      "cta_primary": "See the proof",
+      "cta_secondary": "Run a POC"
+    },
+    "nav": {
+      "usecases": "Use cases",
+      "solutions": "Solutions",
+      "architecture": "Architecture",
+      "about": "About",
+      "pricing": "Pricing",
+      "security": "Security",
+      "contact": "Contact",
+      "privacy": "Privacy",
+      "menu": "Menu"
+    },
+    "footer": {
+      "owner": "© 2026 AssureProof. All rights reserved.",
+      "engineer_tagline": "Checked against the source. Decided by a person.",
+      "back_top": "Back to top",
+      "about": "About"
+    },
+    "hero": {
+      "cta_primary": "See the proof",
+      "cta_secondary": "Run a POC",
+      "eyebrow": "Deterministic Document Verification",
+      "sub": "AssureProof cross-checks every number, clause, and citation across your entire document set—pinpointing exact conflicts to the page and line before you approve, pay, or publish."
+    },
+    "steps": {
+      "title": "How it works"
+    },
+    "runs": {
+      "title": "Where it runs",
+      "body": "Runs in your own AWS account, on-premises, or private GPU environment. You choose where the models run. When the model is local, documents stay inside that boundary."
+    },
+    "trust": {
+      "badge": {
+        "1": "TLS 1.3",
+        "2": "AES-256"
+      },
+      "metric": {
+        "1": "3,000+ documents parsed",
+        "2": "2,300 cross-checks run",
+        "3": "800+ drafts produced"
+      }
+    },
+    "steps": {
+      "title": "How it works"
+    },
+    "hero": {
+      "cta_primary": "See the proof",
+      "cta_secondary": "Run a POC"
+    },
+    "nav": {
+      "usecases": "Use cases",
+      "solutions": "Solutions",
+      "architecture": "Architecture",
+      "about": "About",
+      "pricing": "Pricing",
+      "security": "Security",
+      "contact": "Contact",
+      "privacy": "Privacy",
+      "menu": "Menu"
+    },
+    "footer": {
+      "owner": "© 2026 AssureProof. All rights reserved.",
+      "engineer_tagline": "Checked against the source. Decided by a person.",
+      "back_top": "Back to top",
+      "about": "About"
+    },
+    "hero": {
+      "cta_primary": "See the proof",
+      "cta_secondary": "Run a POC",
+      "eyebrow": "Deterministic Document Verification",
+      "sub": "AssureProof cross-checks every number, clause, and citation across your entire document set—pinpointing exact conflicts to the page and line before you approve, pay, or publish."
+    },
+    "steps": {
+      "title": "How it works"
+    },
+    "runs": {
+      "title": "Where it runs",
+      "body": "Runs in your own AWS account, on-premises, or private GPU environment. You choose where the models run. When the model is local, documents stay inside that boundary."
+    },
+    "trust": {
+      "badge": {
+        "1": "TLS 1.3",
+        "2": "AES-256"
+      },
+      "metric": {
+        "1": "3,000+ documents parsed",
+        "2": "2,300 cross-checks run",
+        "3": "800+ drafts produced"
+      }
+    },
+    "steps": {
+      "title": "How it works"
+    },
+    "runs": {
+      "title": "Where it runs",
+      "body": "Runs in your own AWS account, on-premises, or private GPU environment. You choose where the models run. When the model is local, documents stay inside that boundary."
+    },
+    "trust": {
+      "badge": {
+        "1": "TLS 1.3",
+        "2": "AES-256"
+      },
+      "metric": {
+        "1": "3,000+ documents parsed",
+        "2": "2,300 cross-checks run",
+        "3": "800+ drafts produced"
+      }
+    }
+  },
+  "why_not_llm": {
+    "eyebrow": "Probabilistic vs. Deterministic",
+    "title": "General-purpose AI predicts the next word. AssureProof proves the math.",
+    "sub": "ChatGPT and Claude are built to sound plausible, not to guarantee mathematical consistency across a 300-page document stack. When a missed clause or billing overage costs thousands of dollars, probability is not enough.",
+    "table": {
+      "criteria": "Evaluation Criteria",
+      "llm": "Standard LLMs (ChatGPT, Claude, Gemini)",
+      "assure": "AssureProof (Deterministic Verification)",
+      "rows": {
+        "core_engine": {
+          "criteria": "Core Engine",
+          "llm": "Probabilistic — guesses the most likely text based on patterns.",
+          "assure": "Deterministic — mathematically tests every figure and rule using a Z3 formal logic solver."
+        },
+        "math": {
+          "criteria": "Cross-Document Math",
+          "llm": "Often misses subtle discrepancies or loses accuracy as file length grows (\"lost in the middle\").",
+          "assure": "Z3 checks whether every figure, clause, and citation can all be true at the same time. A contradiction stops export."
+        },
+        "traceability": {
+          "criteria": "Source Traceability",
+          "llm": "Citations can be vague, paraphrased, or fabricated.",
+          "assure": "Every claim is pinned directly to the exact source document, page, and line."
+        },
+        "conflict_handling": {
+          "criteria": "Conflict Handling",
+          "llm": "Quietly smooths over contradictions to give you a polite, confident answer.",
+          "assure": "Automatically locks export upon disagreement, forcing a human decision."
+        },
+        "audit": {
+          "criteria": "Audit & Compliance",
+          "llm": "No built-in approval gates or cryptographic audit log of who overrode a discrepancy.",
+          "assure": "Full governance trail recording every flagged conflict, reviewer sign-off, and override."
+        },
+        "residency": {
+          "criteria": "Data Residency",
+          "llm": "Prompts and files typically pass through third-party cloud APIs.",
+          "assure": "Runs 100% inside your AWS account, private GPU, or air-gapped on-prem server."
+        }
+      },
+      "cta": {
+        "text": "Use LLMs to brainstorm. Use AssureProof before you sign, pay, or file.",
+        "button": "See the proof"
+      }
+    },
+    "use_cases": {
+      "eyebrow": "Built for High-Stakes Workflows",
+      "title": "Where a single missed number creates legal or financial exposure.",
+      "sub": "AssureProof cross-checks complex multi-document packets to flag discrepancies before funds or approvals go out the door.",
+      "government": {
+        "title": "Government Document Checks",
+        "subtitle": "Verify procurement bids and regulatory packets before sign-off.",
+        "conflict": {
+          "label": "Live Conflict Example",
+          "badge": "+9.5% Over Cap",
+          "source_a": "RFP Schedule B, p. 4 — Max Subcontractor Cap: 15%",
+          "source_b": "Vendor Proposal, p. 19 — Subcontractor Allocation: 24.5% ($367,500)",
+          "finding": "Subcontractor allocation exceeds statutory 15% cap by 9.5% ($367,500).",
+          "outcome": "Export Locked — Exceeds statutory threshold by 9.5% ($367,500)."
+        },
+        "insurance": {
+          "title": "Insurance Claims Review",
+          "subtitle": "Audit complex claims against policy limits, endorsements, and medical bills.",
+          "conflict": {
+            "label": "Live Conflict Example",
+            "badge": "+$18,400 Over",
+            "source_a": "Policy #409-B, Endorsement 3 — Water Damage Sub-Limit: $50,000",
+            "source_b": "Adjuster Payout Summary, p. 6 — Approved Remediation Payout: $68,400",
+            "finding": "Adjuster worksheet approves $68,400 remediation — exceeds $50,000 water damage sub-limit by $18,400.",
+            "outcome": "Result: Export Locked — Exceeds endorsement cap by $18,400."
+          },
+          "cta": "Test a claims file"
+        },
+        "fuel": {
+          "title": "Fuel Retail Bonus Reconciliation",
+          "subtitle": "Fuel Delivery Logs are checked against Bonus Rebate Statements. Source pages stay linked. Contradictions appear on the review screen. Export blocked on the review screen. A person or an agent decides. The file can still be downloaded.",
+          "conflict": {
+            "label": "Live Conflict Example",
+            "badge": "+$31,200 Over",
+            "source_a": "FY26 Comp Plan, Sec. 3.1 — Accelerator Rate (100%+ Quota): 1.5x",
+            "source_b": "Q4 Payroll Sheet, Row 42 — Applied Multiplier: 2.0x (+$31,200)",
+            "finding": "Applied multiplier (2.0x) conflicts with plan terms (1.5x cap). Overage: +$31,200.",
+            "outcome": "Result: Export Locked — Multiplier conflicts with signed plan terms."
+          }
+        },
+        "cta": "Test a compensation batch",
+        "back": "← All use cases"
+      },
+      "proof": {
+        "a": {
+          "kicker": "Source A",
+          "title": "Master Services Agreement (MSA) • Page 12 • Clause 4.2",
+          "value": "120,000 EUR cap",
+          "cap": "Contract cap"
+        },
+        "b": {
+          "kicker": "Source B",
+          "title": "Vendor Invoice #884 • Page 3 • Line 8",
+          "value": "142,500 EUR billed",
+          "billed": "Amount billed"
+        },
+        "z3": {
+          "title": "Z3 Conflict",
+          "body": "Export blocked — the two sources cannot both be true. A person or an agent decides, and the file can still be downloaded."
+        },
+        "delta": {
+          "label": "Overage",
+          "value": "+22,500",
+          "currency": "EUR"
+        }
+      },
+      "why_not_llm": {
+        "eyebrow": "Probabilistic vs. Deterministic",
+        "title": "General-purpose AI predicts the next word. AssureProof proves the math.",
+        "sub": "ChatGPT and Claude are built to sound plausible, not to guarantee mathematical consistency across a 300-page document stack. When a missed clause or billing overage costs thousands of dollars, probability is not enough.",
+        "table": {
+          "criteria": "Evaluation Criteria",
+          "llm": "Standard LLMs (ChatGPT, Claude, Gemini)",
+          "assure": "AssureProof (Deterministic Verification)",
+          "rows": {
+            "core_engine": {
+              "criteria": "Core Engine",
+              "llm": "Probabilistic — guesses the most likely text based on patterns.",
+              "assure": "Deterministic — mathematically tests every figure and rule using a Z3 formal logic solver."
+            },
+            "math": {
+              "criteria": "Cross-Document Math",
+              "llm": "Often misses subtle discrepancies or loses accuracy as file length grows (\"lost in the middle\").",
+              "assure": "Z3 checks whether every figure, clause, and citation can all be true at the same time. A contradiction stops export."
+            },
+            "traceability": {
+              "criteria": "Source Traceability",
+              "llm": "Citations can be vague, paraphrased, or fabricated.",
+              "assure": "Every claim is pinned directly to the exact source document, page, and line."
+            },
+            "conflict_handling": {
+              "criteria": "Conflict Handling",
+              "llm": "Quietly smooths over contradictions to give you a polite, confident answer.",
+              "assure": "Automatically locks export upon disagreement, forcing a human decision."
+            },
+            "audit": {
+              "criteria": "Audit & Compliance",
+              "llm": "No built-in approval gates or cryptographic audit log of who overrode a discrepancy.",
+              "assure": "Full governance trail recording every flagged conflict, reviewer sign-off, and override."
+            },
+            "residency": {
+              "criteria": "Data Residency",
+              "llm": "Prompts and files typically pass through third-party cloud APIs.",
+              "assure": "Runs 100% inside your AWS account, private GPU, or air-gapped on-prem server."
+            }
+          ],
+          "cta": {
+            "text": "Use LLMs to brainstorm. Use AssureProof before you sign, pay, or file.",
+            "button": "See the proof"
+          }
+        },
+        "use_cases": {
+          "eyebrow": "Built for High-Stakes Workflows",
+          "title": "Where a single missed number creates legal or financial exposure.",
+          "sub": "AssureProof cross-checks complex multi-document packets to flag discrepancies before funds or approvals go out the door.",
+          "government": {
+            "title": "Government Document Checks",
+            "subtitle": "Verify procurement bids and regulatory packets before sign-off.",
+            "conflict": {
+              "label": "Live Conflict Example",
+              "badge": "+9.5% Over Cap",
+              "source_a": "RFP Schedule B, p. 4 — Max Subcontractor Cap: 15%",
+              "source_b": "Vendor Proposal, p. 19 — Subcontractor Allocation: 24.5% ($367,500)",
+              "finding": "Subcontractor allocation exceeds statutory 15% cap by 9.5% ($367,500).",
+              "outcome": "Result: Export Locked — Exceeds statutory threshold by 9.5% ($367,500)."
+            },
+            "cta": "Test a procurement or compliance packet"
+          },
+          "insurance": {
+            "title": "Insurance Claims Review",
+            "subtitle": "Audit complex claims against policy limits, endorsements, and medical bills.",
+            "conflict": {
+              "label": "Live Conflict Example",
+              "badge": "+$18,400 Over",
+              "source_a": "Policy #409-B, Endorsement 3 — Water Damage Sub-Limit: $50,000",
+              "source_b": "Adjuster Payout Summary, p. 6 — Approved Remediation Payout: $68,400",
+              "finding": "Adjuster worksheet approves $68,400 remediation — exceeds $50,000 water damage sub-limit by $18,400.",
+              "outcome": "Result: Export Locked — Exceeds endorsement cap by $18,400."
+            },
+            "cta": "Test a claims file"
+          },
+          "fuel": {
+            "title": "Fuel Retail Bonus Reconciliation",
+            "subtitle": "Fuel Delivery Logs are checked against Bonus Rebate Statements. Source pages stay linked. Contradictions appear on the review screen. Export blocked on the review screen. A person or an agent decides. The file can still be downloaded.",
+            "conflict": {
+              "label": "Live Conflict Example",
+              "badge": "+$31,200 Over",
+              "source_a": "FY26 Comp Plan, Sec. 3.1 — Accelerator Rate (100%+ Quota): 1.5x",
+              "source_b": "Q4 Payroll Sheet, Row 42 — Applied Multiplier: 2.0x (+$31,200)",
+              "finding": "Applied multiplier (2.0x) conflicts with plan terms (1.5x cap). Overage: +$31,200.",
+              "outcome": "Result: Export Locked — Multiplier conflicts with signed plan terms."
+            },
+            "cta": "Test a compensation batch"
+          }
+        },
+        "pipeline": {
+          "1": {
+            "name": "Upload",
+            "line": "The file stack goes in."
+          },
+          "2": {
+            "name": "ParSure",
+            "line": "ParSure extracts every figure, clause, and citation and pins each to the page it came from."
+          },
+          "3": {
+            "name": "DraftSure",
+            "line": "DraftSure produces a first draft from the structured document set."
+          },
+          "4": {
+            "name": "Z3",
+            "line": "Z3 checks whether every figure, clause, and citation can all be true at the same time. A contradiction stops export."
+          },
+          "5": {
+            "name": "Red Hat Review",
+            "line": "A separate adversarial pass that runs only when requested by the user."
+          },
+          "6": {
+            "name": "Person or Agent Decides",
+            "line": "Export is flagged while a contradiction is unresolved. A person decides. The file can still be downloaded, with the flag recorded."
+          }
+        },
+        "flow": {
+          "1": {
+            "name": "Upload",
+            "line": "The file stack goes in."
+          },
+          "2": {
+            "name": "ParSure",
+            "line": "ParSure extracts every figure, clause, and citation and pins each to the page it came from."
+          },
+          "3": {
+            "name": "DraftSure",
+            "line": "DraftSure produces a first draft from the structured document set."
+          },
+          "4": {
+            "name": "Z3",
+            "line": "Z3 checks whether every figure, clause, and citation can all be true at the same time. A contradiction stops export."
+          },
+          "4": {
+            "name": "Red Hat Review",
+            "line": "A separate adversarial pass that runs only when requested by the user."
+          },
+          "5": {
+            "name": "Person or Agent Decides",
+            "line": "Export is flagged while a contradiction is unresolved. A person or an agent decides, and the file can still be downloaded, with the flag recorded."
+          }
+        },
+        "brand": {
+          "name": "AssureProof",
+          "architecture_title": "About · AssureProof",
+          "hero_title": "When two documents disagree, both pages are already open.",
+          "hero_title_html": "When two documents disagree, both pages are already open.",
+          "meta_description": "Assure keeps the source page with every figure and shows the contradiction before you pay. A person decides. The file can still be downloaded. Runs in your own AWS account, on-premises, or private GPU environment. You choose where the models run.",
+          "page_title": "Assure AI | Verified document compilation for claims and regulated teams",
+          "tagline": "Compile. Verify. Trust what you ship."
+        },
+        "hero": {
+          "eyebrow": "Document verification platform",
+          "hero_title_html": "When two documents disagree, both pages are already open.",
+          "sub": "AssureProof cross-checks every number, clause, and citation across your entire document set—pinpointing exact conflicts to the page and line before you approve, pay, or publish.",
+          "cta_primary": "See the proof",
+          "cta_secondary": "Run a POC"
+        },
+        "home": {
+          "hero": {
+            "eyebrow": "Document verification platform",
+            "sub": "AssureProof cross-checks every number, clause, and citation across your entire document set—pinpointing exact conflicts to the page and line before you approve, pay, or publish.",
+            "proof": {
+              "aria": "Source A — contract cap 120,000 EUR, compared with Source B — invoice 142,500 EUR",
+              "a": {
+                "kicker": "Source A",
+                "title": "MSA · Page 12 · Clause 4.2",
+                "value": "120,000 EUR",
+                "cap": "Contract cap"
+              },
+              "b": {
+                "kicker": "Source B",
+                "title": "Invoice #884 · Page 3 • Line 8",
+                "value": "142,500 EUR",
+                "billed": "Amount billed"
+              },
+              "delta": {
+                "label": "Overage",
+                "value": "+22,500",
+                "currency": "EUR"
+              },
+              "z3": {
+                "title": "Z3 Conflict",
+                "body": "Export blocked — the two sources cannot both be true. A person or an agent decides, and the file can still be downloaded."
+              }
+            },
+            "see": "Invoice p.3 and Contract p.12 are both open. Export is flagged.",
+            "proof_line": "A person decides.",
+            "icp": "For Finance, Claims, and Procurement teams.",
+            "steps": {
+              "title": "How it works"
+            },
+            "runs": {
+              "title": "Where it runs",
+              "body": "Runs in your own AWS account, on-premises, or private GPU environment. You choose where the models run. When the model is local, documents stay inside that boundary."
+            },
+            "start": {
+              "title": "Try it on your own files."
+            },
+            "start": {
+              "body": "Bring a real document set. We run it with your team and walk you through the findings."
+            },
+            "trust": {
+              "badge": {
+                "1": "TLS 1.3",
+                "2": "AES-256"
+              },
+              "metric": {
+                "1": "3,000+ documents parsed",
+                "2": "2,300 cross-checks run",
+                "3": "800+ drafts produced"
+              }
+            },
+            "start": {
+              "title": "Try it on your own files.",
+              "body": "Bring a real document set. We run it with your team and walk you through the findings."
+            },
+            "steps": {
+              "title": "How it works"
+            },
+            "runs": {
+              "title": "Where it runs",
+              "body": "Runs in your own AWS account, on-premises, or private GPU environment. You choose where the models run. When the model is local, documents stay inside that boundary."
+            },
+            "trust": {
+              "badge": {
+                "1": "TLS 1.3",
+                "2": "AES-256"
+              },
+              "metric": {
+                "1": "3,000+ documents parsed",
+                "2": "2,300 cross-checks run",
+                "3": "800+ drafts produced"
+              }
+            },
+            "steps": {
+              "title": "How it works"
+            }
+          }
+        }
+      },
+      "why_not_llm": {
+        "eyebrow": "Probabilistic vs. Deterministic",
+        "title": "General-purpose AI predicts the next word. AssureProof proves the math.",
+        "sub": "ChatGPT and Claude are built to sound plausible, not to guarantee mathematical consistency across a 300-page document stack. When a missed clause or billing overage costs thousands of dollars, probability is not enough.",
+        "table": {
+          "criteria": "Evaluation Criteria",
+          "llm": "Standard LLMs (ChatGPT, Claude, Gemini)",
+          "assure": "AssureProof (Deterministic Verification)",
+          "rows": {
+            "core_engine": {
+              "criteria": "Core Engine",
+              "llm": "Probabilistic — guesses the most likely text based on patterns.",
+              "assure": "Deterministic — mathematically tests every figure and rule using a Z3 formal logic solver."
+            },
+            "math": {
+              "criteria": "Cross-Document Math",
+              "llm": "Often misses subtle discrepancies or loses accuracy as file length grows (\"lost in the middle\").",
+              "assure": "Z3 checks whether every figure, clause, and citation can all be true at the same time. A contradiction stops export."
+            },
+            "traceability": {
+              "criteria": "Source Traceability",
+              "llm": "Citations can be vague, paraphrased, or fabricated.",
+              "assure": "Every claim is pinned directly to the exact source document, page, and line."
+            },
+            "conflict_handling": {
+              "criteria": "Conflict Handling",
+              "llm": "Quietly smooths over contradictions to give you a polite, confident answer.",
+              "assure": "Automatically locks export upon disagreement, forcing a human decision."
+            },
+            "audit": {
+              "criteria": "Audit & Compliance",
+              "llm": "No built-in approval gates or cryptographic audit log of who overrode a discrepancy.",
+              "assure": "Full governance trail recording every flagged conflict, reviewer sign-off, and override."
+            },
+            "residency": {
+              "criteria": "Data Residency",
+              "llm": "Prompts and files typically pass through third-party cloud APIs.",
+              "assure": "Runs 100% inside your AWS account, private GPU, or air-gapped on-prem server."
+            }
+          ],
+          "cta": {
+            "text": "Use LLMs to brainstorm. Use AssureProof before you sign, pay, or file.",
+            "button": "See the proof"
+          }
+        },
+        "use_cases": {
+          "eyebrow": "Built for High-Stakes Workflows",
+          "title": "Where a single missed number creates legal or financial exposure.",
+          "sub": "AssureProof cross-checks complex multi-document packets to flag discrepancies before funds or approvals go out the door.",
+          "government": {
+            "title": "Government Document Checks",
+            "subtitle": "Verify procurement bids and regulatory packets before sign-off.",
+            "conflict": {
+              "label": "Live Conflict Example",
+              "badge": "+9.5% Over Cap",
+              "source_a": "RFP Schedule B, p. 4 — Max Subcontractor Cap: 15%",
+              "source_b": "Vendor Invoice #884, p. 19 — Subcontractor Allocation: 24.5% ($367,500)",
+              "finding": "Subcontractor allocation exceeds statutory 15% cap by 9.5% ($367,500).",
+              "outcome": "Result: Export Locked — Exceeds statutory threshold by 9.5% ($367,500)."
+            },
+            "cta": "Test a procurement or compliance packet"
+          },
+          "insurance": {
+            "title": "Insurance Claims Review",
+            "subtitle": "Audit complex claims against policy limits, endorsements, and medical bills.",
+            "conflict": {
+              "label": "Live Conflict Example",
+              "badge": "+$18,400 Over",
+              "source_a": "Policy #409-B, Endorsement 3 — Water Damage Sub-Limit: $50,000",
+              "source_b": "Adjuster Summary, p. 6 — Approved Remediation Payout: $68,400",
+              "finding": "Adjuster worksheet approves $68,400 remediation — exceeds $50,000 water damage sub-limit by $18,400.",
+              "outcome": "Result: Export Locked — Exceeds endorsement cap by $18,400."
+            },
+            "cta": "Test a claims file"
+          },
+          "fuel": {
+            "title": "Fuel Retail Bonus Reconciliation",
+            "subtitle": "Fuel Delivery Logs are checked against Bonus Rebate Statements. Source pages stay linked. Contradictions appear on the review screen. Export blocked on the review screen. A person or an agent decides. The file can still be downloaded.",
+            "conflict": {
+              "label": "Live Conflict Example",
+              "badge": "+$31,200 Over",
+              "source_a": "FY26 Comp Plan, Sec. 3.1 — Accelerator Rate (100%+ Quota): 1.5x",
+              "source_b": "Q4 Payroll Sheet, Row 42 — Applied Multiplier: 2.0x (+$31,200)",
+              "finding": "Applied multiplier (2.0x) conflicts with plan terms (1.5x cap). Overage: +$31,200.",
+              "outcome": "Result: Export Locked — Multiplier conflicts with signed plan terms."
+            },
+            "cta": "Test a compensation batch"
+          }
+        },
+        "pipeline": {
+          "1": {
+            "name": "Upload",
+            "line": "The file stack goes in."
+          },
+          "2": {
+            "name": "ParSure",
+            "line": "ParSure extracts every figure, clause, and citation and pins each to the page it came from."
+          },
+          "3": {
+            "name": "DraftSure",
+            "line": "DraftSure produces a first draft from the structured document set."
+          },
+          "4": {
+            "name": "Z3",
+            "line": "Z3 checks whether every figure, clause, and citation can all be true at the same time. A contradiction stops export."
+          },
+          "5": {
+            "name": "Red Hat Review",
+            "line": "A separate adversarial pass that runs only when requested by the user."
+          },
+          "6": {
+            "name": "Person or Agent Decides",
+            "line": "Export is flagged while a contradiction is unresolved. A person decides. The file can still be downloaded, with the flag recorded."
+          }
+        },
+        "pipeline": {
+          "1": {
+            "name": "Upload",
+            "line": "The file stack goes in."
+          },
+          "2": {
+            "name": "ParSure",
+            "line": "ParSure extracts every figure, clause, and citation and pins each to the page it came from."
+          },
+          "3": {
+            "name": "DraftSure",
+            "line": "DraftSure produces a first draft from the structured document set."
+          },
+          "4": {
+            "name": "Z3",
+            "line": "Z3 checks whether every figure, clause, and citation can all be true at the same time. A contradiction stops export."
+          },
+          "5": {
+            "name": "Red Hat Review",
+            "line": "A separate adversarial pass that runs only when requested by the user."
+          },
+          "6": {
+            "name": "Person or Agent Decides",
+            "line": "Export is flagged while a contradiction is unresolved. A person decides. The file can still be downloaded, with the flag recorded."
+          }
+        },
+        "proof": {
+          "a": {
+            "kicker": "Source A",
+            "title": "Master Services Agreement (MSA) · Page 12 · Clause 4.2",
+            "value": "120,000 EUR cap",
+            "cap": "Contract cap"
+          },
+          "b": {
+            "kicker": "Source B",
+            "title": "Vendor Invoice #884 · Page 3 • Line 8",
+            "value": "142,500 EUR billed",
+            "billed": "Amount billed"
+          },
+          "z3": {
+            "title": "Z3 Conflict",
+            "body": "Export blocked — the two sources cannot both be true. A person or an agent decides, and the file can still be downloaded."
+          },
+          "delta": {
+            "label": "Overage",
+            "value": "+22,500",
+            "currency": "EUR"
+          }
+        },
+        "landing": {
+          "hero": {
+            "cta_primary": "See the proof",
+            "cta_secondary": "Run a POC"
+          },
+          "closing": {
+            "cta": "See the proof"
+          },
+          "nav": {
+            "usecases": "Use cases",
+            "solutions": "Solutions",
+            "architecture": "Architecture",
+            "about": "About",
+            "pricing": "Pricing",
+            "security": "Security",
+            "contact": "Contact",
+            "privacy": "Privacy",
+            "menu": "Menu"
+          },
+          "footer": {
+            "owner": "© 2026 AssureProof. All rights reserved.",
+            "engineer_tagline": "Checked against the source. Decided by a person.",
+            "back_top": "Back to top",
+            "about": "About"
+          },
+          "pilot": {
+            "title": "See the proof",
+            "lead": "Three fields. We will contact you to show you the proof.",
+            "email": "Work email",
+            "company": "Company name",
+            "workflow": "Primary document workflow",
+            "workflow": {
+              "gov": "Government document checks",
+              "ins": "Insurance claims review",
+              "fuel": "Bonus reconciliation",
+              "select": "Select a workflow"
+            },
+            "email": "Work email",
+            "company": "Company name",
+            "lead": "Three fields. We will contact you to show you the proof.",
+            "ready_badge": "Proof request received",
+            "ready_title": "Thank you",
+            "ready_body": "Our team will contact you at your work email to show you the proof.",
+            "submit": "See the proof",
+            "workflow": {
+              "gov": "Government document checks",
+              "ins": "Insurance claims review",
+              "fuel": "Bonus reconciliation",
+              "select": "Select a workflow"
+            },
+            "email": "Work email",
+            "company": "Company name",
+            "lead": "Three fields. We will contact you to show you the proof.",
+            "ready_badge": "Proof request received",
+            "ready_title": "Thank you",
+            "ready_body": "Our team will contact you at your work email to show you the proof.",
+            "submit": "See the proof",
+            "workflow": {
+              "gov": "Government document checks",
+              "ins": "Insurance claims review",
+              "fuel": "Bonus reconciliation",
+              "select": "Select a workflow"
+            },
+            "error": "Could not send your request. Please try again."
+          },
+          "nav": {
+            "usecases": "Use cases",
+            "solutions": "Solutions",
+            "architecture": "Architecture",
+            "about": "About",
+            "pricing": "Pricing",
+            "security": "Security",
+            "contact": "Contact",
+            "privacy": "Privacy",
+            "menu": "Menu"
+          },
+          "landing": {
+            "skip": "Skip to content",
+            "nav": {
+              "menu": "Menu"
+            },
+            "pilot": {
+              "title": "See the proof",
+              "lead": "Three fields. We will contact you to show you the proof.",
+              "email": "Work email",
+              "company": "Company name",
+              "workflow": "Primary document workflow",
+              "workflow": {
+                "gov": "Government document checks",
+                "ins": "Insurance claims review",
+                "fuel": "Bonus reconciliation",
+                "select": "Select a workflow"
+              },
+              "email": "Work email",
+              "company": "Company name",
+              "lead": "Three fields. We will contact you to show you the proof.",
+              "ready_badge": "Request received",
+              "ready_title": "Thank you",
+              "ready_body": "Our team will contact you at your work email to show you the proof.",
+              "submit": "See the proof",
+              "workflow": {
+                "gov": "Government document checks",
+                "ins": "Insurance claims review",
+                "fuel": "Bonus reconciliation",
+                "select": "Select a workflow"
+              },
+              "email": "Work email",
+              "company": "Company name",
+              "lead": "Three fields. We will contact you to show you the proof.",
+              "ready_badge": "Request received",
+              "ready_title": "Thank you",
+              "ready_body": "Our team will contact you at your work email to schedule the demo.",
+              "submit": "See the proof",
+              "workflow": {
+                "gov": "Government document checks",
+                "ins": "Insurance claims review",
+                "fuel": "Bonus reconciliation",
+                "select": "Select a workflow"
+              },
+              "error": "Could not send your request. Please try again."
+            },
+            "nav": {
+              "usecases": "Use cases",
+              "solutions": "Solutions",
+              "architecture": "Architecture",
+              "about": "About",
+              "pricing": "Pricing",
+              "security": "Security",
+              "contact": "Contact",
+              "privacy": "Privacy",
+              "menu": "Menu"
+            },
+            "modal": {
+              "close": "Close"
+            },
+            "pilot": {
+              "title": "See the proof",
+              "lead": "Three fields. We will contact you to show you the proof.",
+              "email": "Work email",
+              "company": "Company name",
+              "workflow": "Primary document workflow",
+              "workflow": {
+                "gov": "Government document checks",
+                "ins": "Insurance claims review",
+                "fuel": "Bonus reconciliation",
+                "select": "Select a workflow"
+              },
+              "email": "Work email",
+              "company": "Company name",
+              "lead": "Three fields. We will contact you to show you the proof.",
+              "ready_badge": "Request received",
+              "ready_title": "Thank you",
+              "ready_body": "Our team will contact you at your work email to schedule the demo.",
+              "submit": "See the proof",
+              "workflow": {
+                "gov": "Government document checks",
+                "ins": "Insurance claims review",
+                "fuel": "Bonus reconciliation",
+                "select": "Select a workflow"
+              },
+              "email": "Work email",
+              "company": "Company name",
+              "lead": "Three fields. We will contact you to show you the proof.",
+              "ready_badge": "Request received",
+              "ready_title": "Thank you",
+              "ready_body": "Our team will contact you at your work email to schedule the demo.",
+              "submit": "See the proof",
+              "workflow": {
+                "gov": "Government document checks",
+                "ins": "Insurance claims review",
+                "fuel": "Bonus reconciliation",
+                "select": "Select a workflow"
+              },
+              "email": "Work email",
+              "company": "Company name",
+              "lead": "Three fields. We will contact you to show you the proof.",
+              "ready_badge": "Request received",
+              "ready_title": "Thank you",
+              "ready_body": "Our team will contact you at your work email to schedule the demo.",
+              "submit": "See the proof",
+              "workflow": {
+                "gov": "Government document checks",
+                "ins": "Insurance claims review",
+                "fuel": "Bonus reconciliation",
+                "select": "Select a workflow"
+              },
+              "error": "Could not send your request. Please try again."
+            },
+            "nav": {
+              "usecases": "Use cases",
+              "solutions": "Solutions",
+              "architecture": "Architecture",
+              "about": "About",
+              "pricing": "Pricing",
+              "security": "Security",
+              "contact": "Contact",
+              "privacy": "Privacy",
+              "menu": "Menu"
+            },
+            "landing": {
+              "skip": "Skip to content",
+              "nav": {
+                "menu": "Menu"
+              },
+              "pilot": {
+                "title": "See the proof",
+                "lead": "Three fields. We will contact you to show you the proof.",
+                "email": "Work email",
+                "company": "Company name",
+                "workflow": "Primary document workflow",
+                "workflow": {
+                  "gov": "Government document checks",
+                  "ins": "Insurance claims review",
+                  "fuel": "Bonus reconciliation",
+                  "select": "Select a workflow"
+                },
+                "email": "Work email",
+                "company": "Company name",
+                "lead": "Three fields. We will contact you to show you the proof.",
+                "ready_badge": "Request received",
+                "ready_title": "Thank you",
+                "ready_body": "Our team will contact you at your work email to schedule the demo.",
+                "submit": "See the proof",
+                "workflow": {
+                  "gov": "Government document checks",
+                  "ins": "Insurance claims review",
+                  "fuel": "Bonus reconciliation",
+                  "select": "Select a workflow"
+                },
+                "email": "Work email",
+                "company": "Company name",
+                "lead": "Three fields. We will contact you to show you the proof.",
+                "ready_badge": "Request received",
+                "ready_title": "Thank you",
+                "ready_body": "Our team will contact you at your work email to schedule the demo.",
+                "submit": "See the proof",
+                "workflow": {
+                  "gov": "Government document checks",
+                  "ins": "Insurance claims review",
+                  "fuel": "Bonus reconciliation",
+                  "select": "Select a workflow"
+                },
+                "error": "Could not send your request. Please try again."
+              }
+            }
+          }
+        }
+      }
+    }
+  }
 }

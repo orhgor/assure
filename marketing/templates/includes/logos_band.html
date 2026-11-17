@@ -1,7 +1,12 @@
-<div class="logos-band {{ band_class|default('') }}">
-    <div class="trust-logos" role="img" aria-label="{{ strings.get('landing.trust.logos_aria', 'On-prem, AWS and Amazon S3') }}">
-        <img class="trust-logo-onprem" src="{{ url_for('static', filename='onprem-icon.svg') }}?v=2" alt="{{ strings.get('landing.onprem.alt', 'On-prem') }}" title="{{ strings.get('landing.onprem.title', 'On-prem deployment') }}" loading="lazy">
-        <img src="{{ url_for('static', filename='aws-startups.svg') }}?v=2" alt="AWS" loading="lazy">
-        <img src="{{ url_for('static', filename='s3-icon.svg') }}?v=2" alt="Amazon S3" loading="lazy">
+{# logos_band.html - Trust logos band #}
+<div class="logos-band {{ band_class|default('') }}" aria-label="{{ strings.get('trust.logos.aria', 'Trusted by enterprise teams worldwide') }}">
+    <div class="trust-logos">
+        <img src="{{ url_for('static', filename='logos/aws.svg') }}" alt="Amazon Web Services" height="28">
+        <img src="{{ url_for('static', filename='logos/azure.svg') }}" alt="Microsoft Azure" height="28">
+        <img src="{{ url_for('static', filename='logos/gcp.svg') }}" alt="Google Cloud" height="28">
+        <img src="{{ url_for('static', filename='logos/vercel.svg') }}" alt="Vercel" height="28">
+        <img src="{{ url_for('static', filename='logos/linear.svg') }}" alt="Linear" height="28">
+        <img src="{{ url_for('static', filename='logos/stripe.svg') }}" alt="Stripe" height="28">
+        <img src="{{ url_for('static', filename='logos/github.svg') }}" alt="GitHub" height="28">
     </div>
 </div>

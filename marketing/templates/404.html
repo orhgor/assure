@@ -1,13 +1,62 @@
-{% extends "marketing_base.html" %}
-{% block title %}{{ strings.get('error404.title', 'Page not found') }} - Assure{% endblock %}
-{% block og_title %}{{ strings.get('error404.title', 'Page not found') }} - Assure{% endblock %}
-{% block twitter_title %}{{ strings.get('error404.title', 'Page not found') }} - Assure{% endblock %}
-{% block body %}
-<section class="error-shell">
-  <div class="error-card">
-    <h1 data-i18n="error404.title">{{ strings.get('error404.title', 'Page not found') }}</h1>
-    <p data-i18n="error404.body">{{ strings.get('error404.body', 'The page you asked for does not exist on this site. It may have moved, or the address may be wrong.') }}</p>
-    <p><a class="btn btn-primary" href="{{ locale_path or '/' }}" data-i18n="error404.home">{{ strings.get('error404.home', 'Back to the homepage') }}</a></p>
-  </div>
-</section>
-{% endblock %}
+<!DOCTYPE html>
+<html lang="{{ locale|default('en') }}"{% if locale|default('en') == 'ar' %} dir="rtl"{% endif %}>
+<head>
+    {% include 'includes/gtag.html' %}
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ page_title }}</title>
+    <meta name="description" content="{{ page_description }}">
+    <link rel="canonical" href="{{ page_url }}">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="{{ page_url }}">
+    <meta property="og:locale" content="{{ og_locale }}">
+    {% for code, path in locale_paths.items() %}
+    <link rel="alternate" hreflang="{{ code }}" href="https://assureproof.com{{ path }}{{ page_suffix|default('') }}">
+    {% endfor %}
+    <link rel="alternate" hreflang="x-default" href="{{ en_url }}">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="{{ page_title }}">
+    <meta name="twitter:description" content="{{ page_description }}">
+    <meta property="og:title" content="{{ page_title }}">
+    <meta property="og:description" content="{{ page_description }}">
+    <meta property="og:image" content="{{ og_image }}">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <link rel="icon" href="{{ url_for('static', filename='assure-logo.png') }}" type="image/png">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='assure-logo.png') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    {% if locale|default('en') == 'ar' %}
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+    {% endif %}
+    {% for item in json_ld %}
+    <script type="application/ld+json">{{ item|tojson }}</script>
+    {% endfor %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='landing.css') }}?v={{ landing_css_version|default('125') }}">
+    <script>
+      window.__assureLandingStrings = {{ strings|tojson }};
+    </script>
+    <script>if(!matchMedia('(prefers-reduced-motion: reduce)').matches)document.documentElement.classList.add('fx')</script>
+</head>
+<body id="top" class="enterprise-landing">
+    {% set nav_current = '404' %}
+    {% include 'includes/landing_header.html' %}
+
+    <main id="main-content">
+        <div class="container center" style="padding: 6rem 0;">
+            <h1 class="section-title" style="font-size: 6rem; font-weight: 700; line-height: 1; margin-bottom: 1rem;">404</h1>
+            <p class="section-sub" style="font-size: 1.5rem; max-width: 40rem;">{{ strings.get('404.message', 'The page you\'re looking for doesn\'t exist or has been moved.') }}</p>
+            <p class="section-sub" style="margin-top: 1.5rem;">{{ strings.get('404.suggestion', 'Try the links below or use the navigation above to find what you\'re looking for.') }}</p>
+            <div class="hero-cta-group" style="margin-top: 2rem;">
+                <a href="{{ locale_path }}" class="btn-primary" data-i18n="404.home">{{ strings.get('404.home', 'Go home') }}</a>
+                <a href="{{ locale_path }}contact-us/" class="btn-secondary" data-i18n="404.contact">{{ strings.get('404.contact', 'Contact us') }}</a>
+            </div>
+        </div>
+    </main>
+
+    {% include 'includes/landing_footer.html' %}
+    <script src="{{ url_for('static', filename='landing-pilot.js') }}?v={{ landing_js_version|default('42') }}"></script>
+    <script src="{{ url_for('static', filename='landing-i18n.js') }}"></script>
+</body>
+</html>

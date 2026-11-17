@@ -1,14 +1,14 @@
-{# nav_current: "landing" | "about" | "pricing" | "use-cases" #}
+{# landing_header.html - Header with navigation #}
 <a class="skip-link" href="#main-content" data-i18n="landing.skip">{{ strings.get('landing.skip', 'Skip to content') }}</a>
 <header class="site-header">
     <div class="container nav-container">
         <a href="{{ locale_path }}" class="logo logo-brand">
             <img class="brand-mark" src="{{ url_for('static', filename='assure-logo.png') }}" alt="" width="28" height="28">
             <span class="logo-copy">
-                <span class="logo-name">{{ brand.name }}</span>
+                <span class="logo-name">{{ strings.get('brand.name', 'AssureProof') }}</span>
             </span>
         </a>
-        <nav class="nav-links is-collapsed" id="landing-nav-links" data-i18n-aria="landing.nav.aria" aria-label="Primary">
+        <nav class="nav-links is-collapsed" id="landing-nav-links" data-i18n-aria="landing.nav.aria" aria-label="{{ strings.get('landing.nav.aria', 'Primary') }}">
             <button type="button" class="nav-menu-toggle" id="nav-menu-toggle" aria-expanded="false" aria-controls="landing-nav-links" data-i18n="landing.nav.menu">{{ strings.get('landing.nav.menu', 'Menu') }}</button>
             <a href="{{ locale_path }}use-cases/"{% if nav_current == 'use-cases' %} aria-current="page"{% endif %} data-i18n="landing.nav.usecases">{{ strings.get('landing.nav.usecases', 'Use cases') }}</a>
             <a href="{{ locale_path }}solutions/"{% if nav_current == 'solutions' %} aria-current="page"{% endif %} data-i18n="landing.nav.solutions">{{ strings.get('landing.nav.solutions', 'Solutions') }}</a>

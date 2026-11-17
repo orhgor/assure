@@ -1,3 +1,4 @@
+{# demo_cta.html - Demo CTA section #}
 <section class="demo-cta">
     <div class="container center">
         {% if cta_modal|default(false) %}
@@ -5,5 +6,4 @@
         {% else %}
         <a href="{{ locale_path }}contact-us/" class="btn-primary" data-i18n="landing.hero.cta_primary">{{ strings.get('landing.hero.cta_primary', 'See the proof') }}</a>
         {% endif %}
-    </div>
 </section>

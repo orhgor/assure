@@ -7,6 +7,7 @@
     <title>{{ page_title }}</title>
     <meta name="description" content="{{ page_description }}">
     <link rel="canonical" href="{{ page_url }}">
+    <meta property="og:type" content="website">
     <meta property="og:url" content="{{ page_url }}">
     <meta property="og:locale" content="{{ og_locale }}">
     {% for code, path in locale_paths.items() %}
@@ -24,69 +25,19 @@
     <link rel="icon" href="{{ url_for('static', filename='assure-logo.png') }}" type="image/png">
     <link rel="apple-touch-icon" href="{{ url_for('static', filename='assure-logo.png') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
     {% if locale|default('en') == 'ar' %}
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
     {% endif %}
-    <link rel="stylesheet" href="{{ url_for('static', filename='landing.css') }}?v={{ landing_css_version|default('88') }}">
     {% for item in json_ld %}
     <script type="application/ld+json">{{ item|tojson }}</script>
     {% endfor %}
-    <script>window.__assureLandingStrings = {{ strings|tojson }};</script>
-    <style>
-        .contact-main { padding: var(--space-12) 0; }
-        .contact-main .section-title { max-width: 46rem; margin: 0 auto var(--space-4); }
-        .contact-lead { max-width: 46rem; margin: 0 auto var(--space-3); color: var(--text-secondary); font-size: 1.0625rem; line-height: 1.6; }
-        .contact-note {
-            max-width: 46rem;
-            margin: 0 auto var(--space-8);
-            color: var(--text);
-            font-weight: 600;
-            font-size: 0.9375rem;
-        }
-        .contact-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 32px;
-            max-width: 56rem;
-            margin: 0 auto;
-            text-align: left;
-            align-items: start;
-        }
-        .contact-card {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: 16px;
-            padding: 32px;
-        }
-        .contact-card h2 { margin: 0 0 12px; font-size: 1.25rem; color: var(--text); }
-        .contact-card p { margin: 0 0 16px; color: var(--text-secondary); line-height: 1.6; }
-        .contact-email { font-weight: 600; color: var(--text); }
-        .contact-form label { display: block; font-size: 0.8125rem; font-weight: 600; color: var(--text); margin: 14px 0 6px; }
-        .contact-form label:first-child { margin-top: 0; }
-        .contact-form input,
-        .contact-form textarea {
-            width: 100%;
-            box-sizing: border-box;
-            border: 1px solid var(--border-strong);
-            border-radius: 10px;
-            padding: 10px 12px;
-            font: inherit;
-            font-size: 0.9375rem;
-            color: var(--text);
-            background: var(--surface);
-        }
-        .contact-form textarea { min-height: 96px; resize: vertical; }
-        .contact-form .btn-primary { margin-top: 18px; width: 100%; }
-        .contact-error { margin: 12px 0 0; color: #b91c1c; font-size: 0.875rem; }
-        .contact-alt { margin: 16px 0 0; color: var(--text-secondary); font-size: 0.875rem; }
-        .contact-alt .contact-email { font-weight: 600; }
-        @media (max-width: 760px) {
-            .contact-grid { grid-template-columns: 1fr; }
-            .contact-card { padding: 24px; }
-        }
-    </style>
+    <link rel="stylesheet" href="{{ url_for('static', filename='landing.css') }}?v={{ landing_css_version|default('125') }}">
+    <script>
+      window.__assureLandingStrings = {{ strings|tojson }};
+    </script>
+    <script>if(!matchMedia('(prefers-reduced-motion: reduce)').matches)document.documentElement.classList.add('fx')</script>
 </head>
 <body id="top" class="enterprise-landing contact-landing">
     {% set nav_current = 'contact' %}
@@ -96,7 +47,7 @@
         <div class="container" style="text-align: center;">
             <h1 class="section-title" data-i18n="contact.title">{{ strings.get('contact.title', 'Contact') }}</h1>
             <p class="contact-lead" data-i18n="contact.lead">{{ strings.get('contact.lead', 'Before you pay, accept, or sign, you still open the contract and the invoice side by side. Tell us the workflow you want checked. We reply with a short scope note.') }}</p>
-            <p class="contact-note" data-i18n="contact.note">{{ strings.get('contact.note', 'Written “Yes, proceed” required. 1 workflow. Limited sample cases.') }}</p>
+            <p class="contact-note" data-i18n="contact.note">{{ strings.get('contact.note', 'Written "Yes, proceed" required. 1 workflow. Limited sample cases.') }}</p>
 
             <div class="contact-grid">
                 <div class="contact-card" style="grid-column: 1 / -1; max-width: 40rem; margin: 0 auto;">
@@ -104,11 +55,11 @@
                     <form class="contact-form" id="contact-form" novalidate>
                         <input type="text" name="company_website" id="cf-website" tabindex="-1" autocomplete="off" hidden aria-hidden="true">
                         <label for="cf-name" data-i18n="contact.f_name">{{ strings.get('contact.f_name', 'Name') }}</label>
-                        <input id="cf-name" name="name" type="text" autocomplete="name" required>
+                        <input id="cf-name" class="demo-input" name="name" type="text" autocomplete="name" required>
                         <label for="cf-email" data-i18n="contact.f_email">{{ strings.get('contact.f_email', 'Work email') }}</label>
-                        <input id="cf-email" name="email" type="email" autocomplete="email" required>
+                        <input id="cf-email" class="demo-input" name="email" type="email" autocomplete="email" required>
                         <label for="cf-company" data-i18n="contact.f_company">{{ strings.get('contact.f_company', 'Company') }}</label>
-                        <input id="cf-company" name="company" type="text" autocomplete="organization">
+                        <input id="cf-company" class="demo-input" name="company" type="text" autocomplete="organization">
                         <label for="cf-workflow" data-i18n="landing.pilot.workflow">{{ strings.get('landing.pilot.workflow', 'Primary document workflow') }}</label>
                         <select id="cf-workflow" class="demo-input" name="workflow">
                             <option value="" disabled selected data-i18n="landing.pilot.workflow.select">{{ strings.get('landing.pilot.workflow.select', 'Select a workflow') }}</option>
@@ -120,9 +71,9 @@
                             <option value="Other">{{ strings.get('landing.pilot.workflow.other', 'Other') }}</option>
                         </select>
                         <label for="cf-message" data-i18n="contact.f_message">{{ strings.get('contact.f_message', 'What should the demo cover?') }}</label>
-                        <textarea id="cf-message" name="message"></textarea>
-                        <button type="submit" class="btn-primary" data-i18n="contact.submit">{{ strings.get('contact.submit', 'Send request') }}</button>
-                        <p class="contact-error" id="contact-error" hidden></p>
+                        <textarea id="cf-message" class="demo-input" name="message" rows="4"></textarea>
+                        <button type="submit" class="demo-submit" data-i18n="contact.submit">{{ strings.get('contact.submit', 'Send request') }}</button>
+                        <p class="contact-error" id="contact-error" data-error-text="{{ strings.get('contact.error', 'Could not send your request. Please try again.') }}" hidden></p>
                     </form>
                     <p id="contact-done" data-i18n="contact.done" hidden>{{ strings.get('contact.done', 'Thanks, we will be in touch.') }}</p>
                     <p class="contact-alt">{{ strings.get('contact.alt', 'Prefer email?') }} <a class="contact-email" href="mailto:sales@assureproof.com">sales@assureproof.com</a></p>
@@ -132,6 +83,8 @@
     </main>
 
     {% include 'includes/landing_footer.html' %}
+    <script src="{{ url_for('static', filename='landing-pilot.js') }}?v={{ landing_js_version|default('43') }}"></script>
+    <script src="{{ url_for('static', filename='landing-i18n.js') }}"></script>
     <script>
         (function () {
             "use strict";
@@ -142,7 +95,6 @@
                 var get = function (id) { var el = document.getElementById(id); return el ? String(el.value || "").trim() : ""; };
                 var name = get("cf-name");
                 var email = get("cf-email");
-                var company = get("cf-company");
                 var message = get("cf-message");
                 var err = document.getElementById("contact-error");
                 if (err) { err.hidden = true; err.textContent = ""; }
@@ -156,34 +108,14 @@
                     if (done) done.hidden = false;
                 };
                 var fail = function (message) {
-                    if (err) {
-                        err.hidden = false;
-                        err.textContent = message || "Could not send the request. Try again.";
-                    }
+                    if (err) { err.hidden = false; err.textContent = message || "Could not send the request. Try again."; }
                 };
                 fetch("/contact-submit", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        name: name,
-                        email: email,
-                        company: company,
-                        message: message,
-                        company_website: get("cf-website"),
-                    }),
-                })
-                    .then(function (res) {
-                        return res.json().catch(function () { return {}; }).then(function (data) {
-                            return { ok: res.ok, data: data, status: res.status };
-                        });
-                    })
-                    .then(function (result) {
-                        if (result.ok) return succeed();
-                        throw new Error((result.data && result.data.error) || "Could not send the request. Try again.");
-                    })
-                    .catch(function (error) {
-                        fail((error && error.message) || "Could not send the request. Try again.");
-                    });
+                    body: JSON.stringify({ name: name, email: email, company: company, message: message })
+                }).then(function (res) { return res.json().catch(function () { return {}; }).then(function (data) { if (data.ok) return succeed(); throw new Error(data.error || "Could not send the request. Try again."); }); })
+                .then(succeed).catch(fail);
             });
         })();
     </script>

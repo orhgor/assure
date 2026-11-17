@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="{{ locale|default('en') }}">
+<html lang="{{ locale|default('en') }}"{% if locale|default('en') == 'ar' %} dir="rtl"{% endif %}>
 <head>
     {% include 'includes/gtag.html' %}
     <meta charset="UTF-8">
@@ -7,40 +7,85 @@
     <title>{{ page_title }}</title>
     <meta name="description" content="{{ page_description }}">
     <link rel="canonical" href="{{ page_url }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='landing.css') }}?v={{ landing_css_version|default('88') }}">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="{{ page_url }}">
+    <meta property="og:locale" content="{{ og_locale }}">
+    {% for code, path in locale_paths.items() %}
+    <link rel="alternate" hreflang="{{ code }}" href="https://assureproof.com{{ path }}architecture/">
+    {% endfor %}
+    <link rel="alternate" hreflang="x-default" href="{{ en_url }}">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="{{ page_title }}">
+    <meta name="twitter:description" content="{{ page_description }}">
+    <meta property="og:title" content="{{ page_title }}">
+    <meta property="og:description" content="{{ page_description }}">
+    <meta property="og:image" content="{{ og_image }}">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
     <link rel="icon" href="{{ url_for('static', filename='assure-logo.png') }}" type="image/png">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='assure-logo.png') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    {% if locale|default('en') == 'ar' %}
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+    {% endif %}
+    {% for item in json_ld %}
+    <script type="application/ld+json">{{ item|tojson }}</script>
+    {% endfor %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='landing.css') }}?v={{ landing_css_version|default('125') }}">
+    <script>
+      window.__assureLandingStrings = {{ strings|tojson }};
+    </script>
+    <script>if(!matchMedia('(prefers-reduced-motion: reduce)').matches)document.documentElement.classList.add('fx')</script>
 </head>
 <body id="top" class="enterprise-landing">
     {% set nav_current = 'architecture' %}
     {% include 'includes/landing_header.html' %}
-    <main id="main-content" class="page">
-        <div class="page-hero">
-            <h1 data-i18n="arch.title">Architecture</h1>
-        </div>
-        <section class="card">
-            <h2 data-i18n="arch.pipeline.title">{{ strings.get('arch.pipeline.title', 'How a check runs') }}</h2>
-            <ol class="pipeline">
-                <li><strong data-i18n="pipeline.1.name">{{ strings.get('pipeline.1.name', 'Upload') }}</strong><span data-i18n="pipeline.1.line">{{ strings.get('pipeline.1.line', 'The file stack goes in.') }}</span></li>
-                <li><strong data-i18n="pipeline.2.name">{{ strings.get('pipeline.2.name', 'ParSure') }}</strong><span data-i18n="pipeline.2.line">{{ strings.get('pipeline.2.line', 'ParSure extracts every figure, clause, and citation and pins each to the page it came from.') }}</span></li>
-                <li><strong data-i18n="pipeline.3.name">{{ strings.get('pipeline.3.name', 'DraftSure') }}</strong><span data-i18n="pipeline.3.line">{{ strings.get('pipeline.3.line', 'DraftSure produces a first draft from the structured document set.') }}</span></li>
-                <li><strong data-i18n="pipeline.4.name">{{ strings.get('pipeline.4.name', 'Z3') }}</strong><span data-i18n="pipeline.4.line">{{ strings.get('pipeline.4.line', 'Z3 checks whether every figure, clause, and citation can all be true at the same time. A contradiction stops export.') }}</span></li>
-                <li><strong data-i18n="pipeline.5.name">{{ strings.get('pipeline.5.name', 'Red Hat review') }}</strong><span data-i18n="pipeline.5.line">{{ strings.get('pipeline.5.line', 'A separate adversarial pass that runs only when requested by the user.') }}</span></li>
-                <li><strong data-i18n="pipeline.6.name">{{ strings.get('pipeline.6.name', 'Person or agent decides') }}</strong><span data-i18n="pipeline.6.line">{{ strings.get('pipeline.6.line', 'Export is flagged while a contradiction is unresolved. A person decides. The file can still be downloaded, with the flag recorded.') }}</span></li>
-            </ol>
+
+    <main id="main-content">
+        <section class="hero-section arch-hero">
+            <div class="container">
+                <h1 data-i18n="arch.title">{{ strings.get('arch.title', 'Architecture') }}</h1>
+            </div>
         </section>
-        <section class="card">
-            <h2 data-i18n="arch.flow.title">The flow</h2>
-            <ol class="arch-steps">
-                <li><strong data-i18n="arch.flow.1">{{ strings.get('arch.flow.1', 'Both pages open') }}</strong><span data-i18n="arch.flow.1.text">{{ strings.get('arch.flow.1.text', 'Assure reads both documents side by side and keeps the page, cell, or row for every figure it extracts.') }}</span></li>
-                <li><strong data-i18n="arch.flow.2">{{ strings.get('arch.flow.2', 'Contradiction marked') }}</strong><span data-i18n="arch.flow.2.text">{{ strings.get('arch.flow.2.text', 'Figures are compared one to one. Where two labeled numbers cannot both be true, the conflict is marked on the review screen.') }}</span></li>
-                <li><strong data-i18n="arch.flow.3">{{ strings.get('arch.flow.3', 'Export flagged') }}</strong><span data-i18n="arch.flow.3.text">{{ strings.get('arch.flow.3.text', 'The document cannot be exported while a contradiction is unresolved. A person decides. The file can still be downloaded, with the flag recorded.') }}</span></li>
-            </ol>
+
+        <section class="section" id="pipeline">
+            <div class="container">
+                <h2 class="section-title" data-i18n="arch.pipeline.title">{{ strings.get('arch.pipeline.title', 'How a check runs') }}</h2>
+                <ol class="pipeline">
+                    <li><strong data-i18n="pipeline.1.name">{{ strings.get('pipeline.1.name', 'Upload') }}</strong><span data-i18n="pipeline.1.line">{{ strings.get('pipeline.1.line', 'The file stack goes in.') }}</span></li>
+                    <li><strong data-i18n="pipeline.2.name">{{ strings.get('pipeline.2.name', 'ParSure') }}</strong><span data-i18n="pipeline.2.line">{{ strings.get('pipeline.2.line', 'ParSure extracts every figure, clause, and citation and pins each to the page it came from.') }}</span></li>
+                    <li><strong data-i18n="pipeline.3.name">{{ strings.get('pipeline.3.name', 'DraftSure') }}</strong><span data-i18n="pipeline.3.line">{{ strings.get('pipeline.3.line', 'DraftSure produces a first draft from the structured document set.') }}</span></li>
+                    <li><strong data-i18n="pipeline.4.name">{{ strings.get('pipeline.4.name', 'Z3') }}</strong><span data-i18n="pipeline.4.line">{{ strings.get('pipeline.4.line', 'Z3 checks whether every figure, clause, and citation can all be true at the same time. A contradiction stops export.') }}</span></li>
+                    <li><strong data-i18n="pipeline.5.name">{{ strings.get('pipeline.5.name', 'Red Hat Review') }}</strong><span data-i18n="pipeline.5.line">{{ strings.get('pipeline.5.line', 'Red Hat review is an optional, separate adversarial pass that runs only when requested by the user.') }}</span></li>
+                    <li><strong data-i18n="pipeline.6.name">{{ strings.get('pipeline.6.name', 'Person or agent decides') }}</strong><span data-i18n="pipeline.6.line">{{ strings.get('pipeline.6.line', 'A person or an agent decides, and the file can still be downloaded.') }}</span></li>
+                </ol>
+            </div>
         </section>
-        <section class="card">
-            <h2 data-i18n="arch.where.title">{{ strings.get('arch.where.title', 'Where it runs') }}</h2>
-            <p data-i18n="arch.where.body">{{ strings.get('arch.where.body', 'Runs in your own AWS account, on-premises, or private GPU environment. You choose where the models run. When the model is local, documents stay inside that boundary.') }}</p>
+
+        <section class="section">
+            <div class="container">
+                <h2 class="section-title" data-i18n="arch.flow.title">{{ strings.get('arch.flow.title', 'The flow') }}</h2>
+                <ol class="arch-steps">
+                    <li><strong data-i18n="arch.flow.1">{{ strings.get('arch.flow.1', 'Both pages open') }}</strong><span data-i18n="arch.flow.1.text">{{ strings.get('arch.flow.1.text', 'Assure reads both documents side by side and keeps the page, cell, or row for every figure it extracts.') }}</span></li>
+                    <li><strong data-i18n="arch.flow.2">{{ strings.get('arch.flow.2', 'Contradiction marked') }}</strong><span data-i18n="arch.flow.2.text">{{ strings.get('arch.flow.2.text', 'Figures are compared one to one. Where two labeled numbers cannot both be true, the conflict is marked on the review screen.') }}</span></li>
+                    <li><strong data-i18n="arch.flow.3">{{ strings.get('arch.flow.3', 'Export flagged') }}</strong><span data-i18n="arch.flow.3.text">{{ strings.get('arch.flow.3.text', 'The document cannot be exported while a contradiction is unresolved. Export blocked on the review screen. A person or an agent decides, and the file can still be downloaded.') }}</span></li>
+                    <li><strong data-i18n="arch.flow.4">{{ strings.get('arch.flow.4', 'A person or agent decides') }}</strong><span data-i18n="arch.flow.4.text">{{ strings.get('arch.flow.4.text', 'A person or an agent decides, and the file can still be downloaded.') }}</span></li>
+                </ol>
+            </div>
+        </section>
+
+        <section class="section">
+            <div class="container">
+                <h2 class="section-title" data-i18n="arch.where.title">{{ strings.get('arch.where.title', 'Where it runs') }}</h2>
+                <p data-i18n="arch.where.body">{{ strings.get('arch.where.body', 'Runs in your own AWS account, on-premises, or private GPU environment. You choose where the models run. When the model is local, documents stay inside that boundary.') }}</p>
+            </div>
         </section>
     </main>
+
     {% include 'includes/landing_footer.html' %}
+    <script src="{{ url_for('static', filename='landing-pilot.js') }}?v={{ landing_js_version|default('42') }}"></script>
+    <script src="{{ url_for('static', filename='landing-i18n.js') }}"></script>
 </body>
 </html>
