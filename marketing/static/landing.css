@@ -889,34 +889,9 @@ a:hover { color: var(--accent-blue-hover); }
 /* ==========================================================================
    Trust Metrics Bar
    ========================================================================== */
-.trust-metrics-bar-inline {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 2rem;
-  margin-top: 2rem;
-  padding: 2rem;
-  background: white;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-}
 
-.trust-metric-item-inline {
-  text-align: center;
-}
 
-.trust-metric-value-inline {
-  font-size: 2.5rem;
-  font-weight: 700;
-  font-family: var(--font-mono);
-  color: var(--text);
-  line-height: 1.1;
-}
 
-.trust-metric-item-inline p {
-  font-size: 0.875rem;
-  color: var(--text-secondary);
-  margin-top: 0.5rem;
-}
 
 /* ==========================================================================
    Comparison Table (Why Not LLM)
@@ -1213,16 +1188,6 @@ a:hover { color: var(--accent-blue-hover); }
 }
 
 /* Trust Metrics Bar in Security Section */
-.trust-metrics-bar {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 2rem;
-  margin-top: 3rem;
-  padding: 2rem;
-  background: white;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-}
 
 .metric-item {
   text-align: center;
@@ -1243,10 +1208,7 @@ a:hover { color: var(--accent-blue-hover); }
 }
 
 @media (max-width: 768px) {
-  .trust-metrics-bar {
-    grid-template-columns: 1fr;
   }
-}
 
 /* ==========================================================================
    Closing Section (Final CTA)
@@ -1491,31 +1453,9 @@ a:hover { color: var(--accent-blue-hover); }
   color: var(--text-secondary);
 }
 
-.trust-metrics {
-  display: flex;
-  justify-content: center;
-  gap: 3rem;
-  flex-wrap: wrap;
-}
 
-.trust-metric {
-  text-align: center;
-}
 
-.trust-metric .metric-value {
-  display: block;
-  font-size: 2.5rem;
-  font-weight: 700;
-  font-family: var(--font-mono);
-  color: var(--text);
-  line-height: 1.1;
-}
 
-.trust-metric p {
-  font-size: 0.875rem;
-  color: var(--text-secondary);
-  margin-top: 0.5rem;
-}
 
 /* ==========================================================================
    Security Section
@@ -1577,16 +1517,6 @@ a:hover { color: var(--accent-blue-hover); }
 /* ==========================================================================
    Trust Metrics Bar (Security Section)
    ========================================================================== */
-.trust-metrics-bar {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 2rem;
-  margin-top: 3rem;
-  padding: 2rem;
-  background: white;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-}
 
 .metric-item {
   text-align: center;
@@ -1607,10 +1537,7 @@ a:hover { color: var(--accent-blue-hover); }
 }
 
 @media (max-width: 768px) {
-  .trust-metrics-bar {
-    grid-template-columns: 1fr;
   }
-}
 
 /* ==========================================================================
    Bottom CTA Section

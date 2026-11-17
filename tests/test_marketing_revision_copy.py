@@ -172,10 +172,11 @@ def test_v3_security_trust_faq():
         p = DIST / rel
         if not p.is_file():
             pytest.skip("marketing dist is not built: " + rel)
-        t = _visible(p.read_text(encoding="utf-8"))
-        for token in ("100%", "0 Bytes", "Z3-Verified", "Page-and-line citation traceability",
-                      "External data egress", "Formal mathematical proof", "cross-document check"):
-            assert token in t, (rel, token)
+        raw = p.read_text(encoding="utf-8")
+        for token in ("trust-metrics-bar-inline", "trust-metrics-bar", "trust-metric-value-inline",
+                      "metric-value", "0 Bytes", "Z3-Verified", "100%</div>",
+                      "Page-and-line citation traceability", "External data egress"):
+            assert token not in raw, (rel, token)
 def test_v3_vertical_pages():
     pages = {
         "use-cases/insurance/index.html": ("Insurance claims review", "Insurance claims review"),

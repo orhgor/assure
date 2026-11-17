@@ -164,21 +164,6 @@
                     <p class="home-more"><a href="{{ locale_path }}security/" data-i18n="home.trust.link">{{ strings.get('home.trust.link', 'Security and data') }}</a> <span aria-hidden="true">→</span></p>
                 </div>
 
-                <!-- Trust Metrics Bar -->
-                <div class="trust-metrics-bar-inline">
-                    <div class="trust-metric-item-inline">
-                        <div class="trust-metric-value-inline" data-i18n="landing.trust.metric.1.value">{{ strings.get('landing.trust.metric.1.value', '100%') }}</div>
-                        <p data-i18n="landing.trust.metric.1.desc">{{ strings.get('landing.trust.metric.1.desc', 'Page-and-line citation traceability on every extracted figure') }}</p>
-                    </div>
-                    <div class="trust-metric-item-inline">
-                        <div class="trust-metric-value-inline" data-i18n="landing.trust.metric.2.value">{{ strings.get('landing.trust.metric.2.value', '0 Bytes') }}</div>
-                        <p data-i18n="landing.trust.metric.2.desc">{{ strings.get('landing.trust.metric.2.desc', 'External data egress in air-gapped or private VPC deployments') }}</p>
-                    </div>
-                    <div class="trust-metric-item-inline">
-                        <span class="trust-metric-value-inline" data-i18n="landing.trust.metric.3.value">{{ strings.get('landing.trust.metric.3.value', 'Z3-Verified') }}</span>
-                        <p data-i18n="landing.trust.metric.3.desc">{{ strings.get('landing.trust.metric.3.desc', 'Formal mathematical proof on every cross-document check') }}</p>
-                    </div>
-                </div>
             </div>
         </section>
 
@@ -341,23 +326,8 @@
                 </div>
 
                 <!-- Security section trust metrics bar (reuses same keys) -->
-                <div class="trust-metrics-bar-inline">
-                    <div class="trust-metric-item-inline">
-                        <div class="trust-metric-value-inline" data-i18n="landing.trust.metric.1.value">{{ strings.get('landing.trust.metric.1.value', '100%') }}</div>
-                        <p data-i18n="landing.trust.metric.1.desc">{{ strings.get('landing.trust.metric.1.desc', 'Page-and-line citation traceability on every extracted figure') }}</p>
-                    </div>
-                    <div class="trust-metric-item-inline">
-                        <div class="trust-metric-value-inline" data-i18n="landing.trust.metric.2.value">{{ strings.get('landing.trust.metric.2.value', '0 Bytes') }}</div>
-                        <p data-i18n="landing.trust.metric.2.desc">{{ strings.get('landing.trust.metric.2.desc', 'External data egress in air-gapped or private VPC deployments') }}</p>
-                    </div>
-                    <div class="trust-metric-item-inline">
-                        <span class="trust-metric-value-inline" data-i18n="landing.trust.metric.3.value">{{ strings.get('landing.trust.metric.3.value', 'Z3-Verified') }}</span>
-                        <p data-i18n="landing.trust.metric.3.desc">{{ strings.get('landing.trust.metric.3.desc', 'Formal mathematical proof on every cross-document check') }}</p>
-                    </div>
-                </div>
-
                 <div class="security-whitepaper-link">
-                    <a href="{{ locale_path }}contact-us/" class="btn-secondary" {{ strings.get('security.whitepaper', 'Request the Security & Architecture Whitepaper →') }}</a>
+                    <a href="{{ locale_path }}contact-us/" class="btn-secondary" data-i18n="security.whitepaper">{{ strings.get('security.whitepaper', 'Request the Security & Architecture Whitepaper →') }}</a>
                 </div>
             </div>
         </section>
