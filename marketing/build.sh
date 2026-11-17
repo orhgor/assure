@@ -21,6 +21,7 @@ rsync -a \
   --include 'landing.css' \
   --include 'landing-pilot.js' \
   --include 'landing-i18n.js' \
+  --include 'icons.js' \
   --include 'favicon.svg' \
   --include 'favicon.ico' \
   --include 'assure-logo.png' \

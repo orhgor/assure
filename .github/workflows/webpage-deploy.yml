@@ -71,7 +71,6 @@ jobs:
     # Never imports or starts the workbench app.
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    if: github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v4
 
@@ -92,7 +91,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
-    needs: [ci]  # Gate deployment on CI passing
+    needs: [website-checks]  # Gate deployment on the website checks passing
     steps:
       - uses: actions/checkout@v4
 
