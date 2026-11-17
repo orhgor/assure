@@ -34,6 +34,7 @@
     <script type="application/ld+json">{{ item|tojson }}</script>
     {% endfor %}
     <link rel="stylesheet" href="{{ url_for('static', filename='landing.css') }}?v={{ landing_css_version|default('127') }}">
+    <script src="{{ url_for('static', filename='icons.js') }}"></script>
     <script>
       window.__assureLandingStrings = {{ strings|tojson }};
     </script>
@@ -72,11 +73,7 @@
                             </div>
                         </div>
                         <div class="conflict-delta">
-                            <div class="delta-icon" aria-hidden="true">
-                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
-                                </svg>
-                            </div>
+                            <div class="delta-icon" aria-hidden="true" data-icon="alert-triangle" data-size="24" data-stroke-width="2"></div>
                             <div class="delta-value" id="proof-delta-value">+22,500</div>
                             <div class="delta-label" id="proof-delta-currency">EUR</div>
                         </div>
@@ -262,11 +259,7 @@
                 <div class="use-cases-grid">
                     <!-- Card 1: Government -->
                     <div class="use-case-card">
-                        <div class="use-case-icon" style="background: #dbeafe; color: #1d4ed8;">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707-.293l5.414-5.414A1 1 0 0112 7h12a2 2 0 012 2v9a2 2 0 01-2 2H7a2 2 0 01-2-2V7a2 2 0 012-2h8a2 2 0 012 2v6"/>
-                            </svg>
-                        </div>
+                        <div class="use-case-icon" style="background: #dbeafe; color: #1d4ed8;" data-icon="building" data-size="24" data-stroke-width="2"></div>
                         <h3 data-i18n="use-cases.gov.title">{{ strings.get('use-cases.gov.title', 'Government Document Checks') }}</h3>
                         <p data-i18n="use-cases.gov.desc">{{ strings.get('use-cases.gov.desc', 'Verify procurement bids and regulatory packets before sign-off.') }}</p>
 
@@ -281,9 +274,7 @@
 
                     <!-- Card 2: Insurance Claims -->
                     <div class="use-case-card">
-                        <div class="use-case-icon" style="background: #fef2f2; color: #dc2626;">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M14 2H6a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2V7h4a2 2 0 002-2V5a2 2 0 012-2h2a2 2 0 002-2V5a2 2 0 00-2-2h-4a2 2 0 01-2-2H7a2 2 0 00-2 2v12a2 2 0 01-2 2h-2"/></svg>
-                        </div>
+                        <div class="use-case-icon" style="background: #fef2f2; color: #dc2626;" data-icon="file-text" data-size="24" data-stroke-width="2"></div>
                         <h3 data-i18n="use-cases.insurance.title">{{ strings.get('use-cases.insurance.title', 'Insurance Claims Review') }}</h3>
                         <p data-i18n="use-cases.insurance.desc">{{ strings.get('use-cases.insurance.desc', 'Audit complex claims against policy limits, endorsements, and medical bills.') }}</p>
 
@@ -298,11 +289,8 @@
 
                     <!-- Card 3: Bonus Reconciliation -->
                     <div class="use-case-card">
-                        <div class="use-case-icon" style="background: #fef3c7; color: #d97706;">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s.895 3 3 3 3-.895 3-3-.895-3-3-3-.895-3 3-3 3-.895 3-3-.895-3-3-.895-3-3s-.895-3-3-3-.895-3 3-.895 3-3 .895-3 3s.895 3 3 3 .895 3 3 .895 3 2.25.586l-4.5 4.5"/><path stroke-linecap="round" stroke-linejoin="round" d="M21 12c0 1.191-.377 1.202-1 2.5S11.433 11 12 11s1.25-.545 1-1.5S12 11 12 11s1.25-.545 1-1.5S12 8 12 8s1.25-.545 1-1.5S12 2 12 2s1.25.545 1 1.5S12 8 12 8s1.25.545 1 1.5S12 14 12 14s-1.25.545-1 1.5S8 14 12 14s-1.25.545-1 1.5S8 14 12 14s-1.25.545-1 1.5S8 14 8 14"/></svg>
-                        </div>
+                        <div class="use-case-icon" style="background: #fef3c7; color: #d97706;" data-icon="dollar-sign" data-size="24" data-stroke-width="2"></div>
                         <h3 data-i18n="use-cases.fuel.title">{{ strings.get('use-cases.fuel.title', 'Bonus & Commission Reconciliation') }}</h3>
-                        <p data-i18n="use-cases.fuel.desc">{{ strings.get('use-cases.fuel.desc', 'Reconcile compensation plans, attainment logs, and payroll exports with zero leakage.') }}</p>
 
                         <div class="use-case-conflict">
                             <div class="conflict-row"><span data-i18n="use-cases.fuel.conflict.label">{{ strings.get('use-cases.fuel.conflict.label', 'Live Conflict Example') }}</span><span class="conflict-badge" data-i18n="use-cases.fuel.conflict.badge">{{ strings.get('use-cases.fuel.conflict.badge', '+$31,200 Over') }}</span></div>

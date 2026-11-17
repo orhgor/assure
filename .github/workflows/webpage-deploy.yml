@@ -92,6 +92,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    needs: [ci]  # Gate deployment on CI passing
     steps:
       - uses: actions/checkout@v4
 

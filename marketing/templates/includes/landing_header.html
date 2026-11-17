@@ -50,12 +50,19 @@
                 id="mobile-menu-btn"
                 class="mobile-menu-btn"
                 aria-expanded="false"
+            </div>
+
+            <!-- Mobile Menu Button -->
+            <button
+                type="button"
+                id="mobile-menu-btn"
+                class="mobile-menu-btn"
+                aria-expanded="false"
                 aria-controls="mobile-menu"
-                aria-label="{{ strings.get('landing.nav.menu', 'Menu') }}">
-                <span class="sr-only">{{ strings.get('landing.nav.menu', 'Menu') }}</span>
-                <svg class="mobile-menu-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
-                </svg>
+                aria-label="{{ strings.get('landing.nav.menu', 'Menu') }}"
+                data-icon="menu"
+                data-size="24"
+                data-stroke-width="2">
             </button>
         </div>
     </div>
