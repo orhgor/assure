@@ -100,6 +100,13 @@
         err.hidden = true;
         err.textContent = "";
       }
+      var submitBtn = form.querySelector('button[type="submit"]');
+      var originalBtnText = submitBtn ? submitBtn.textContent : "";
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Sending...";
+      }
+
       var nameEl = document.getElementById("demo-name");
       var emailEl = document.getElementById("demo-email");
       var workflowEl = document.getElementById("demo-workflow");
@@ -107,33 +114,42 @@
       var email = emailEl ? String(emailEl.value || "").trim() : "";
       var workflow = workflowEl ? String(workflowEl.value || "").trim() : "";
       var name = workflow ? company + " / " + workflow : company;
+
       fetch("/contact-submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: name, email: email, company: company, message: workflow ? "Primary document workflow: " + workflow : "" }),
       })
         .then(function (res) {
-          return res.json().catch(function () {
-            return {};
-          }).then(function (data) {
-            return { ok: res.ok, data: data };
-          });
-        })
-        .then(function (result) {
-          if (!result.ok) {
-            throw new Error(errorText);
+          if (res.status === 429) {
+            var retryAfter = res.headers.get("Retry-After") || 60;
+            throw { status: 429, retryAfter: retryAfter, message: "Too many requests. Please wait " + retryAfter + "s and try again." };
           }
-          form.hidden = true;
-          if (wrap) wrap.hidden = true;
-          if (done) {
-            done.hidden = false;
-            done.classList.add("is-success");
+          if (!res.ok) throw { status: res.status, message: "Server error: " + res.status };
+          return res.json();
+        })
+        .then(function (data) {
+          if (data.ok || data.status === "ok") {
+            form.hidden = true;
+            if (wrap) wrap.hidden = true;
+            if (done) {
+              done.hidden = false;
+              done.classList.add("is-success");
+            }
+          } else {
+            throw { message: data.error || "Could not send your request. Please try again." };
           }
         })
-        .catch(function (error) {
+        .catch(function (err) {
           if (err) {
             err.hidden = false;
-            err.textContent = errorText;
+            err.textContent = err?.message || errorText;
+          }
+        })
+        .finally(function () {
+          if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = originalBtnText;
           }
         });
     });
@@ -221,24 +237,38 @@ function bindZ3Recalc() {
         sourceB: { label: "Amount Billed", value: b, currency: currency }
       })
     })
-      .then(function (res) { return res.json(); })
+      .then(function (res) {
+        if (res.status === 429) {
+          var retryAfter = res.headers.get("Retry-After") || 60;
+          throw { status: 429, retryAfter: retryAfter, message: "Too many requests. Please wait " + retryAfter + "s and try again." };
+        }
+        if (!res.ok) throw { status: res.status, message: "Server error: " + res.status };
+        return res.json();
+      })
       .then(function (data) {
         if (data.ok) {
           if (deltaValue) deltaValue.textContent = (data.delta.value > 0 ? "+" : "") + formatNumber(data.delta.value);
           if (deltaCurrency) deltaCurrency.textContent = data.delta.currency;
           if (z3ResultText) z3ResultText.textContent = data.message;
-          // Visual feedback
           if (data.delta.conflict) {
             z3ResultText.style.color = "var(--error, #dc2626)";
           } else {
             z3ResultText.style.color = "var(--success, #16a34a)";
           }
         } else {
-          // Fallback to local calculation
+          // Server returned ok: false
+          if (z3ResultText) z3ResultText.textContent = data.error || "Verification failed. Showing local calculation.";
           updateDeltaLocal(a, b);
         }
       })
-      .catch(function () {
+      .catch(function (err) {
+        if (err?.status === 429 && err?.retryAfter) {
+          if (z3ResultText) z3ResultText.textContent = err.message;
+          z3ResultText.style.color = "var(--warning, #d97706)";
+        } else {
+          if (z3ResultText) z3ResultText.textContent = "Verification service unavailable. Showing local calculation.";
+          z3ResultText.style.color = "var(--warning, #d97706)";
+        }
         updateDeltaLocal(a, b);
       })
       .finally(function () {
