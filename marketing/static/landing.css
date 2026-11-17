@@ -2227,17 +2227,7 @@ body {
 }
 
 .enterprise-landing .hero-section h1,
-.enterprise-landing .hero-title {
-    color: #0a0a0a;
-    font-size: clamp(2.4rem, 6vw, 3.5rem);
-    font-weight: 700;
-    letter-spacing: -0.04em;
-    max-width: none;
-    margin: 0 auto;
-    line-height: 1.1;
-    text-wrap: balance;
-    text-align: center;
-}
+
 
 @media (min-width: 801px) {
     .enterprise-landing .hero-title .text-line {
@@ -4841,4 +4831,15 @@ body {
     .home-landing .hero-cta-group .btn-secondary {
         order: 2;
     }
+}
+
+
+#hero-title {
+    font-size: clamp(3rem, 8vw, 5rem);
+    font-weight: 300 !important;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+    margin-bottom: 1.5rem;
+    text-wrap: balance;
+    text-transform: uppercase;
 }
