@@ -313,12 +313,12 @@ def _render_page(app, page: dict, locale: str) -> str:
             meta_prefix = TEMPLATE_TO_META.get(page["template"])
             full = string_catalog(locale)
             if page["template"] == "404.html":
-                page_title = full.get("error404.title", "Page not found") + " · Assure"
+                page_title = full.get("error404.title", "Page not found") + " · AssureProof"
                 page_description = full.get("error404.body", "")
             else:
                 page_title = full.get(f"meta.{meta_prefix}.title") if meta_prefix else None
                 if not page_title:
-                    page_title = full.get("brand.page_title", "Assure")
+                    page_title = full.get("brand.page_title", "AssureProof")
                 page_description = (
                     full.get(f"meta.{meta_prefix}.description") if meta_prefix else None
                 ) or full.get("brand.meta_description", "")
@@ -334,7 +334,7 @@ def _render_page(app, page: dict, locale: str) -> str:
                     {
                         "@context": "https://schema.org",
                         "@type": "Organization",
-                        "name": "Assure",
+                        "name": "AssureProof",
                         "url": "https://assureproof.com",
                         "logo": "https://assureproof.com/static/assure-logo.png",
                         "inLanguage": locale,
@@ -344,7 +344,7 @@ def _render_page(app, page: dict, locale: str) -> str:
                     {
                         "@context": "https://schema.org",
                         "@type": "WebSite",
-                        "name": "Assure",
+                        "name": "AssureProof",
                         "url": "https://assureproof.com/",
                         "inLanguage": locale,
                     }
@@ -353,7 +353,7 @@ def _render_page(app, page: dict, locale: str) -> str:
                     {
                         "@context": "https://schema.org",
                         "@type": "SoftwareApplication",
-                        "name": "Assure",
+                        "name": "AssureProof",
                         "applicationCategory": "BusinessApplication",
                         "operatingSystem": "Web",
                         "description": page_description,
@@ -361,7 +361,7 @@ def _render_page(app, page: dict, locale: str) -> str:
                         "inLanguage": locale,
                         "provider": {
                             "@type": "Organization",
-                            "name": "Assure",
+                            "name": "AssureProof",
                             "url": "https://assureproof.com",
                         },
                     }
