@@ -31,7 +31,6 @@ rsync -a \
   --exclude '*' \
   "$ROOT/marketing/static/" "$DIST_DIR/static/"
 
-# Real favicon.ico rasterized from favicon.svg (own copy, no workbench read).
 if [ ! -f "$ROOT/marketing/static/favicon.ico" ]; then
   "$PYTHON" "$ROOT/marketing/make_favicon.py" || echo "warn: favicon.ico generation failed"
 fi
