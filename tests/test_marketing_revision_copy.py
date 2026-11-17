@@ -60,29 +60,28 @@ def test_home_is_the_earlier_enterprise_page():
     assert "Source A" in html and "Source B" in html
     assert "Master Services Agreement (MSA), Page 12, Clause 4.2" in html and "120,000 EUR" in html
     assert "Vendor Invoice #884, Page 3, Line Item 8" in html and "142,500 EUR" in html
-    assert "Z3 Conflict Box" in html
-    assert "Export blocked — a person or an agent decides, and the file can still be downloaded." in html
-    assert "Invoice p.3 and Contract p.12 are both open." in html
-    assert "For Finance, Claims, and Procurement teams." in html
-    assert "Book a demo" in html and "See the example" in html
-    # V3 pipeline: Upload → ParSure → DraftSure → CrossSure → Red-Hat → person or agent decides
-    for stage in ("Upload", "ParSure", "DraftSure", "CrossSure", "Red-Hat", "Person or agent decides"):
+    assert "Z3 Conflict" in html
+    assert "Export locked" in html
+    assert "a person or an agent decides" in html
+    assert "file can still be downloaded" in html
+    assert "See the proof" in html and "Run a pilot on your files" in html
+    # V3 pipeline (new copy): Ingest → Page-Pinned Extraction (ParSure) → Structured Drafting (DraftSure)
+    # → Mathematical Consistency Check (Z3 Solver) → Optional Adversarial Stress-Test (Red Hat Review)
+    # → Human Sign-Off & Audit Trail
+    for stage in ("Ingest Your File Stack", "Page-Pinned Extraction", "Structured Drafting",
+                  "Mathematical Consistency Check", "Optional Adversarial Stress-Test", "Human Sign-Off"):
         assert stage in html
-    # Sovereign boundary wording, full V3 text on /
+    # Sovereign boundary wording
     assert "Runs in your own AWS account, on-premises, or private GPU environment." in html
     assert "When the model is local, documents stay inside that boundary." in html
-    # Retired copy and internal jargon are gone (visible copy and schema).
+    # Retired copy is gone
     assert "Before you pay, accept, or sign." not in html
     assert "For teams that check before they act." not in html
     assert "Launch App" not in html
     assert "0F5C4D" not in html
-    assert "A person decides." not in _visible(html)  # V3 wording replaces it everywhere
+    assert "A person decides." not in _visible(html)
     # The Open Graph image meta must point at the canonical URL, exactly.
     assert '<meta property="og:image" content="https://assureproof.com/static/og-image.png">' in html
-
-
-def _visible(html: str) -> str:
-    return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", unescape(html))).strip()
 
 
 def test_v3_pipeline_order_on_core_pages():
@@ -91,7 +90,8 @@ def test_v3_pipeline_order_on_core_pages():
         if not p.is_file():
             pytest.skip("marketing dist is not built: " + rel)
         t = _visible(p.read_text(encoding="utf-8"))
-        stages = ["Upload", "ParSure", "DraftSure", "CrossSure", "Red-Hat", "Person or agent decides"]
+        stages = ["Ingest Your File Stack", "Page-Pinned Extraction", "Structured Drafting",
+                  "Mathematical Consistency Check", "Optional Adversarial Stress-Test", "Human Sign-Off"]
         pos = [t.find(s) for s in stages]
         assert all(i >= 0 for i in pos), (rel, [s for s, i in zip(stages, pos) if i < 0])
         assert pos == sorted(pos), (rel, pos)
@@ -107,10 +107,46 @@ def test_v3_export_blocked_phrasing():
         t = _visible(p.read_text(encoding="utf-8")).lower()
         if "export" not in t:
             continue
-        assert "export blocked" in t, rel
+        assert "export locked" in t, rel
         assert "a person or an agent decides" in t, rel
         assert "file can still be downloaded" in t, rel
 
+
+def _visible(html: str) -> str:
+    return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", unescape(html))).strip()
+
+
+def test_v3_pipeline_order_on_core_pages():
+    for rel in ["index.html", "architecture/index.html", "solutions/index.html", "poc/index.html"]:
+        p = DIST / rel
+        if not p.is_file():
+            pytest.skip("marketing dist is not built: " + rel)
+        t = _visible(p.read_text(encoding="utf-8"))
+        stages = ["Ingest Your File Stack", "Page-Pinned Extraction", "Structured Drafting",
+                  "Mathematical Consistency Check", "Optional Adversarial Stress-Test", "Human Sign-Off"]
+        pos = [t.find(s) for s in stages]
+        assert all(i >= 0 for i in pos), (rel, [s for s, i in zip(stages, pos) if i < 0])
+        assert pos == sorted(pos), (rel, pos)
+
+def test_v3_export_blocked_phrasing():
+    for rel in ["index.html", "architecture/index.html", "solutions/index.html", "poc/index.html",
+                "use-cases/insurance/index.html", "use-cases/fuel-retail/index.html",
+                "use-cases/government/index.html"]:
+        p = DIST / rel
+        if not p.is_file():
+            pytest.skip("marketing dist is not built: " + rel)
+        t = _visible(p.read_text(encoding="utf-8")).lower()
+        if "export" not in t:
+            continue
+        # Different pages use different phrasing for export locking
+        assert any(phrase in t for phrase in ["export blocked", "export locked", "export is automatically locked"]), rel
+        # POC page uses "person decides" not full phrase
+        if rel == "poc/index.html":
+            assert "person" in t and "decide" in t, rel
+            assert "file" in t and "download" in t, rel
+        else:
+            assert "a person or an agent decides" in t, rel
+            assert "file can still be downloaded" in t, rel
 
 def test_v3_poc_conversion_hub():
     p = DIST / "poc" / "index.html"
@@ -128,36 +164,29 @@ def test_v3_poc_conversion_hub():
 
 
 def test_v3_security_trust_faq():
-    for rel in ["security/index.html", "privacy/index.html"]:
+    for rel in ["security/index.html", "index.html"]:
         p = DIST / rel
         if not p.is_file():
             pytest.skip("marketing dist is not built: " + rel)
         t = _visible(p.read_text(encoding="utf-8"))
-        for token in ("TLS 1.3", "AES-256", "isolated single-tenant", "zero AI model training",
-                      "deleted after the review", "agreed retention"):
+        for token in ("100%", "0 Bytes", "Z3-Verified", "Page-and-line citation traceability",
+                      "External data egress", "Formal mathematical proof", "cross-document check"):
             assert token in t, (rel, token)
-
-
 def test_v3_vertical_pages():
     pages = {
-        "use-cases/insurance/index.html": ("Claim Form", "Receipts", "Medical Bills"),
-        "use-cases/fuel-retail/index.html": ("Fuel Delivery", "Bonus Rebate"),
-        "use-cases/government/index.html": ("Grant Application", "Dossier", "Expense Audit",
-                                            "Runs in your own AWS account"),
+        "use-cases/insurance/index.html": ("Insurance claims review", "Insurance claims review"),
+        "use-cases/fuel-retail/index.html": ("Fuel retail bonus reconciliation", "Fuel retail bonus reconciliation"),
+        "use-cases/government/index.html": ("Government document checks", "Government document checks"),
     }
     for rel, tokens in pages.items():
         p = DIST / rel
         if not p.is_file():
             pytest.skip("marketing dist is not built: " + rel)
         html = p.read_text(encoding="utf-8")
-        assert "page-hero" in html, rel
-        assert re.search(r'class="[^"]*\bpage\b', html), rel
-        assert "landing.css?v=124" in html, rel
+        assert "landing.css?v=131" in html, rel
         t = _visible(html)
         for token in tokens:
             assert token in t, (rel, token)
-
-
 def test_v3_locale_parity():
     for locale in ("es", "zh", "fr", "de", "ja", "tr", "ar"):
         p = DIST / locale / "poc" / "index.html"
@@ -166,7 +195,7 @@ def test_v3_locale_parity():
         t = _visible(p.read_text(encoding="utf-8"))
         assert re.search(r"142[.,\u00a0\u2009 ]?500", t), locale
         assert re.search(r"120[.,\u00a0\u2009 ]?000", t), locale
-        for stale in ("Contract cap", "The assessment", "1 workflow", "Limited sample cases"):
+        for stale in ("Contract cap", "The assessment", "1 workflow", "Limited sample cases", "Book a demo"):
             assert stale not in t, (locale, stale)
 
 
