@@ -3,13 +3,17 @@
 <header class="site-header">
     <div class="container nav-container">
         <a href="{{ locale_path }}" class="logo logo-brand">
-            <img class="brand-mark" src="{{ url_for('static', filename='assure-logo.png') }}" alt="" width="28" height="28">
+            <div class="brand-mark" aria-hidden="true">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+                </svg>
+            </div>
             <span class="logo-copy">
                 <span class="logo-name">{{ strings.get('brand.name', 'AssureProof') }}</span>
             </span>
         </a>
 
-        <!-- Desktop navigation (4 focused items per design spec) -->
+        <!-- Desktop Navigation -->
         <nav class="nav-links desktop-nav" id="landing-nav-links" data-i18n-aria="landing.nav.aria" aria-label="{{ strings.get('landing.nav.aria', 'Primary') }}">
             <a href="{{ locale_path }}#how" data-i18n="landing.nav.how">{{ strings.get('landing.nav.how', 'How it works') }}</a>
             <a href="{{ locale_path }}#why-not-llm" data-i18n="landing.nav.why">{{ strings.get('landing.nav.why', 'Why not an LLM?') }}</a>
@@ -22,7 +26,11 @@
             <!-- Compact Language Selector -->
             <div class="landing-lang-wrap">
                 <label for="landing-lang" class="landing-lang-label" data-i18n="landing.lang">{{ strings.get('landing.lang', 'Language') }}</label>
-                <select id="landing-lang" class="landing-lang-select" data-i18n-aria="landing.lang" aria-label="{{ strings.get('landing.lang', 'Language') }}">
+                <select
+                    id="landing-lang"
+                    class="landing-lang-select"
+                    data-i18n-aria="landing.lang"
+                    aria-label="{{ strings.get('landing.lang', 'Language') }}">
                     {% for code, label in languages.items() %}
                     <option value="{{ code }}" {% if locale == code %}selected{% endif %}>{{ label }}</option>
                     {% endfor %}
@@ -31,46 +39,51 @@
 
             <!-- Primary Header CTA -->
             <button
-              type="button"
-              data-open-proof-modal
-              class="btn-primary header-cta"
-              data-i18n="landing.hero.cta_primary">{{ strings.get('landing.hero.cta_primary', 'See the proof') }}</button>
+                type="button"
+                data-open-proof-modal
+                class="btn-primary header-cta"
+                data-i18n="landing.hero.cta_primary">{{ strings.get('landing.hero.cta_primary', 'See the proof') }}</button>
 
             <!-- Mobile Menu Button -->
             <button
-              type="button"
-              class="mobile-menu-btn"
-              id="mobile-menu-btn"
-              aria-expanded="false"
-              aria-controls="mobile-menu"
-              data-i18n="landing.nav.menu">{{ strings.get('landing.nav.menu', 'Menu') }}</button>
+                type="button"
+                id="mobile-menu-btn"
+                class="mobile-menu-btn"
+                aria-expanded="false"
+                aria-controls="mobile-menu"
+                aria-label="{{ strings.get('landing.nav.menu', 'Menu') }}">
+                <span class="sr-only">{{ strings.get('landing.nav.menu', 'Menu') }}</span>
+                <svg class="mobile-menu-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+                </svg>
+            </button>
         </div>
     </div>
-
-    <!-- Mobile Dropdown Menu -->
-    <nav class="mobile-nav" id="mobile-menu" aria-label="{{ strings.get('landing.nav.aria', 'Primary') }}" hidden>
-        <a href="{{ locale_path }}#how" data-i18n="landing.nav.how">{{ strings.get('landing.nav.how', 'How it works') }}</a>
-        <a href="{{ locale_path }}#why-not-llm" data-i18n="landing.nav.why">{{ strings.get('landing.nav.why', 'Why not an LLM?') }}</a>
-        <a href="{{ locale_path }}use-cases/" data-i18n="landing.nav.usecases">{{ strings.get('landing.nav.usecases', 'Use cases') }}</a>
-        <a href="{{ locale_path }}security/" data-i18n="landing.nav.security">{{ strings.get('landing.nav.security', 'Security & Architecture') }}</a>
-        <div class="mobile-nav-divider"></div>
-        <a href="{{ locale_path }}about/" data-i18n="landing.nav.about">{{ strings.get('landing.nav.about', 'About') }}</a>
-        <a href="{{ locale_path }}pricing/" data-i18n="landing.nav.pricing">{{ strings.get('landing.nav.pricing', 'Pricing') }}</a>
-        <a href="{{ locale_path }}contact-us/" data-i18n="landing.nav.contact">{{ strings.get('landing.nav.contact', 'Contact') }}</a>
-        <a href="{{ locale_path }}privacy/" data-i18n="landing.nav.privacy">{{ strings.get('landing.nav.privacy', 'Privacy') }}</a>
-        <div class="mobile-nav-divider"></div>
-        <label class="landing-lang-wrap" for="landing-lang-mobile">
-            <span class="landing-lang-label" data-i18n="landing.lang">{{ strings.get('landing.lang', 'Language') }}</span>
-            <select id="landing-lang-mobile" class="landing-lang-select" data-i18n-aria="landing.lang" aria-label="{{ strings.get('landing.lang', 'Language') }}">
-                {% for code, label in languages.items() %}
-                <option value="{{ code }}" {% if locale == code %}selected{% endif %}>{{ label }}</option>
-                {% endfor %}
-            </select>
-        </label>
-        <button
-          type="button"
-          data-open-proof-modal
-          class="btn-primary mobile-cta"
-          data-i18n="landing.hero.cta_primary">{{ strings.get('landing.hero.cta_primary', 'See the proof') }}</button>
-    </nav>
 </header>
+
+<!-- Mobile Dropdown Menu -->
+<nav id="mobile-menu" class="mobile-nav" hidden aria-label="{{ strings.get('landing.nav.aria', 'Primary') }}">
+    <a href="{{ locale_path }}#how" data-i18n="landing.nav.how">{{ strings.get('landing.nav.how', 'How it works') }}</a>
+    <a href="{{ locale_path }}#why-not-llm" data-i18n="landing.nav.why">{{ strings.get('landing.nav.why', 'Why not an LLM?') }}</a>
+    <a href="{{ locale_path }}use-cases/" data-i18n="landing.nav.usecases">{{ strings.get('landing.nav.usecases', 'Use cases') }}</a>
+    <a href="{{ locale_path }}security/" data-i18n="landing.nav.security">{{ strings.get('landing.nav.security', 'Security & Architecture') }}</a>
+    <div class="mobile-nav-divider"></div>
+    <a href="{{ locale_path }}about/" data-i18n="landing.nav.about">{{ strings.get('landing.nav.about', 'About') }}</a>
+    <a href="{{ locale_path }}pricing/" data-i18n="landing.nav.pricing">{{ strings.get('landing.nav.pricing', 'Pricing') }}</a>
+    <a href="{{ locale_path }}contact-us/" data-i18n="landing.nav.contact">{{ strings.get('landing.nav.contact', 'Contact') }}</a>
+    <a href="{{ locale_path }}privacy/" data-i18n="landing.nav.privacy">{{ strings.get('landing.nav.privacy', 'Privacy') }}</a>
+    <div class="mobile-nav-divider"></div>
+    <label class="landing-lang-wrap" for="landing-lang-mobile">
+        <span class="landing-lang-label" data-i18n="landing.lang">{{ strings.get('landing.lang', 'Language') }}</span>
+        <select id="landing-lang-mobile" class="landing-lang-select" data-i18n-aria="landing.lang" aria-label="{{ strings.get('landing.lang', 'Language') }}">
+            {% for code, label in languages.items() %}
+            <option value="{{ code }}" {% if locale == code %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+    </label>
+    <button
+        type="button"
+        data-open-proof-modal
+        class="btn-primary mobile-cta"
+        data-i18n="landing.hero.cta_primary">{{ strings.get('landing.hero.cta_primary', 'See the proof') }}</button>
+</nav>
