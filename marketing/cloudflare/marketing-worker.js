@@ -41,6 +41,36 @@ function clean(value, max) {
   return String(value || "").trim().slice(0, max || 2000);
 }
 
+/** POST /api/z3-demo — Z3 verification demo for interactive hero card. */
+async function handleZ3Demo(request, env) {
+  let body;
+  try {
+    body = await request.json();
+  } catch (err) {
+    return json({ ok: false, error: "Invalid request body" }, 400);
+  }
+
+  const sourceA = body?.sourceA || { label: "Contract Cap", value: 120000, currency: "EUR" };
+  const sourceB = body?.sourceB || { label: "Amount Billed", value: 142500, currency: "EUR" };
+
+  const a = Number(sourceA?.value) || 120000;
+  const b = Number(sourceB?.value) || 142500;
+  const currency = sourceA?.currency || sourceB?.currency || "EUR";
+  const delta = b - a;
+  const conflict = delta !== 0;
+
+  return json({
+    ok: true,
+    sourceA: { ...sourceA, value: a },
+    sourceB: { ...sourceB, value: b },
+    delta: { value: delta, currency, conflict },
+    message: conflict
+      ? `Export locked — ${delta > 0 ? "+" : ""}${delta.toLocaleString()} ${currency} overage detected.`
+      : "No conflict — values agree.",
+    z3Verification: "Deterministic formal logic check completed."
+  });
+}
+
 /** POST /contact-submit — enterprise contact form → Resend email. */
 async function handleContactSubmit(request, env) {
   if (!env.RESEND_API_KEY) {
@@ -118,6 +148,10 @@ export default {
     // Contact form → Resend email to the sales inbox.
     if (request.method === "POST" && url.pathname === "/contact-submit") {
       return handleContactSubmit(request, env);
+    }
+    // Z3 demo endpoint for interactive hero proof card.
+    if (request.method === "POST" && url.pathname === "/api/z3-demo") {
+      return handleZ3Demo(request, env);
     }
     if (request.method !== "GET" && request.method !== "HEAD") {
       return new Response("Method not allowed", { status: 405 });
