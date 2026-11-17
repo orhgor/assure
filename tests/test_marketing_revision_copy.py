@@ -183,7 +183,7 @@ def test_v3_vertical_pages():
         if not p.is_file():
             pytest.skip("marketing dist is not built: " + rel)
         html = p.read_text(encoding="utf-8")
-        assert "landing.css?v=137" in html, rel
+        assert "landing.css?v=138" in html, rel
         t = _visible(html)
         for token in tokens:
             assert token in t, (rel, token)
