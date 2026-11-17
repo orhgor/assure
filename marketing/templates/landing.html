@@ -99,8 +99,8 @@
                     </div>
                 </section>
                 <div class="hero-cta-group">
-                    <button type="button" class="btn-primary" data-demo-open data-i18n="landing.hero.cta_primary">{{ strings.get('landing.hero.cta_primary', 'See the proof') }}</button>
-                    <a href="{{ locale_path }}poc/" class="btn-secondary" data-i18n="landing.hero.cta_secondary">{{ strings.get('landing.hero.cta_secondary', 'Run a pilot on your files →') }}</a>
+                    <a href="{{ locale_path }}contact-us/" class="btn-primary" data-i18n="landing.hero.cta_primary">{{ strings.get('landing.hero.cta_primary', 'See the proof') }}</a>
+                    <a href="{{ locale_path }}contact-us/" class="btn-secondary" data-i18n="landing.hero.cta_secondary">{{ strings.get('landing.hero.cta_secondary', 'Run a pilot on your files →') }}</a>
                 </div>
             </div>
         </section>
@@ -268,7 +268,7 @@
                             <div><span data-i18n="use-cases.gov.conflict.source-b.label">{{ strings.get('use-cases.gov.conflict.source-b.label', 'Source B (Vendor Proposal, p. 19):') }}</span><span data-i18n="use-cases.gov.conflict.source-b">{{ strings.get('use-cases.gov.conflict.source-b', 'Subcontractor Allocation: 24.5% ($367,500)') }}</span></div>
                             <div class="conflict-result"><strong data-i18n="use-cases.gov.conflict.result.label">{{ strings.get('use-cases.gov.conflict.result.label', 'Result:') }}</strong><span data-i18n="use-cases.gov.conflict.result">{{ strings.get('use-cases.gov.conflict.result', 'Export Locked — Exceeds statutory threshold by 9.5%.') }}</span></div>
                         </div>
-                        <button type="button" class="btn-primary use-case-cta" data-demo-open data-workflow="government" data-i18n="use-cases.gov.cta">{{ strings.get('use-cases.gov.cta', 'Test a procurement or compliance packet') }}</button>
+                        <a href="{{ locale_path }}contact-us/" class="btn-primary use-case-cta" data-i18n="use-cases.gov.cta">{{ strings.get('use-cases.gov.cta', 'Test a procurement or compliance packet') }}</a>
                     </div>
 
                     <!-- Card 2: Insurance Claims -->
@@ -283,7 +283,7 @@
                             <div><span data-i18n="use-cases.insurance.conflict.source-b.label">{{ strings.get('use-cases.insurance.conflict.source-b.label', 'Source B (Adjuster Summary, p. 6):') }}</span><span data-i18n="use-cases.insurance.conflict.source-b">{{ strings.get('use-cases.insurance.conflict.source-b', 'Approved Remediation Payout: $68,400') }}</span></div>
                             <div class="conflict-result"><strong data-i18n="use-cases.insurance.conflict.result.label">{{ strings.get('use-cases.insurance.conflict.result.label', 'Result:') }}</strong><span data-i18n="use-cases.insurance.conflict.result">{{ strings.get('use-cases.insurance.conflict.result', 'Export Locked — Exceeds endorsement cap by $18,400.') }}</span></div>
                         </div>
-                        <button type="button" class="btn-primary use-case-cta" data-demo-open data-workflow="insurance" data-i18n="use-cases.insurance.cta">{{ strings.get('use-cases.insurance.cta', 'Test a claims file') }}</button>
+                        <a href="{{ locale_path }}contact-us/" class="btn-primary use-case-cta" data-i18n="use-cases.insurance.cta">{{ strings.get('use-cases.insurance.cta', 'Test a claims file') }}</a>
                     </div>
 
                     <!-- Card 3: Bonus Reconciliation -->
@@ -297,7 +297,7 @@
                             <div><span data-i18n="use-cases.fuel.conflict.source-b.label">{{ strings.get('use-cases.fuel.conflict.source-b.label', 'Source B (Q4 Payroll Sheet, Row 42):') }}</span><span data-i18n="use-cases.fuel.conflict.source-b">{{ strings.get('use-cases.fuel.conflict.source-b', 'Applied Multiplier: 2.0x (+$31,200)') }}</span></div>
                             <div class="conflict-result"><strong data-i18n="use-cases.fuel.conflict.result.label">{{ strings.get('use-cases.fuel.conflict.result.label', 'Result:') }}</strong><span data-i18n="use-cases.fuel.conflict.result">{{ strings.get('use-cases.fuel.conflict.result', 'Export Locked — Multiplier conflicts with signed plan terms.') }}</span></div>
                         </div>
-                        <button type="button" class="btn-primary use-case-cta" data-demo-open data-workflow="bonus" data-i18n="use-cases.fuel.cta">{{ strings.get('use-cases.fuel.cta', 'Test a compensation batch') }}</button>
+                        <a href="{{ locale_path }}contact-us/" class="btn-primary use-case-cta" data-i18n="use-cases.fuel.cta">{{ strings.get('use-cases.fuel.cta', 'Test a compensation batch') }}</a>
                     </div>
                 </div>
             </div>
@@ -357,7 +357,7 @@
                 </div>
 
                 <div class="security-whitepaper-link">
-                    <a href="{{ locale_path }}poc/" class="btn-secondary" data-demo-open>{{ strings.get('security.whitepaper', 'Request the Security & Architecture Whitepaper →') }}</a>
+                    <a href="{{ locale_path }}contact-us/" class="btn-secondary" {{ strings.get('security.whitepaper', 'Request the Security & Architecture Whitepaper →') }}</a>
                 </div>
             </div>
         </section>
@@ -369,45 +369,10 @@
             <div class="container center">
                 <h2 class="section-title" data-i18n="home.start.title">{{ strings.get('home.start.title', 'Test AssureProof on your hardest document packet.') }}</h2>
                 <p class="section-sub" data-i18n="home.start.body">{{ strings.get('home.start.body', 'Bring a live document set. We run it with your team and walk you through the findings.') }}</p>
-                <button type="button" class="btn-primary" data-demo-open data-i18n="landing.closing.cta">{{ strings.get('landing.closing.cta', 'See the proof') }}</p>
+                <a href="{{ locale_path }}contact-us/" class="btn-primary" data-i18n="landing.closing.cta">{{ strings.get('landing.closing.cta', 'See the proof') }}</a>
             </div>
         </section>
     </main>
-
-    <!-- Demo Modal -->
-    <div id="download-modal" class="demo-modal" hidden role="dialog" aria-modal="true" aria-labelledby="demo-title">
-        <div class="modal-backdrop" data-demo-close></div>
-        <div class="modal-panel">
-            <button type="button" class="modal-close" data-demo-close data-i18n-aria="landing.modal.close" aria-label="{{ strings.get('landing.modal.close', 'Close') }}">&times;</button>
-
-            <div id="pilot-form-wrap">
-                <h2 id="demo-title" data-i18n="landing.pilot.title">{{ strings.get('landing.pilot.title', 'See the proof') }}</h2>
-                <p class="text-small" data-i18n="landing.pilot.lead">{{ strings.get('landing.pilot.lead', 'Book a 20-minute technical walkthrough. Bring a sample document set—or test with our pre-loaded conflict packets—to see Z3 verification catch discrepancies live.') }}</p>
-                <form id="demo-form" method="post" action="#">
-                    <label for="demo-email" data-i18n="landing.pilot.email">{{ strings.get('landing.pilot.email', 'Work email') }}</label>
-                    <input id="demo-email" class="demo-input" name="email" type="email" autocomplete="email" required>
-                    <label for="demo-name" data-i18n="landing.pilot.company">{{ strings.get('landing.pilot.company', 'Company name') }}</label>
-                    <input id="demo-name" class="demo-input" name="company" type="text" autocomplete="organization" required>
-                    <label for="demo-workflow" data-i18n="landing.pilot.workflow">{{ strings.get('landing.pilot.workflow', 'Primary document workflow') }}</label>
-                    <select id="demo-workflow" class="demo-input" name="workflow">
-                        <option value="" disabled selected data-i18n="landing.pilot.workflow.select">{{ strings.get('landing.pilot.workflow.select', 'Select a workflow') }}</option>
-                        <option value="Government document checks">{{ strings.get('landing.pilot.workflow.gov', 'Government document checks') }}</option>
-                        <option value="Insurance claims review">{{ strings.get('landing.pilot.workflow.ins', 'Insurance claims review') }}</option>
-                        <option value="Bonus reconciliation">{{ strings.get('landing.pilot.workflow.fuel', 'Bonus reconciliation') }}</option>
-                        <option value="Other">{{ strings.get('landing.pilot.workflow.other', 'Other') }}</option>
-                    </select>
-                    <button type="submit" class="demo-submit" data-i18n="landing.pilot.submit">{{ strings.get('landing.pilot.submit', 'Request Live Proof Walkthrough →') }}</button>
-                    <p class="demo-error" id="demo-error" data-error-text="{{ strings.get('landing.pilot.error', 'Could not send your request. Please try again.') }}" hidden></p>
-                    <p class="text-small text-center" style="margin-top: 0.5rem; color: var(--muted);">{{ strings.get('landing.pilot.privacy', 'No file upload required today • Mutual NDA provided prior to sharing sample documents • Zero data retention') }}</p>
-                </form>
-            </div>
-            <div id="demo-done" class="pilot-sandbox" hidden>
-                <span class="demo-success-icon" aria-hidden="true">✓</span>
-                <p class="role-badge" data-i18n="landing.pilot.ready_badge">{{ strings.get('landing.pilot.ready_badge', 'Request received') }}</p>
-                <h2 data-i18n="landing.pilot.ready_title">{{ strings.get('landing.pilot.ready_title', 'Thank you') }}</h2>
-                <p data-i18n="landing.pilot.ready_body">{{ strings.get('landing.pilot.ready_body', 'Our team will contact you at your work email to schedule the demo.') }}</p>
-            </div>
-        </div>
     </div>
 
     {% include 'includes/landing_footer.html' %}
