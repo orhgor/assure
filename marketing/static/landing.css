@@ -1932,3 +1932,8 @@ document.addEventListener('DOMContentLoaded', () => {
   font-size: 1.125rem;
   margin-bottom: 0;
 }
+
+/* Orphan word prevention */
+p { text-wrap: pretty; }
+h1, h2, h3 { text-wrap: balance; }
+.section-sub, .section-p, .hero-sub, .lede { text-wrap: pretty; }
