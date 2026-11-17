@@ -317,125 +317,340 @@ a:hover { color: var(--accent-blue-hover); }
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   gap: 0;
-  background: #0a0a0a;
-  border: 1px solid #333;
-  border-radius: 12px;
+  background: var(--terminal-bg);
+  border: 1px solid var(--terminal-border);
+  border-radius: var(--radius-lg);
   overflow: hidden;
-  margin: 2.5rem 0 2.5rem;
+  margin: var(--space-6) 0;
 }
 
-.proof-terminal-source { padding: 1.5rem; }
-.proof-terminal-source:first-child { border-right: 1px solid #333; }
+.proof-terminal-header {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-4);
+  background: var(--terminal-surface);
+  border-bottom: 1px solid var(--terminal-border);
+}
+
+.proof-badge {
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--terminal-emerald);
+  background: rgba(16, 185, 129, 0.1);
+  padding: 0.25rem 0.75rem;
+  border-radius: var(--radius-full);
+}
+
+.proof-delta-badge {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--terminal-red);
+  background: rgba(239, 68, 68, 0.1);
+  padding: 0.25rem 0.75rem;
+  border-radius: var(--radius-full);
+}
+
+.proof-terminal-grid {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 0;
+}
+
+.proof-terminal-source {
+  padding: var(--space-5);
+  background: var(--terminal-bg);
+}
+
+.proof-terminal-source:first-child {
+  border-right: 1px solid var(--terminal-border);
+}
 
 .terminal-header {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.65rem; font-weight: 600;
-  letter-spacing: 0.1em; text-transform: uppercase;
-  color: #a3a3a3; margin-bottom: 0.75rem;
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--terminal-text-muted);
+  margin-bottom: var(--space-3);
 }
 
-.terminal-body { display: flex; flex-direction: column; gap: 0.5rem; }
+.terminal-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
 
 .terminal-line {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.875rem; color: #fafafa; line-height: 1.5;
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  color: var(--terminal-text);
+  line-height: 1.6;
 }
 
 .terminal-value {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 1.25rem; font-weight: 700; color: #fafafa;
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin: var(--space-2) 0;
+}
+
+.proof-value {
+  font-family: var(--font-mono);
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--terminal-text);
   letter-spacing: -0.02em;
 }
 
-.conflict-delta {
-  display: flex; flex-direction: column; align-items: center;
-  justify-content: center; padding: 0 1.5rem; min-width: 5rem;
+.proof-currency {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--terminal-text-muted);
+  margin-top: 0.125rem;
 }
 
-.delta-label {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.6rem; font-weight: 600;
-  letter-spacing: 0.1em; text-transform: uppercase;
-  color: #a3a3a3; margin-bottom: 0.25rem;
+.terminal-line:last-child {
+  font-size: 0.75rem;
+  color: var(--terminal-text-muted);
+}
+
+.conflict-delta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  min-width: 8rem;
+  background: var(--terminal-surface);
+  border-left: 1px solid var(--terminal-border);
+  border-right: 1px solid var(--terminal-border);
+}
+
+.delta-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 50%;
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--terminal-red);
+  margin-bottom: var(--space-3);
+  flex-shrink: 0;
 }
 
 .delta-value {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 1.5rem; font-weight: 700; color: #ef4444;
-  letter-spacing: -0.03em;
+  font-family: var(--font-mono);
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--terminal-red);
+  letter-spacing: -0.02em;
+  line-height: 1.2;
 }
 
-.conflict-delta .delta-value { color: #ef4444; }
+.delta-label {
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--terminal-text-muted);
+}
 
 .conflict-z3-terminal {
-  margin-top: 2.5rem;
-  background: #0a0a0a;
-  border: 1px solid #333;
-  border-radius: 12px;
-  padding: 1.5rem;
+  margin-top: var(--space-6);
+  background: var(--terminal-surface);
+  border: 1px solid var(--terminal-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
 }
 
-.conflict-z3-terminal .terminal-header { color: #ef4444; }
+.conflict-z3-terminal .terminal-header {
+  color: var(--terminal-emerald);
+}
 
-/* CTA Group */
+.conflict-z3-terminal .terminal-body {
+  color: var(--terminal-text);
+}
+
+.conflict-z3-terminal .terminal-line {
+  color: var(--terminal-text);
+}
+
+.z3-actions {
+  margin-top: var(--space-4);
+  text-align: center;
+}
+
+.z3-recalculate {
+  background: transparent;
+  border: 1px solid var(--terminal-emerald);
+  color: var(--terminal-emerald);
+  padding: 0.75rem 1.5rem;
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  font-weight: 600;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.z3-recalculate:hover {
+  background: rgba(16, 185, 129, 0.1);
+}
+
+/* ==========================================================================
+   Proof Terminal — Responsive
+   ========================================================================== */
+@media (max-width: 900px) {
+  .proof-terminal {
+    grid-template-columns: 1fr;
+  }
+  
+  .proof-terminal-header {
+    flex-direction: column;
+    gap: var(--space-2);
+    text-align: center;
+  }
+  
+  .proof-terminal-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .proof-terminal-source:first-child {
+    border-right: none;
+    border-bottom: 1px solid var(--terminal-border);
+  }
+  
+  .conflict-delta {
+    grid-row: 2;
+    flex-direction: row;
+    justify-content: center;
+    gap: var(--space-4);
+    min-width: auto;
+    padding: var(--space-3) var(--space-4);
+    border-left: none;
+    border-right: none;
+    border-top: 1px solid var(--terminal-border);
+    border-bottom: 1px solid var(--terminal-border);
+  }
+  
+  .delta-icon {
+    margin-bottom: 0;
+  }
+  
+  .proof-terminal-source:last-child {
+    border-bottom: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .proof-terminal {
+    margin: var(--space-4) calc(-1 * var(--space-4));
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+  }
+  
+  .proof-terminal-source {
+    padding: var(--space-4);
+  }
+  
+  .conflict-delta {
+    padding: var(--space-3) var(--space-3);
+  }
+  
+  .proof-value {
+    font-size: 1.25rem;
+  }
+  
+  .delta-value {
+    font-size: 1.5rem;
+  }
+}
+
+/* ==========================================================================
+   Z3 Conflict Terminal — Enhanced
+   ========================================================================== */
+.conflict-z3-terminal {
+  margin-top: var(--space-6);
+  background: var(--terminal-surface);
+  border: 1px solid var(--terminal-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+}
+
+.conflict-z3-terminal .terminal-header {
+  color: var(--terminal-emerald);
+}
+
+.conflict-z3-terminal .terminal-body {
+  color: var(--terminal-text);
+}
+
+.conflict-z3-terminal .terminal-line {
+  color: var(--terminal-text);
+}
+
+.z3-actions {
+  margin-top: var(--space-4);
+  text-align: center;
+}
+
+.z3-recalculate {
+  background: transparent;
+  border: 1px solid var(--terminal-emerald);
+  color: var(--terminal-emerald);
+  padding: 0.75rem 1.5rem;
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  font-weight: 600;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.z3-recalculate:hover {
+  background: rgba(16, 185, 129, 0.1);
+}
+
+/* ==========================================================================
+   Hero CTA Group
+   ========================================================================== */
 .hero-cta-group {
-  display: flex; flex-wrap: wrap; gap: 1rem;
-  justify-content: flex-start; align-items: center;
-  margin-top: 2rem; margin-bottom: 3rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  justify-content: flex-start;
+  align-items: center;
+  margin-top: var(--space-5);
+  margin-bottom: var(--space-6);
 }
 
 .btn-primary, .btn-secondary {
   min-height: 48px;
   padding: 0.875rem 2rem;
-  font-size: 1rem; font-weight: 600;
+  font-size: 1rem;
+  font-weight: 600;
 }
 
 @media (max-width: 640px) {
-  .hero-cta-group { flex-direction: column; align-items: stretch; }
-  .hero-cta-group .btn { width: 100%; }
+  .hero-cta-group {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .hero-cta-group .btn {
+    width: 100%;
+  }
 }
-
-/* ==========================================================================
-   Pipeline Section
-   ========================================================================== */
-.pipeline-section { padding-top: 0; }
-
-.pipeline {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 1.5rem; margin-top: 3rem;
-}
-
-.pipeline-step {
-  background: white;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 1.75rem;
-  position: relative;
-}
-
-.pipeline-step::before {
-  content: attr(data-step);
-  position: absolute; top: -12px; left: 1.5rem;
-  width: 2.5rem; height: 2.5rem;
-  background: #0a0a0a; color: white;
-  border-radius: 9999px;
-  display: flex; align-items: center; justify-content: center;
-  font-weight: 700; font-size: 0.875rem; font-family: 'JetBrains Mono', monospace;
-}
-
-.pipeline-step h3 { font-size: 1.125rem; font-weight: 700; margin-bottom: 0.5rem; }
-.pipeline-step p { color: var(--text-secondary); line-height: 1.65; }
-
-.pipeline-step-number {
-  position: absolute; top: -0.75rem; left: 1.5rem;
-  width: 2.5rem; height: 2.5rem;
-  background: #0a0a0a; color: white;
-  border-radius: 9999px;
-  display: flex; align-items: center; justify-content: center;
-  font-weight: 700; font-size: 0.875rem; font-family: 'JetBrains Mono', monospace;
-}
-
 /* ==========================================================================
    Trust Section
    ========================================================================== */

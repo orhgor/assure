@@ -736,5 +736,6 @@
   "proof.z3.recalculate": "Recalculate",
   "proof.z3.verify": "Verify with Z3",
   "landing.nav.how": "How it works",
-  "landing.nav.why": "Why not an LLM?"
+  "landing.nav.why": "Why not an LLM?",
+  "proof.verdict": "Z3 Conflict Detected"
 }
