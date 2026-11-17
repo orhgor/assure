@@ -33,7 +33,7 @@
     {% for item in json_ld %}
     <script type="application/ld+json">{{ item|tojson }}</script>
     {% endfor %}
-    <link rel="stylesheet" href="{{ url_for('static', filename='landing.css') }}?v={{ landing_css_version|default('125') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='landing.css') }}?v={{ landing_css_version|default('127') }}">
     <script>
       window.__assureLandingStrings = {{ strings|tojson }};
     </script>
@@ -80,12 +80,12 @@
                 <section class="conflict-z3-terminal">
                     <div class="terminal-header" data-i18n="proof.z3.title">{{ strings.get('proof.z3.title', 'Z3 Conflict') }}</div>
                     <div class="terminal-body">
-                        <div class="terminal-line" data-i18n="proof.z3.body">{{ strings.get('proof.z3.body', 'Export blocked — the two sources cannot both be true. A person or an agent decides, and the file can still be downloaded.') }}</div>
+                        <div class="terminal-line" data-i18n="proof.z3.body">{{ strings.get('proof.z3.body', 'Export locked — the two sources cannot both be true. A person or an agent decides, and the file can still be downloaded.') }}</div>
                     </div>
                 </section>
                 <div class="hero-cta-group">
                     <button type="button" class="btn-primary" data-demo-open data-i18n="landing.hero.cta_primary">{{ strings.get('landing.hero.cta_primary', 'See the proof') }}</button>
-                    <a href="{{ locale_path }}poc/" class="btn-secondary" data-i18n="landing.hero.cta_secondary">{{ strings.get('landing.hero.cta_secondary', 'Run a POC') }}</a>
+                    <a href="{{ locale_path }}poc/" class="btn-secondary" data-i18n="landing.hero.cta_secondary">{{ strings.get('landing.hero.cta_secondary', 'Run a pilot on your files →') }}</a>
                 </div>
             </div>
         </section>
@@ -101,65 +101,66 @@
                 <ol class="pipeline">
                     <li class="pipeline-step" data-step="01">
                         <span class="pipeline-step-number">01</span>
-                        <h3 data-i18n="pipeline.1.name">{{ strings.get('pipeline.1.name', 'Upload') }}</h3>
-                        <p data-i18n="pipeline.1.line">{{ strings.get('pipeline.1.line', 'Upload your document stack. Contracts, invoices, claims, or regulatory filings — any format.') }}</p>
+                        <h3 data-i18n="pipeline.1.name">{{ strings.get('pipeline.1.name', 'Ingest Your File Stack') }}</h3>
+                        <p data-i18n="pipeline.1.line">{{ strings.get('pipeline.1.line', 'Upload contracts, invoices, claims, or regulatory filings in any format. Every document stays isolated inside your environment.') }}</p>
                     </li>
 
                     <li class="pipeline-step" data-step="02">
-                        <h3 data-i18n="pipeline.2.name">{{ strings.get('pipeline.2.name', 'ParSure') }}</h3>
-                        <p data-i18n="pipeline.2.line">{{ strings.get('pipeline.2.line', 'ParSure extracts every figure, clause, and citation and pins each to the page it came from.') }}</p>
+                        <span class="pipeline-step-number">02</span>
+                        <h3 data-i18n="pipeline.2.name">{{ strings.get('pipeline.2.name', 'Page-Pinned Extraction (ParSure)') }}</h3>
+                        <p data-i18n="pipeline.2.line">{{ strings.get('pipeline.2.line', 'Extracts every figure, obligation, and cross-reference—linking each data point directly to the exact page and line it came from.') }}</p>
                     </li>
 
                     <li class="pipeline-step" data-step="03">
-                        <h3 data-i18n="pipeline.3.name">{{ strings.get('pipeline.3.name', 'DraftSure') }}</h3>
-                        <p data-i18n="pipeline.3.line">{{ strings.get('pipeline.3.line', 'DraftSure produces a first draft from the structured document set.') }}</p>
+                        <span class="pipeline-step-number">03</span>
+                        <h3 data-i18n="pipeline.3.name">{{ strings.get('pipeline.3.name', 'Structured Drafting (DraftSure)') }}</h3>
+                        <p data-i18n="pipeline.3.line">{{ strings.get('pipeline.3.line', 'Generates reports, summaries, or approval memos built strictly from verified source facts, with zero ungrounded claims.') }}</p>
                     </li>
 
                     <li class="pipeline-step" data-step="04">
-                        <h3 data-i18n="pipeline.4.name">{{ strings.get('pipeline.4.name', 'Z3 Solver') }}</h3>
-                        <p data-i18n="pipeline.4.line">{{ strings.get('pipeline.4.line', 'Z3 checks whether every figure, clause, and citation can all be true at the same time. A contradiction stops export.') }}</p>
+                        <span class="pipeline-step-number">04</span>
+                        <h3 data-i18n="pipeline.4.name">{{ strings.get('pipeline.4.name', 'Mathematical Consistency Check (Z3 Solver)') }}</h3>
+                        <p data-i18n="pipeline.4.line">{{ strings.get('pipeline.4.line', 'Our formal logic engine tests whether every number and clause across all files can be true at the same time. If two facts conflict, export is automatically locked.') }}</p>
                     </li>
 
                     <li class="pipeline-step" data-step="05">
-                        <h3 data-i18n="pipeline.5.name">{{ strings.get('pipeline.5.name', 'Red Hat Review') }}</h3>
-                        <p data-i18n="pipeline.5.line">{{ strings.get('pipeline.5.line', 'Optional adversarial stress-test. Runs a separate, independent audit pass to hunt for edge-case ambiguities, missing attachments, or hidden compliance risks.') }}</p>
+                        <span class="pipeline-step-number">05</span>
+                        <h3 data-i18n="pipeline.5.name">{{ strings.get('pipeline.5.name', 'Optional Adversarial Stress-Test (Red Hat Review)') }}</h3>
+                        <p data-i18n="pipeline.5.line">{{ strings.get('pipeline.5.line', 'Trigger a separate, independent audit pass to hunt for edge-case ambiguities, missing attachments, or hidden compliance risks.') }}</p>
                     </li>
 
                     <li class="pipeline-step" data-step="06">
-                        <h3 data-i18n="pipeline.6.name">{{ strings.get('pipeline.6.name', 'Person or Agent Decides') }}</h3>
-                        <p data-i18n="pipeline.6.line">{{ strings.get('pipeline.6.line', 'Export is flagged while a contradiction is unresolved. A person or an agent decides, and the file can still be downloaded, with the flag recorded.') }}</p>
+                        <span class="pipeline-step-number">06</span>
+                        <h3 data-i18n="pipeline.6.name">{{ strings.get('pipeline.6.name', 'Human Sign-Off & Audit Trail') }}</h3>
+                        <p data-i18n="pipeline.6.line">{{ strings.get('pipeline.6.line', 'No document moves forward silently. An authorized reviewer resolves the conflict—or logs a formal override—before downloading the final file.') }}</p>
                     </li>
                 </ol>
             </div>
         </section>
 
         <!-- ==========================================================================
-             WHERE IT RUNS
+             WHERE IT RUNS + TRUST METRICS BAR (Combined)
              ========================================================================== -->
         <section id="runs" class="section" id="runs">
-            <div class="container">
-                <h2 class="section-title" data-i18n="home.runs.title">{{ strings.get('home.runs.title', 'Where it runs') }}</h2>
-                <p class="section-sub" data-i18n="sovereign.body">{{ strings.get('sovereign.body', 'Runs in your own AWS account, on-premises, or private GPU environment. You choose where the models run. When the model is local, documents stay inside that boundary.') }}</p>
-                <p class="home-more"><a href="{{ locale_path }}security/" data-i18n="home.trust.link">{{ strings.get('home.trust.link', 'Security and data') }}</a> <span aria-hidden="true">→</span></p>
-            </div>
-        </section>
+            <div class="container runs-trust-container">
+                <div class="runs-content">
+                    <h2 class="section-title" data-i18n="home.runs.title">{{ strings.get('home.runs.title', 'Where it runs') }}</h2>
+                    <p class="section-sub" data-i18n="sovereign.body">{{ strings.get('sovereign.body', 'Runs in your own AWS account, on-premises, or private GPU environment. You choose where the models run. When the model is local, documents stay inside that boundary.') }}</p>
+                    <p class="home-more"><a href="{{ locale_path }}security/" data-i18n="home.trust.link">{{ strings.get('home.trust.link', 'Security and data') }}</a> <span aria-hidden="true">→</span></p>
+                </div>
 
-        <!-- ==========================================================================
-             TRUST METRICS BAR (High-Trust Capability Metrics)
-             ========================================================================== -->
-        <section id="trust" class="trust-metrics-bar-section">
-            <div class="container">
-                <div class="trust-metrics-bar">
-                    <div class="trust-metric-item">
-                        <div class="trust-metric-value" data-i18n="landing.trust.metric.1.value">{{ strings.get('landing.trust.metric.1.value', '100%') }}</div>
+                <!-- Trust Metrics Bar -->
+                <div class="trust-metrics-bar-inline">
+                    <div class="trust-metric-item-inline">
+                        <div class="trust-metric-value-inline" data-i18n="landing.trust.metric.1.value">{{ strings.get('landing.trust.metric.1.value', '100%') }}</div>
                         <p data-i18n="landing.trust.metric.1.desc">{{ strings.get('landing.trust.metric.1.desc', 'Page-and-line citation traceability on every extracted figure') }}</p>
                     </div>
-                    <div class="trust-metric-item">
-                        <div class="trust-metric-value" data-i18n="landing.trust.metric.2.value">{{ strings.get('landing.trust.metric.2.value', '0 Bytes') }}</div>
+                    <div class="trust-metric-item-inline">
+                        <div class="trust-metric-value-inline" data-i18n="landing.trust.metric.2.value">{{ strings.get('landing.trust.metric.2.value', '0 Bytes') }}</div>
                         <p data-i18n="landing.trust.metric.2.desc">{{ strings.get('landing.trust.metric.2.desc', 'External data egress in air-gapped or private VPC deployments') }}</p>
                     </div>
-                    <div class="trust-metric-item">
-                        <span class="trust-metric-value" data-i18n="landing.trust.metric.3.value">{{ strings.get('landing.trust.metric.3.value', 'Z3-Verified') }}</span>
+                    <div class="trust-metric-item-inline">
+                        <span class="trust-metric-value-inline" data-i18n="landing.trust.metric.3.value">{{ strings.get('landing.trust.metric.3.value', 'Z3-Verified') }}</span>
                         <p data-i18n="landing.trust.metric.3.desc">{{ strings.get('landing.trust.metric.3.desc', 'Formal mathematical proof on every cross-document check') }}</p>
                     </div>
                 </div>
@@ -194,7 +195,7 @@
                             </tr>
                             <tr>
                                 <th scope="row" data-i18n="why-not-llm.row.math">{{ strings.get('why-not-llm.row.math', 'Cross-Document Math') }}</th>
-                                <td data-i18n="why-not-llm.row.llm-math">{{ strings.get('why-not-llm.row.llm-math', 'Often misses subtle discrepancies or loses accuracy as file length grows (\"lost in the middle\").') }}</td>
+                                <td data-i18n="why-not-llm.row.llm-math">{{ strings.get('why-not-llm.row.llm-math', 'Often misses subtle discrepancies or loses accuracy as file length grows ("lost in the middle").') }}</td>
                                 <td data-i18n="why-not-llm.row.assure-math">{{ strings.get('why-not-llm.row.assure-math', 'Z3 checks whether every figure, clause, and citation can all be true at the same time. A contradiction stops export.') }}</td>
                             </tr>
                             <tr>
@@ -220,7 +221,7 @@
                         </tbody>
                     </table>
 
-                    <div class="comparison-cta">
+                    <div class="comparison-cta-wrapper">
                         <p class="comparison-cta-text" data-i18n="why-not-llm.cta.text">{{ strings.get('why-not-llm.cta.text', 'Use LLMs to brainstorm. Use AssureProof before you sign, pay, or file.') }}</p>
                         <a href="{{ locale_path }}poc/" class="btn-primary" data-i18n="why-not-llm.cta">{{ strings.get('why-not-llm.cta', 'See the proof') }}</a>
                     </div>
@@ -231,10 +232,10 @@
         <!-- ==========================================================================
              USE CASES
              ========================================================================== -->
-        <section id="use-cases" id="use-cases">
+        <section id="use-cases" class="use-cases-section">
             <div class="container">
                 <div class="section-header">
-                    <span class="section-eyebrow" data-i18n="use-cases.eyebrow">{{ strings.get('use-cases.eyebrow', 'Built for High-Stakes Workflows') }}</h2>
+                    <span class="section-eyebrow" data-i18n="use-cases.eyebrow">{{ strings.get('use-cases.eyebrow', 'Built for High-Stakes Workflows') }}</span>
                     <h2 class="section-title" data-i18n="use-cases.title">{{ strings.get('use-cases.title', 'Where a single missed number creates legal or financial exposure.') }}</h2>
                     <p class="section-sub" data-i18n="use-cases.sub">{{ strings.get('use-cases.sub', 'AssureProof cross-checks complex multi-document packets to flag discrepancies before funds or approvals go out the door.') }}</p>
                 </div>
@@ -256,7 +257,7 @@
                             <div><span data-i18n="use-cases.gov.conflict.source-b.label">{{ strings.get('use-cases.gov.conflict.source-b.label', 'Source B (Vendor Proposal, p. 19):') }}</span><span data-i18n="use-cases.gov.conflict.source-b">{{ strings.get('use-cases.gov.conflict.source-b', 'Subcontractor Allocation: 24.5% ($367,500)') }}</span></div>
                             <div class="conflict-result"><strong data-i18n="use-cases.gov.conflict.result.label">{{ strings.get('use-cases.gov.conflict.result.label', 'Result:') }}</strong><span data-i18n="use-cases.gov.conflict.result">{{ strings.get('use-cases.gov.conflict.result', 'Export Locked — Exceeds statutory threshold by 9.5%.') }}</span></div>
                         </div>
-                        <a href="{{ locale_path }}poc/" class="btn-primary" data-demo-open data-workflow="government" data-i18n="use-cases.gov.cta">{{ strings.get('use-cases.gov.cta', 'Test a procurement or compliance packet') }}</a>
+                        <button type="button" class="btn-primary use-case-cta" data-demo-open data-workflow="government" data-i18n="use-cases.gov.cta">{{ strings.get('use-cases.gov.cta', 'Test a procurement or compliance packet') }}</button>
                     </div>
 
                     <!-- Card 2: Insurance Claims -->
@@ -273,7 +274,7 @@
                             <div><span data-i18n="use-cases.insurance.conflict.source-b.label">{{ strings.get('use-cases.insurance.conflict.source-b.label', 'Source B (Adjuster Summary, p. 6):') }}</span><span data-i18n="use-cases.insurance.conflict.source-b">{{ strings.get('use-cases.insurance.conflict.source-b', 'Approved Remediation Payout: $68,400') }}</span></div>
                             <div class="conflict-result"><strong data-i18n="use-cases.insurance.conflict.result.label">{{ strings.get('use-cases.insurance.conflict.result.label', 'Result:') }}</strong><span data-i18n="use-cases.insurance.conflict.result">{{ strings.get('use-cases.insurance.conflict.result', 'Export Locked — Exceeds endorsement cap by $18,400.') }}</span></div>
                         </div>
-                        <a href="{{ locale_path }}poc/" class="btn-primary" data-demo-open data-workflow="insurance" data-i18n="use-cases.insurance.cta">{{ strings.get('use-cases.insurance.cta', 'Test a claims file') }}</a>
+                        <button type="button" class="btn-primary use-case-cta" data-demo-open data-workflow="insurance" data-i18n="use-cases.insurance.cta">{{ strings.get('use-cases.insurance.cta', 'Test a claims file') }}</button>
                     </div>
 
                     <!-- Card 3: Bonus Reconciliation -->
@@ -290,7 +291,7 @@
                             <div><span data-i18n="use-cases.fuel.conflict.source-b.label">{{ strings.get('use-cases.fuel.conflict.source-b.label', 'Source B (Q4 Payroll Sheet, Row 42):') }}</span><span data-i18n="use-cases.fuel.conflict.source-b">{{ strings.get('use-cases.fuel.conflict.source-b', 'Applied Multiplier: 2.0x (+$31,200)') }}</span></div>
                             <div class="conflict-result"><strong data-i18n="use-cases.fuel.conflict.result.label">{{ strings.get('use-cases.fuel.conflict.result.label', 'Result:') }}</strong><span data-i18n="use-cases.fuel.conflict.result">{{ strings.get('use-cases.fuel.conflict.result', 'Export Locked — Multiplier conflicts with signed plan terms.') }}</span></div>
                         </div>
-                        <a href="{{ locale_path }}poc/" class="btn-primary" data-demo-open data-workflow="fuel" data-i18n="use-cases.fuel.cta">{{ strings.get('use-cases.fuel.cta', 'Test a compensation batch') }}</a>
+                        <button type="button" class="btn-primary use-case-cta" data-demo-open data-workflow="bonus" data-i18n="use-cases.fuel.cta">{{ strings.get('use-cases.fuel.cta', 'Test a compensation batch') }}</button>
                     </div>
                 </div>
             </div>
@@ -302,7 +303,7 @@
         <section id="security" class="security-section">
             <div class="container">
                 <div class="section-header">
-                    <span class="section-eyebrow" data-i18n="security.eyebrow">{{ strings.get('security.eyebrow', 'Enterprise Security & Deployment') }}</h2>
+                    <span class="section-eyebrow" data-i18n="security.eyebrow">{{ strings.get('security.eyebrow', 'Enterprise Security & Deployment') }}</span>
                     <h2 class="section-title" data-i18n="security.title">{{ strings.get('security.title', 'Zero data leakage. Built for sovereign and air-gapped environments.') }}</h2>
                     <p class="section-sub" data-i18n="security.sub">{{ strings.get('security.sub', 'Your most sensitive contracts, claims, and regulatory filings never have to touch a third-party cloud. AssureProof deploys directly inside your perimeter so your security team retains 100% custody of both documents and models.') }}</p>
                 </div>
@@ -333,19 +334,24 @@
                     </div>
                 </div>
 
-                <div class="trust-metrics-bar">
-                    <div class="metric-item">
-                        <div class="metric-value" data-i18n="landing.trust.metric.1.value">{{ strings.get('landing.trust.metric.1.value', '100%') }}</div>
+                <!-- Security section trust metrics bar (reuses same keys) -->
+                <div class="trust-metrics-bar-inline">
+                    <div class="trust-metric-item-inline">
+                        <div class="trust-metric-value-inline" data-i18n="landing.trust.metric.1.value">{{ strings.get('landing.trust.metric.1.value', '100%') }}</div>
                         <p data-i18n="landing.trust.metric.1.desc">{{ strings.get('landing.trust.metric.1.desc', 'Page-and-line citation traceability on every extracted figure') }}</p>
                     </div>
-                    <div class="metric-item">
-                        <div class="metric-value" data-i18n="landing.trust.metric.2.value">{{ strings.get('landing.trust.metric.2.value', '0 Bytes') }}</div>
+                    <div class="trust-metric-item-inline">
+                        <div class="trust-metric-value-inline" data-i18n="landing.trust.metric.2.value">{{ strings.get('landing.trust.metric.2.value', '0 Bytes') }}</div>
                         <p data-i18n="landing.trust.metric.2.desc">{{ strings.get('landing.trust.metric.2.desc', 'External data egress in air-gapped or private VPC deployments') }}</p>
                     </div>
-                    <div class="metric-item">
-                        <span class="metric-value" data-i18n="landing.trust.metric.3.value">{{ strings.get('landing.trust.metric.3.value', 'Z3-Verified') }}</span>
+                    <div class="trust-metric-item-inline">
+                        <span class="trust-metric-value-inline" data-i18n="landing.trust.metric.3.value">{{ strings.get('landing.trust.metric.3.value', 'Z3-Verified') }}</span>
                         <p data-i18n="landing.trust.metric.3.desc">{{ strings.get('landing.trust.metric.3.desc', 'Formal mathematical proof on every cross-document check') }}</p>
                     </div>
+                </div>
+
+                <div class="security-whitepaper-link">
+                    <a href="{{ locale_path }}poc/" class="btn-secondary" data-demo-open>{{ strings.get('security.whitepaper', 'Request the Security & Architecture Whitepaper →') }}</a>
                 </div>
             </div>
         </section>
@@ -357,7 +363,7 @@
             <div class="container center">
                 <h2 class="section-title" data-i18n="home.start.title">{{ strings.get('home.start.title', 'Test AssureProof on your hardest document packet.') }}</h2>
                 <p class="section-sub" data-i18n="home.start.body">{{ strings.get('home.start.body', 'Bring a live document set. We run it with your team and walk you through the findings.') }}</p>
-                <button type="button" class="btn-primary" data-demo-open data-i18n="landing.closing.cta">{{ strings.get('landing.closing.cta', 'See the proof') }}</button>
+                <button type="button" class="btn-primary" data-demo-open data-i18n="landing.closing.cta">{{ strings.get('landing.closing.cta', 'See the proof') }}</p>
             </div>
         </section>
     </main>
@@ -370,7 +376,7 @@
 
             <div id="pilot-form-wrap">
                 <h2 id="demo-title" data-i18n="landing.pilot.title">{{ strings.get('landing.pilot.title', 'See the proof') }}</h2>
-                <p class="text-small" data-i18n="landing.pilot.lead">{{ strings.get('landing.pilot.lead', 'Three fields. We will contact you to show you the proof.') }}</p>
+                <p class="text-small" data-i18n="landing.pilot.lead">{{ strings.get('landing.pilot.lead', 'Book a 20-minute technical walkthrough. Bring a sample document set—or test with our pre-loaded conflict packets—to see Z3 verification catch discrepancies live.') }}</p>
                 <form id="demo-form" method="post" action="#">
                     <label for="demo-email" data-i18n="landing.pilot.email">{{ strings.get('landing.pilot.email', 'Work email') }}</label>
                     <input id="demo-email" class="demo-input" name="email" type="email" autocomplete="email" required>
@@ -384,13 +390,14 @@
                         <option value="Bonus reconciliation">{{ strings.get('landing.pilot.workflow.fuel', 'Bonus reconciliation') }}</option>
                         <option value="Other">{{ strings.get('landing.pilot.workflow.other', 'Other') }}</option>
                     </select>
-                    <button type="submit" class="demo-submit" data-i18n="landing.pilot.submit">{{ strings.get('landing.pilot.submit', 'See the proof') }}</button>
+                    <button type="submit" class="demo-submit" data-i18n="landing.pilot.submit">{{ strings.get('landing.pilot.submit', 'Request Live Proof Walkthrough →') }}</button>
                     <p class="demo-error" id="demo-error" data-error-text="{{ strings.get('landing.pilot.error', 'Could not send your request. Please try again.') }}" hidden></p>
+                    <p class="text-small text-center" style="margin-top: 0.5rem; color: var(--muted);">{{ strings.get('landing.pilot.privacy', 'No file upload required today • Mutual NDA provided prior to sharing sample documents • Zero data retention') }}</p>
                 </form>
             </div>
             <div id="demo-done" class="pilot-sandbox" hidden>
                 <span class="demo-success-icon" aria-hidden="true">✓</span>
-                <p class="role-badge" data-i18n="landing.pilot.ready_badge">{{ strings.get('landing.pilot.ready_badge', 'Request received') }}</h2>
+                <p class="role-badge" data-i18n="landing.pilot.ready_badge">{{ strings.get('landing.pilot.ready_badge', 'Request received') }}</p>
                 <h2 data-i18n="landing.pilot.ready_title">{{ strings.get('landing.pilot.ready_title', 'Thank you') }}</h2>
                 <p data-i18n="landing.pilot.ready_body">{{ strings.get('landing.pilot.ready_body', 'Our team will contact you at your work email to schedule the demo.') }}</p>
             </div>
@@ -398,7 +405,7 @@
     </div>
 
     {% include 'includes/landing_footer.html' %}
-    <script src="{{ url_for('static', filename='landing-pilot.js') }}?v={{ landing_js_version|default('42') }}"></script>
+    <script src="{{ url_for('static', filename='landing-pilot.js') }}?v={{ landing_js_version|default('47') }}"></script>
     <script src="{{ url_for('static', filename='landing-i18n.js') }}"></script>
     <script>
         // Mobile nav toggle
@@ -408,7 +415,7 @@
 
             mobileBtn?.addEventListener('click', () => {
                 const isExpanded = mobileBtn.getAttribute('aria-expanded') === 'true';
-                mobileBtn.setAttribute('aria-expanded', String(!mobileBtn.getAttribute('aria-expanded') === 'true'));
+                mobileBtn.setAttribute('aria-expanded', String(!isExpanded));
                 mobileMenu?.classList.toggle('hidden');
             });
 
@@ -421,6 +428,6 @@
             });
         });
     </script>
-    <script src="{{ url_for('static', filename='landing-i18n.js') }}?v={{ landing_js_version|default('42') }}"></script>
+    <script src="{{ url_for('static', filename='landing-i18n.js') }}?v={{ landing_js_version|default('47') }}"></script>
 </body>
 </html>
