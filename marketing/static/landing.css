@@ -864,6 +864,8 @@ a:hover { color: var(--accent-blue-hover); }
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 1.5rem; margin-top: 3rem;
+  list-style: none;
+  padding: 0;
 }
 
 .pipeline-step {
