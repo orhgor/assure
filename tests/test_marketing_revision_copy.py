@@ -4,12 +4,16 @@ from __future__ import annotations
 
 import json
 import re
+import sys
 from html import unescape
 from pathlib import Path
 
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "marketing"))
+from cache_versions import LANDING_CSS  # noqa: E402
+
 DIST = ROOT / "dist"
 
 PAGES = {
@@ -183,7 +187,7 @@ def test_v3_vertical_pages():
         if not p.is_file():
             pytest.skip("marketing dist is not built: " + rel)
         html = p.read_text(encoding="utf-8")
-        assert "landing.css?v=138" in html, rel
+        assert f"landing.css?v={LANDING_CSS}" in html, rel
         t = _visible(html)
         for token in tokens:
             assert token in t, (rel, token)

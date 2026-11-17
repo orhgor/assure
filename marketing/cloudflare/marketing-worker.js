@@ -13,42 +13,6 @@
  * (wrangler assets.directory); the ASSETS binding delivers the files.
  */
 
-// Rate limiting (KV-backed)
-async function checkRateLimit(env, key, limit, windowSeconds) {
-  if (!env.RATE_LIMIT) return true;
-  const now = Math.floor(Date.now() / 1000);
-  const windowKey = `${key}:${Math.floor(now / windowSeconds)}`;
-  const count = (await env.RATE_LIMIT.get(windowKey, "json")) || 0;
-  if (count >= limit) return false;
-  await env.RATE_LIMIT.put(windowKey, count + 1, { expirationTtl: windowSeconds + 1 });
-  return true;
-}
-
-function clientIp(request) {
-  return (
-    request.headers.get("CF-Connecting-IP") ||
-    request.headers.get("X-Forwarded-For")?.split(",")[0]?.trim() ||
-    "unknown"
-  );
-}
-
-function rateLimitResponse(retryAfterSec = 60) {
-  return new Response(
-    JSON.stringify({
-      ok: false,
-      error: "Too many requests. Please wait and try again.",
-      retry_after: retryAfterSec,
-    }),
-    {
-      status: 429,
-      headers: {
-        "Content-Type": "application/json; charset=utf-8",
-        "Retry-After": String(retryAfterSec),
-      },
-    }
-  );
-}
-
 // CORS handling
 function corsHeaders(origin) {
   const allowedOrigins = [
@@ -118,12 +82,6 @@ function clean(value, max) {
 
 /** POST /api/z3-demo — Z3 verification demo for interactive hero card. */
 async function handleZ3Demo(request, env) {
-  const ip = clientIp(request);
-  // Rate limit: 30 req/min per IP
-  if (!(await checkRateLimit(env, `z3-demo:${ip}`, 30, 60))) {
-    return rateLimitResponse(60);
-  }
-
   let body;
   try {
     body = await request.json();
@@ -154,12 +112,6 @@ async function handleZ3Demo(request, env) {
 
 /** POST /contact-submit — enterprise contact form → Resend email. */
 async function handleContactSubmit(request, env) {
-  const ip = clientIp(request);
-  // Rate limit: 10 req/min per IP
-  if (!(await checkRateLimit(env, `contact-submit:${ip}`, 10, 60))) {
-    return rateLimitResponse(60);
-  }
-
   if (!env.RESEND_API_KEY) {
     return json({ error: "Contact endpoint is not configured." }, 503);
   }

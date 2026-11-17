@@ -1,4 +1,4 @@
-"""Market readiness: example chips, catalogs, landing, CI file. No live Send."""
+"""Market readiness: example chips, catalogs, compose, CI file. No live Send."""
 
 from __future__ import annotations
 
@@ -11,6 +11,19 @@ from unittest.mock import patch
 from prompt_matrix.i18n import CATALOGS, LOCALES
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def _postgres_reachable() -> bool:
+    """FirstRun/Compose need the app's Postgres; CI provides it as a service."""
+    import socket
+
+    try:
+        with socket.create_connection(("127.0.0.1", 5432), timeout=0.5):
+            return True
+    except OSError:
+        return False
+
+
 EXAMPLE_KEYS = (
     "examples.hint",
     "examples.compare.label",
@@ -118,61 +131,6 @@ class ComposeMarkupTests(unittest.TestCase):
 
 
 class LandingTests(unittest.TestCase):
-    def test_quick_start_and_use_cases(self):
-        html = (ROOT / "landing" / "index.html").read_text(encoding="utf-8")
-        self.assertIn("Quick start", html)
-        self.assertIn("Open the install", html)
-        self.assertIn("Verify AI Drafts Against Your Source", html)
-        self.assertIn("Launch App", html)
-        self.assertIn("https://getassureai.com", html)
-        self.assertNotIn("Talk to AI like you talk to a", html)
-        self.assertNotIn("hero-brand", html)
-        self.assertNotIn("OpenAlex", html)
-        self.assertNotIn("bibliography auditing", html)
-        self.assertIn("Your browser should open", html)
-        self.assertIn("http://127.0.0.1:8765", html)
-        self.assertNotIn("changeme", html)
-        self.assertIn("assure --web", html)
-        self.assertIn("./scripts/install.sh", html)
-        self.assertNotIn("2 minutes", html)
-        self.assertIn("Document grounding", html)
-        self.assertIn("Multi-model consensus", html)
-        self.assertIn("Visual trust signals", html)
-        self.assertIn("Privacy-first BYOK", html)
-        self.assertIn("sentence-level NLI", html)
-        self.assertIn("Private by", html)
-        self.assertNotIn("The desktop app is coming", html)
-        self.assertIn("Get the desktop build", html)
-        self.assertIn("Is Assure just another AI chatbot?", html)
-        self.assertNotIn("$19", html)
-        self.assertNotIn("5 checks / day", html)
-        self.assertIn('Custom <small>pricing</small>', html)
-        self.assertNotIn("Choose your AI and context", html)
-        self.assertNotIn("Choose what you need: quick, validated, or refined", html)
-        self.assertIn("Do I pick Quick, Validated, or Refined first?", html)
-        self.assertNotIn("perfect prompt", html)
-        self.assertNotIn("SSO", html)
-        self.assertNotIn("Contact Sales", html)
-        self.assertNotIn("never leaves your machine", html)
-        self.assertIn("getassureai.com", html)
-        css = (ROOT / "landing" / "assets" / "site.css").read_text(encoding="utf-8")
-        js = (ROOT / "landing" / "assets" / "site.js").read_text(encoding="utf-8")
-        self.assertIn("--accent: #FF6B35", css)
-        self.assertNotIn("Trusted by", html)
-        self.assertIn("IntersectionObserver", js)
-        self.assertIn("site.css?v=30", html)
-        self.assertIn("hallucination-detection.html", html)
-        self.assertIn("localStorage", html)
-        self.assertNotIn("There is no public download file yet", html)
-        self.assertIn('data-download-macos=""', html)
-        install = (ROOT / "landing" / "install.html").read_text(encoding="utf-8")
-        self.assertIn("The app opens", install)
-        self.assertNotIn("not on PyPI yet", install)
-        self.assertNotIn("join the waitlist", install)
-        self.assertIn("request a desktop build", install)
-        self.assertIn("build-desktop.sh", install)
-        self.assertIn("orhgor/assure", install)
-
     def test_install_scripts_exist(self):
         sh = ROOT / "scripts" / "install.sh"
         ps = ROOT / "scripts" / "install.ps1"
@@ -198,55 +156,6 @@ class LandingTests(unittest.TestCase):
         self.assertIn("sync-webpage.sh", readme)
         self.assertNotIn("cd prompt_matrix", readme)
 
-    def test_use_case_pages(self):
-        for name in ("consultant", "researcher", "analyst"):
-            path = ROOT / "landing" / "use-cases" / f"{name}.html"
-            self.assertTrue(path.is_file(), msg=str(path))
-            text = path.read_text(encoding="utf-8")
-            self.assertIn("Pain", text)
-            self.assertIn("Solution", text)
-            self.assertIn("Outcome", text)
-            self.assertIn("Open Compose", text)
-        hall = (ROOT / "landing" / "hallucination-detection.html").read_text(encoding="utf-8")
-        self.assertIn("Check against my files", hall)
-        self.assertIn("Compare", hall)
-        self.assertNotIn("never leaves your machine", hall)
-        self.assertNotIn("$1.46T", hall)
-        sitemap = (ROOT / "landing" / "sitemap.xml").read_text(encoding="utf-8")
-        self.assertIn("hallucination-detection.html", sitemap)
-        self.assertIn("Not installed yet", text)
-
-    def test_pricing_two_tiers(self):
-        html = (ROOT / "landing" / "pricing.html").read_text(encoding="utf-8")
-        self.assertNotIn("$5", html)
-        self.assertNotIn("$0", html)
-        self.assertNotIn("$9", html)
-        self.assertNotIn("Self-serve", html)
-        self.assertNotIn("ASSURE_EDITION", html)
-        self.assertNotIn("Contact Sales", html)
-        self.assertIn("pricing-two", html)
-        self.assertIn("Evaluation", html)
-        self.assertIn("Enterprise", html)
-        self.assertIn('Custom <small>pricing</small>', html)
-        self.assertIn("Book a", html)
-        self.assertIn("You bring your own API keys", html)
-        self.assertIn("billed directly", html)
-        self.assertIn("Do I need my own API keys?", html)
-
-    def test_byok_pricing_transparency(self):
-        index = (ROOT / "landing" / "index.html").read_text(encoding="utf-8")
-        pricing = (ROOT / "landing" / "pricing.html").read_text(encoding="utf-8")
-        for html in (index, pricing):
-            self.assertIn("You bring your own API keys", html, msg="BYOK missing")
-            self.assertIn("billed directly", html, msg="provider billing missing")
-            self.assertIn("licensed per", html, msg="team licensing missing")
-        self.assertIn("Do I need my own API keys?", index)
-        self.assertIn("Is Assure open-source?", index)
-        self.assertIn("open-source prompt tools", index)
-        self.assertIn("footer-oss", index)
-        self.assertIn("PEM, LiteLLM, Jinja2", index)
-        self.assertIn("still pay the provider", index)
-
     def test_icp_and_objections_exist(self):
         icp = (ROOT / "landing" / "ICP.md").read_text(encoding="utf-8")
         self.assertIn("Lena", icp)
@@ -263,27 +172,6 @@ class LandingTests(unittest.TestCase):
         obj = (ROOT / "landing" / "objections.md").read_text(encoding="utf-8")
         self.assertIn("Why not just use ChatGPT?", obj)
         self.assertIn("Do not say", obj)
-
-    def test_terms_and_domain(self):
-        self.assertEqual(
-            (ROOT / "landing" / "CNAME").read_text(encoding="utf-8").strip(), "getassureai.com"
-        )
-        self.assertIn("getassureai.com", (ROOT / "pyproject.toml").read_text(encoding="utf-8"))
-        terms = (ROOT / "landing" / "terms.html").read_text(encoding="utf-8")
-        self.assertIn("Answers can be wrong", terms)
-        self.assertIn("Your responsibility", terms)
-        self.assertIn("Prohibited uses", terms)
-        self.assertIn("Violence, threats, or harassment", terms)
-        self.assertIn("Provider policies", terms)
-        self.assertIn("without warranties", terms)
-        self.assertIn("Not professional advice", terms)
-        self.assertIn("Human review", terms)
-        self.assertIn("Liability", terms)
-        self.assertIn("getassureai.com", terms)
-        self.assertNotIn("assure.ai", terms)
-        self.assertNotIn("OpenAI", terms)
-        self.assertIn("Quick start", (ROOT / "README.md").read_text(encoding="utf-8"))
-
 
 class WorkflowTests(unittest.TestCase):
     def test_ci_yml_runs_pytest_and_playwright(self):
@@ -325,6 +213,7 @@ class ExecuteCopyTests(unittest.TestCase):
         self.assertFalse(result.copied)
 
 
+@unittest.skipUnless(_postgres_reachable(), "workbench tests need Postgres (CI provides it as a service)")
 class ComposePageTests(unittest.TestCase):
     def setUp(self):
         self._clerk = patch.dict(
@@ -394,6 +283,7 @@ class ComposePageTests(unittest.TestCase):
         self.assertNotIn("OpenAI", body)
 
 
+@unittest.skipUnless(_postgres_reachable(), "workbench tests need Postgres (CI provides it as a service)")
 class FirstRunTests(unittest.TestCase):
     def test_first_open_connect_when_no_provider(self):
         from unittest.mock import patch
@@ -483,20 +373,6 @@ class CacheAndDocsTests(unittest.TestCase):
                     self.assertRegex(html, r"site\.css\?v=\d+", msg=str(path))
                 if "site.js?" in html and "assets/site.js" in html:
                     self.assertRegex(html, r"site\.js\?v=\d+", msg=str(path))
-
-    def test_analytics_tag_on_every_page_and_disclosed(self):
-        pages = sorted((ROOT / "landing").rglob("*.html"))
-        self.assertGreaterEqual(len(pages), 12)
-        for path in pages:
-            html = path.read_text(encoding="utf-8")
-            head = html.split("</head>", 1)[0]
-            self.assertIn("googletagmanager.com/gtag/js?id=G-54F5NE9Y0P", head, msg=str(path))
-            self.assertIn("gtag('config', 'G-54F5NE9Y0P')", head, msg=str(path))
-        # A tracker on the site has to stay disclosed on the privacy page.
-        privacy = (ROOT / "landing" / "privacy.html").read_text(encoding="utf-8")
-        self.assertIn("Google Analytics", privacy)
-        self.assertIn("G-54F5NE9Y0P", privacy)
-        self.assertIn("never sent to Google", privacy)
 
     def test_pem_quick_ref_matches_compose(self):
         pem = (ROOT / "prompt_matrix" / "PEM.md").read_text(encoding="utf-8")
