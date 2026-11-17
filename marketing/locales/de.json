@@ -715,5 +715,21 @@
   "uc3.inv.s.1": "Invoice, page 1 · Contract, cap, page 2",
   "uc3.inv.sk.1": "Invoice",
   "uc3.inv.sk.2": "Contract cap",
-  "uc3.inv.title": "Invoice vs contract / Procurement"
+  "uc3.inv.title": "Invoice vs contract / Procurement",
+  "landing.trust.metric.1.value": "100%",
+  "landing.trust.metric.1.desc": "Page-and-line citation traceability on every extracted figure",
+  "landing.trust.metric.2.value": "0 Bytes",
+  "landing.trust.metric.2.desc": "External data egress in air-gapped or private VPC deployments",
+  "landing.trust.metric.3.value": "Z3-Verified",
+  "landing.trust.metric.3.desc": "Formal mathematical proof on every cross-document check",
+  "security.eyebrow": "Enterprise Security & Deployment",
+  "security.title": "Zero data leakage. Built for sovereign and air-gapped environments.",
+  "security.sub": "Your most sensitive contracts, claims, and regulatory filings never have to touch a third-party cloud. AssureProof deploys directly inside your perimeter so your security team retains 100% custody of both documents and models.",
+  "security.pillar1.title": "Self-Hosted & Air-Gapped Ready",
+  "security.pillar1.desc": "Deploy inside your own AWS VPC, private GPU cluster, or on-premises data center. When running local models, zero bytes ever leave your network boundary.",
+  "security.pillar2.title": "Zero Model Training or Retention",
+  "security.pillar2.desc": "Your documents are never logged, pooled, or used to train external foundation models. Every session executes in an isolated environment under your existing IAM and encryption keys (BYOK).",
+  "security.pillar3.title": "Immutable Governance & Audit Logs",
+  "security.pillar3.desc": "Every extracted figure, flagged contradiction, reviewer sign-off, and manual override is cryptographically timestamped—giving internal auditors and regulators a complete chain of custody.",
+  "security.whitepaper": "Request the Security & Architecture Whitepaper →"
 }
