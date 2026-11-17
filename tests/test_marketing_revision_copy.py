@@ -59,8 +59,8 @@ def test_no_table_leaks_or_confirm():
 
 def test_home_is_the_earlier_enterprise_page():
     html = _pages()["/"]
-    # The fold: H1, the labeled proof duo (Source A | Source B + Z3 Conflict Box), CTAs.
-    assert "When two documents disagree, both pages are already open." in html
+    # The fold: H1, subheadline, proof card, CTAs.
+    assert "Catch every contradiction before a document leaves your desk." in html
     assert "Source A" in html and "Source B" in html
     assert "Master Services Agreement (MSA), Page 12, Clause 4.2" in html and "120,000 EUR" in html
     assert "Vendor Invoice #884, Page 3, Line Item 8" in html and "142,500 EUR" in html

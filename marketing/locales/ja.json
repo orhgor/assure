@@ -662,7 +662,7 @@
   "meta.about.description": "AssureProof checks one document against another. Both source pages stay open, and the contradiction is shown before you pay.",
   "meta.architecture.description": "Both pages open, the contradiction is marked, export is flagged, and a person decides. Runs in your own AWS account, on-premises, or private GPU.",
   "meta.landing.description": "AssureProof keeps the source page with every figure and shows the contradiction before you pay. Export blocked — a person or an agent decides, and the file can still be downloaded.",
-  "meta.landing.title": "AssureProof | When two documents disagree, both pages are already open.",
+  "meta.landing.title": "AssureProof | 決定論的ドキュメント検証プラットフォーム",
   "meta.poc.description": "1 workflow, limited sample cases. A written “Yes, proceed” starts the assessment. The 142,500 EUR invoice is checked against the 120,000 EUR contract cap.",
   "meta.poc.title": "Proof of concept | AssureProof",
   "meta.solutions.description": "A 142,500 EUR invoice is checked against a 120,000 EUR contract cap. Invoice p.3 and Contract p.12 are both open.",

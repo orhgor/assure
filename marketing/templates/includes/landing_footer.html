@@ -1,9 +1,42 @@
-{# landing_footer.html - Footer #}
+{# landing_footer.html - Enterprise Footer #}
 <footer class="site-footer">
-    <div class="container center">
-        <p class="footer-owner" data-i18n="landing.footer.owner">{{ strings.get('landing.footer.owner', '© 2026 AssureProof. All rights reserved.') }}</p>
-        <p class="footer-engineer" data-i18n="landing.footer.engineer_tagline">{{ strings.get('landing.footer.engineer_tagline', 'Checked against the source. Decided by a person.') }}</p>
-        <p class="footer-links"><a href="{{ locale_path }}privacy/" data-i18n="nav.privacy">{{ strings.get('nav.privacy', 'Privacy') }}</a> · <a href="{{ locale_path }}security/" data-i18n="nav.security">{{ strings.get('nav.security', 'Security') }}</a> · <a href="{{ locale_path }}terms/" data-i18n="nav.terms">{{ strings.get('nav.terms', 'Terms') }}</a> · <a href="{{ locale_path }}about/" data-i18n="landing.footer.about">{{ strings.get('landing.footer.about', 'About') }}</a></p>
-        <a class="footer-back-top" href="#top" data-i18n="landing.footer.back_top">{{ strings.get('landing.footer.back_top', 'Back to top') }}</a>
+    <div class="container">
+        <div class="footer-grid">
+            <div class="footer-brand">
+                <p class="footer-logo" data-i18n="brand.name">{{ strings.get('brand.name', 'AssureProof') }}</p>
+                <p class="footer-tagline" data-i18n="landing.footer.engineer_tagline">{{ strings.get('landing.footer.engineer_tagline', 'Deterministic document verification. Checked against the source, decided by a person.') }}</p>
+                <p class="footer-deployment" data-i18n="footer.deployment">{{ strings.get('footer.deployment', 'Available for AWS VPC, Private GPU & Air-Gapped On-Premises') }}</p>
+            </div>
+            <div class="footer-col">
+                <h3 class="footer-heading" data-i18n="footer.product">{{ strings.get('footer.product', 'Product') }}</h3>
+                <ul class="footer-links-col">
+                    <li><a href="{{ locale_path }}#how" data-i18n="landing.nav.how">{{ strings.get('landing.nav.how', 'How it works') }}</a></li>
+                    <li><a href="{{ locale_path }}#why-not-llm" data-i18n="landing.nav.why">{{ strings.get('landing.nav.why', 'Why not an LLM?') }}</a></li>
+                    <li><a href="{{ locale_path }}#security" data-i18n="nav.security">{{ strings.get('nav.security', 'Security & Architecture') }}</a></li>
+                </ul>
+            </div>
+            <div class="footer-col">
+                <h3 class="footer-heading" data-i18n="footer.workflows">{{ strings.get('footer.workflows', 'Workflows') }}</h3>
+                <ul class="footer-links-col">
+                    <li><a href="{{ locale_path }}use-cases/government/" data-i18n="use-cases.gov.cta">{{ strings.get('use-cases.gov.cta', 'Government & Procurement') }}</a></li>
+                    <li><a href="{{ locale_path }}use-cases/insurance/" data-i18n="use-cases.insurance.cta">{{ strings.get('use-cases.insurance.cta', 'Insurance Claims Review') }}</a></li>
+                    <li><a href="{{ locale_path }}use-cases/fuel-retail/" data-i18n="use-cases.fuel.cta">{{ strings.get('use-cases.fuel.cta', 'Bonus & Commission Reconciliation') }}</a></li>
+                </ul>
+            </div>
+            <div class="footer-col">
+                <h3 class="footer-heading" data-i18n="footer.company">{{ strings.get('footer.company', 'Company & Legal') }}</h3>
+                <ul class="footer-links-col">
+                    <li><a href="{{ locale_path }}about/" data-i18n="landing.footer.about">{{ strings.get('landing.footer.about', 'About AssureProof') }}</a></li>
+                    <li><a href="{{ locale_path }}contact-us/" data-i18n="footer.contact">{{ strings.get('footer.contact', 'Contact / Request a Pilot') }}</a></li>
+                    <li><a href="{{ locale_path }}privacy/" data-i18n="nav.privacy">{{ strings.get('nav.privacy', 'Privacy Policy') }}</a></li>
+                    <li><a href="{{ locale_path }}security/" data-i18n="nav.security">{{ strings.get('nav.security', 'Security Policy') }}</a></li>
+                    <li><a href="{{ locale_path }}terms/" data-i18n="nav.terms">{{ strings.get('nav.terms', 'Terms of Service') }}</a></li>
+                </ul>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p class="footer-owner" data-i18n="landing.footer.owner">{{ strings.get('landing.footer.owner', '\u00a9 2026 AssureProof. All rights reserved.') }}</p>
+            <a class="footer-back-top" href="#top" data-i18n="landing.footer.back_top">{{ strings.get('landing.footer.back_top', 'Back to top \u2191') }}</a>
+        </div>
     </div>
 </footer>
