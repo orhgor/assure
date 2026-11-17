@@ -419,19 +419,21 @@
     <script>
         // Mobile nav toggle
         document.addEventListener('DOMContentLoaded', () => {
-            const mobileBtn = document.getElementById('mobile-menu-btn');
-            const mobileMenu = document.getElementById('mobile-menu');
+            const mobileBtn = document.getElementById('nav-menu-toggle');
+            const mobileMenu = document.getElementById('landing-nav-links');
 
             mobileBtn?.addEventListener('click', () => {
                 const isExpanded = mobileBtn.getAttribute('aria-expanded') === 'true';
                 mobileBtn.setAttribute('aria-expanded', String(!isExpanded));
-                mobileMenu?.classList.toggle('hidden');
+                mobileMenu?.classList.toggle('is-collapsed');
+                mobileMenu?.classList.toggle('open');
             });
 
             // Close mobile menu on link click
             mobileMenu?.querySelectorAll('a, button').forEach((item) => {
                 item.addEventListener('click', () => {
-                    mobileMenu?.classList.add('hidden');
+                    mobileMenu?.classList.add('is-collapsed');
+                    mobileMenu?.classList.remove('open');
                     mobileBtn?.setAttribute('aria-expanded', 'false');
                 });
             });

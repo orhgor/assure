@@ -8,6 +8,7 @@
                 <span class="logo-name">{{ strings.get('brand.name', 'AssureProof') }}</span>
             </span>
         </a>
+
         <nav class="nav-links is-collapsed" id="landing-nav-links" data-i18n-aria="landing.nav.aria" aria-label="{{ strings.get('landing.nav.aria', 'Primary') }}">
             <button type="button" class="nav-menu-toggle" id="nav-menu-toggle" aria-expanded="false" aria-controls="landing-nav-links" data-i18n="landing.nav.menu">{{ strings.get('landing.nav.menu', 'Menu') }}</button>
             <a href="{{ locale_path }}use-cases/"{% if nav_current == 'use-cases' %} aria-current="page"{% endif %} data-i18n="landing.nav.usecases">{{ strings.get('landing.nav.usecases', 'Use cases') }}</a>
