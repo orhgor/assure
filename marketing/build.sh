@@ -88,7 +88,7 @@ lines.append("</urlset>")
 (root / "sitemap.xml").write_text("\\n".join(lines) + "\\n", encoding="utf-8")
 print(f"→ Sitemap: {len(locs)} URLs")
 PY
-# /llms.txt is authored in marketing/. landing/llms.txt is not the build input.
+# /llms.txt is authored in marketing/.
 if [ -f "$ROOT/marketing/llms.txt" ]; then
   cp "$ROOT/marketing/llms.txt" "$DIST_DIR/llms.txt"
 fi

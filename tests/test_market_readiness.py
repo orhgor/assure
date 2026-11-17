@@ -112,6 +112,11 @@ class CatalogTests(unittest.TestCase):
                 self.assertTrue(str(CATALOGS[locale][key]).strip(), msg=f"{locale} {key}")
         self.assertNotIn("OpenAI", CATALOGS["en"]["terms.providers"])
 
+    def test_intent_research_copy(self):
+        self.assertIn("structures your question", CATALOGS["en"]["intent.research"])
+        self.assertNotIn("sorun", CATALOGS["tr"]["intent.research"])
+        self.assertIn("soru", CATALOGS["tr"]["intent.research"])
+
 
 class ComposeMarkupTests(unittest.TestCase):
     def test_workbench_shell_in_index(self):
@@ -134,10 +139,8 @@ class LandingTests(unittest.TestCase):
     def test_install_scripts_exist(self):
         sh = ROOT / "scripts" / "install.sh"
         ps = ROOT / "scripts" / "install.ps1"
-        sync = ROOT / "scripts" / "sync-webpage.sh"
         self.assertTrue(sh.is_file())
         self.assertTrue(ps.is_file())
-        self.assertTrue(sync.is_file())
         desktop = ROOT / "scripts" / "build-desktop.sh"
         spec = ROOT / "packaging" / "assure.spec"
         self.assertTrue(desktop.is_file())
@@ -153,25 +156,7 @@ class LandingTests(unittest.TestCase):
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
         self.assertIn("./scripts/install.sh", readme)
         self.assertIn("build-desktop.sh", readme)
-        self.assertIn("sync-webpage.sh", readme)
         self.assertNotIn("cd prompt_matrix", readme)
-
-    def test_icp_and_objections_exist(self):
-        icp = (ROOT / "landing" / "ICP.md").read_text(encoding="utf-8")
-        self.assertIn("Lena", icp)
-        self.assertIn("Marek", icp)
-        self.assertIn("Priya", icp)
-        self.assertIn("The Sovereign Analyst", icp)
-        self.assertIn("The Privacy-First Researcher", icp)
-        self.assertIn("The Prompt Reluctant Professional", icp)
-        self.assertIn("Compliance Officer", icp)
-        self.assertIn("PromptLayer", icp)
-        self.assertIn("structures your question", CATALOGS["en"]["intent.research"])
-        self.assertNotIn("sorun", CATALOGS["tr"]["intent.research"])
-        self.assertIn("soru", CATALOGS["tr"]["intent.research"])
-        obj = (ROOT / "landing" / "objections.md").read_text(encoding="utf-8")
-        self.assertIn("Why not just use ChatGPT?", obj)
-        self.assertIn("Do not say", obj)
 
 class WorkflowTests(unittest.TestCase):
     def test_ci_yml_runs_pytest_and_playwright(self):
@@ -365,15 +350,6 @@ class CacheAndDocsTests(unittest.TestCase):
             html = landing.read_text(encoding="utf-8")
             if "landing.css?" in html:
                 self.assertIn(f"landing.css?v={LANDING_CSS}", html)
-        legacy_landing = ROOT / "landing"
-        if legacy_landing.is_dir():
-            for path in legacy_landing.rglob("*.html"):
-                html = path.read_text(encoding="utf-8")
-                if "site.css?" in html and "assets/site.css" in html:
-                    self.assertRegex(html, r"site\.css\?v=\d+", msg=str(path))
-                if "site.js?" in html and "assets/site.js" in html:
-                    self.assertRegex(html, r"site\.js\?v=\d+", msg=str(path))
-
     def test_pem_quick_ref_matches_compose(self):
         pem = (ROOT / "prompt_matrix" / "PEM.md").read_text(encoding="utf-8")
         self.assertIn("Assure detects what you need (Auto intent)", pem)

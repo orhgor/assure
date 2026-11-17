@@ -71,13 +71,7 @@ GitHub [`orhgor/assure`](https://github.com/orhgor/assure) default branch is **`
 
 Cloudflare Workers Builds for Worker **`assure`** must connect to **`webpage` only**. A red **Workers Builds: assure** check on an app PR is irrelevant (wrong branch / missing root `wrangler.jsonc`). Fix: [docs/cloudflare-fix.md](docs/cloudflare-fix.md) or `bash scripts/cloudflare/set_workers_branch.sh`.
 
-Marketing deploy: copy `landing/` to a webpage checkout, then push `webpage`:
-
-```bash
-./scripts/sync-webpage.sh /path/to/webpage-checkout
-```
-
-Worker deploy command: `npx wrangler deploy`. `wrangler.jsonc` must list `assets.directory` (not a Pages `pages_build_output_dir`).
+Marketing deploy: push to `main` (paths `marketing/**`) — `.github/workflows/webpage-deploy.yml` builds `marketing/` and ships it as Worker static assets on assureproof.com. See `marketing/README.md`.
 
 ## UI Systems
 
