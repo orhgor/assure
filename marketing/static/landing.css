@@ -874,16 +874,6 @@ a:hover { color: var(--accent-blue-hover); }
   position: relative;
 }
 
-.pipeline-step::before {
-  content: attr(data-step);
-  position: absolute; top: -12px; left: 1.5rem;
-  width: 2.5rem; height: 2.5rem;
-  background: #0a0a0a; color: white;
-  border-radius: 9999px;
-  display: flex; align-items: center; justify-content: center;
-  font-weight: 700; font-size: 0.875rem; font-family: 'JetBrains Mono', monospace;
-}
-
 .pipeline-step h3 { font-size: 1.125rem; font-weight: 700; margin-bottom: 0.5rem; }
 .pipeline-step p { color: var(--text-secondary); line-height: 1.65; }
 
