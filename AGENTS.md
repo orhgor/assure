@@ -1,10 +1,17 @@
-# Rules for AI agents (Cursor, Cline, Oh My Pi, Claude, any bot)
-## Website vs workbench
-- The getassureai.com website lives ONLY in marketing/. All website work (copy, i18n, templates, CSS, JS, build, Worker) happens in marketing/ only.
-- Do NOT edit, move, rename, format or delete anything under prompt_matrix/ for website work. That includes prompt_matrix/templates/landing*.html, prompt_matrix/i18n.py, prompt_matrix/static/ and prompt_matrix/ui_cache.py. Those old marketing copies stay as they are on purpose.
-- The workbench is built in a separate environment. Never link the website to the workbench or to app.getassureai.com.
-- A PR that touches both marketing/ and prompt_matrix/ fails CI (isolation job). Do not try to get around it.
-## Safety
-- Never run marketing/deploy.sh, sync_r2.py or wrangler deploy (wrangler --dry-run only). Merging to main deploys production; only the owner merges.
-- Never delete files without explicit owner approval.
+# Rules for AI agents (Cline, Cursor, Claude, any bot)
+
+This repository is the **assureproof.com marketing site only**. The site lives
+entirely in `marketing/` (see `marketing/README.md`).
+
+- Deploy = merge to `main`. `.github/workflows/webpage-deploy.yml` runs the
+  website checks, builds `dist/`, and deploys the Worker with `dist/` as
+  static assets. **Only the owner merges.**
+- Never run `marketing/deploy.sh` by hand — CI deploys. `--dry-run` is fine.
+- The deploy is gated on `pytest tests/` passing (the `website-checks` job).
+  Keep it green: `bash marketing/build.sh && pytest tests/ -v` before pushing.
+- New static assets must be added to the rsync include list in
+  `marketing/build.sh` (an asset missed there 404s in production).
+- Bump `LANDING_CSS` in `marketing/cache_versions.py` when `landing.css` changes.
 - Never commit secrets, tokens or passwords.
+- Content rules: brand is "Assure", never "Assure AI"; a person decides, never
+  the product; no banned claims (pilot/beta/trial/free/guaranteed/...).

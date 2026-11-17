@@ -48,8 +48,8 @@ Requires wrangler auth on your machine (`npx wrangler login`).
 - Commit in the same session as the deploy, from the same tree you built.
 - New static assets must be added to the rsync include list in
   `marketing/build.sh` — `icons.js` was missed once and 404'd in production.
-- Never import `prompt_matrix.web` (or the app/DB) in `marketing/` code —
-  that is the isolation contract; see `marketing/README.md`.
+- `marketing/` is self-contained: it never imports the workbench app or any
+  database. See `marketing/README.md`.
 - After any deploy, verify: `curl -s https://www.assureproof.com/ | grep -c '<your change>'`.
 
 ## Known gotchas

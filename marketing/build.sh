@@ -21,7 +21,6 @@ rsync -a \
   --include 'landing.css' \
   --include 'landing-pilot.js' \
   --include 'landing-i18n.js' \
-  --include 'icons.js' \
   --include 'favicon.svg' \
   --include 'favicon.ico' \
   --include 'assure-logo.png' \
@@ -29,7 +28,6 @@ rsync -a \
   --include 'aws-startups.svg' \
   --include 's3-icon.svg' \
   --include 'onprem-icon.svg' \
-  --include 'sentry.bundle.js' \
   --exclude '*' \
   "$ROOT/marketing/static/" "$DIST_DIR/static/"
 
