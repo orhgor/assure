@@ -613,7 +613,7 @@
   "solutions.cards.3.name": "Compliance pack",
   "home.hero.sub": "Extraction tools pull fields. RAG tools answer questions. AssureProof checks the draft against the original files and shows the contradictions before you approve, pay, or send.",
   "gov.human.title": "People decide. Every finding shows its source.",
-  "meta.use_case_fuel.description": "How fuel retail teams reconcile bonus statements against agreements and sales records.",
+  "meta.use_case_fuel.description": "Check bonus statements against agreements and sales records. CrossSure reads the spreadsheets and Z3 checks the bonus rules for gaps and overlaps.",
   "nav.projects": "Write",
   "poc.title": "Try AssureProof on your own documents",
   "uc.ins.sub": "Catch a claim amount that doesn't match the receipts and medical bills behind it before the payout. Figures keep their source pages, and mismatches show up on the review screen. A person reviews and decides.",
@@ -785,7 +785,7 @@
   "terms.verify.h": "Human review",
   "home.start.body": "Bring a real document set. We'll run the check with your team and walk you through what we find.",
   "substrate.vault.verified": "Verified",
-  "meta.use_case_fuel.title": "Fuel retail bonus reconciliation · AssureProof",
+  "meta.use_case_fuel.title": "Bonus and rebate reconciliation | AssureProof",
   "uc.gov.sub": "Catch a grant application whose figures don't match its attached expense audit before it's approved. Figures keep their source pages, and mismatches show up on the review screen. A person reviews and decides.",
   "terms.prohibit.rights": "Content that violates the rights of others",
   "uc3.gov.f.3": "The date of birth on the ID does not match the date of birth on the application form.",
@@ -884,7 +884,7 @@
   "home.hero.proof.cap.label": "Contract cap",
   "nav.generate": "Draft",
   "terms.prohibit.illegal": "Illegal content or activities",
-  "uc.fuel.title": "Fuel retail bonus reconciliation",
+  "uc.fuel.title": "Bonus and rebate reconciliation",
   "landing.proof.tablist": "Roles",
   "arch.flow.2.text": "Figures are compared one to one. Where two can't both be true, the conflict is marked on the review screen.",
   "terms.as_is": "The software is provided \"as is\", without warranties. We are not liable for damages or other consequences of your use. We do not promise uptime, accuracy, or fitness for a particular job. Any service levels are set only in your signed enterprise agreement.",
@@ -987,5 +987,6 @@
   "landing.pilot.cta_primary": "Try it on your own files →",
   "home.pain.sub": "Most tools stop there. AssureProof also checks whether the figures agree with each other across the files.",
   "poc.form.done": "Request received. We will reply by email to agree the scope.",
-  "poc.form.error": "Could not send your request. Please try again or write to sales@assureproof.com."
+  "poc.form.error": "Could not send your request. Please try again or write to sales@assureproof.com.",
+  "footer.architecture": "How it works in detail"
 }

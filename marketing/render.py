@@ -54,9 +54,9 @@ PAGES: list[dict] = [
     },
     {
         "template": "use_case_fuel.html",
-        "output": "use-cases/fuel-retail/index.html",
+        "output": "use-cases/bonus-reconciliation/index.html",
         "kind": "landing",
-        "suffix": "use-cases/fuel-retail/",
+        "suffix": "use-cases/bonus-reconciliation/",
     },
     {
         "template": "landing_privacy.html",

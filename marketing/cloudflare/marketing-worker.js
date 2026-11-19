@@ -231,6 +231,19 @@ export default {
       return new Response("Method not allowed", { status: 405 });
     }
 
+    // One host: www.assureproof.com → assureproof.com, path and query kept.
+    if (url.hostname === "www.assureproof.com") {
+      const apex = new URL(url.toString());
+      apex.hostname = "assureproof.com";
+      return Response.redirect(apex.toString(), 301);
+    }
+
+    // The fuel-retail page moved to a neutral URL (all locales).
+    const fuel = url.pathname.match(/^(\/[a-z]{2})?\/use-cases\/fuel-retail\/?$/i);
+    if (fuel) {
+      return Response.redirect(new URL(`${fuel[1] || ""}/use-cases/bonus-reconciliation/`, url.origin).toString(), 301);
+    }
+
     // Legacy and convenience redirects.
     if (url.pathname === "/contact" || url.pathname === "/contact/") {
       return Response.redirect(new URL("/contact-us/", url.origin).toString(), 301);

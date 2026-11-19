@@ -59,7 +59,6 @@ def _target_exists(path: str) -> bool:
     return local.is_file() or (local / "index.html").is_file()
 
 
-@pytest.mark.xfail(reason="until phase 07", strict=False)
 def test_internal_links_resolve():
     broken = []
     for page in _pages():
@@ -184,3 +183,11 @@ def test_site_email_addresses_use_assureproof_com():
     assert "website@assureproof.com" in src
     bad = [_rel(p) for p in _pages() if re.search(r"[\w.+-]+@getassureai\.com", p.read_text(encoding="utf-8"))]
     assert not bad, bad
+
+
+def test_no_fuel_retail_page_or_link():
+    assert not (DIST / "use-cases" / "fuel-retail").exists()
+    bad = [_rel(p) for p in _pages() if "use-cases/fuel-retail" in p.read_text(encoding="utf-8")]
+    assert not bad, bad
+    src = WORKER.read_text(encoding="utf-8")
+    assert "/use-cases/bonus-reconciliation/" in src and 'url.hostname === "www.assureproof.com"' in src

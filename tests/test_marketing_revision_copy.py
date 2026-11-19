@@ -84,7 +84,7 @@ def test_v3_security_trust_faq():
 def test_v3_vertical_pages():
     pages = {
         "use-cases/insurance/index.html": ("Insurance claims review", "Insurance claims review"),
-        "use-cases/fuel-retail/index.html": ("Fuel retail bonus reconciliation", "Fuel retail bonus reconciliation"),
+        "use-cases/bonus-reconciliation/index.html": ("Bonus and rebate reconciliation", "Bonus and rebate reconciliation"),
         "use-cases/government/index.html": ("Government document checks", "Government document checks"),
     }
     for rel, tokens in pages.items():
