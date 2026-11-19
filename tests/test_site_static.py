@@ -69,7 +69,6 @@ def test_internal_links_resolve():
     assert not broken, broken[:20]
 
 
-@pytest.mark.xfail(reason="until phase 04", strict=False)
 def test_static_assets_exist():
     missing = []
     for page in _pages():
