@@ -55,14 +55,7 @@
             </ul>
             <h3 data-i18n="poc.scope.title">{{ strings.get('poc.scope.title', 'Written “Yes, proceed” Scope Note') }}</h3>
         </section>
-        <ol class="pipeline">
-            <li><strong data-i18n="pipeline.1.name">{{ strings.get('pipeline.1.name', 'Upload') }}</strong><span data-i18n="pipeline.1.line">{{ strings.get('pipeline.1.line', 'The file stack goes in.') }}</span></li>
-            <li><strong data-i18n="pipeline.2.name">{{ strings.get('pipeline.2.name', 'ParSure') }}</strong><span data-i18n="pipeline.2.line">{{ strings.get('pipeline.2.line', 'ParSure extracts every figure, clause, and citation and pins each to the page it came from.') }}</span></li>
-            <li><strong data-i18n="pipeline.3.name">{{ strings.get('pipeline.3.name', 'DraftSure') }}</strong><span data-i18n="pipeline.3.line">{{ strings.get('pipeline.3.line', 'DraftSure produces a first draft from the structured document set.') }}</span></li>
-            <li><strong data-i18n="pipeline.4.name">{{ strings.get('pipeline.4.name', 'Z3') }}</strong><span data-i18n="pipeline.4.line">{{ strings.get('pipeline.4.line', 'Z3 checks whether every figure, clause, and citation can all be true at the same time. A contradiction stops export.') }}</span></li>
-            <li><strong data-i18n="pipeline.5.name">{{ strings.get('pipeline.5.name', 'Red Hat review') }}</strong><span data-i18n="pipeline.5.line">{{ strings.get('pipeline.5.line', 'A separate adversarial pass that runs only when requested by the user.') }}</span></li>
-            <li><strong data-i18n="pipeline.6.name">{{ strings.get('pipeline.6.name', 'Person or agent decides') }}</strong><span data-i18n="pipeline.6.line">{{ strings.get('pipeline.6.line', 'Export is flagged while a contradiction is unresolved. A person decides. The file can still be downloaded, with the flag recorded.') }}</span></li>
-        </ol>
+        {% include 'includes/flow.html' %}
         <div class="price-grid price-grid--duo">
             <section class="card">
                 <h2 data-i18n="proof.a.kicker">{{ strings.get('proof.a.kicker', 'Source A') }}</h2>
@@ -81,7 +74,7 @@
         </section>
         <section class="card">
             <h2 data-i18n="poc.assessment.title">{{ strings.get('poc.assessment.title', 'The assessment') }}</h2>
-            <form id="poc-form" class="poc-form" method="post" action="/contact-submit">
+            <form id="poc-form" class="poc-form" method="post" action="/contact-submit" data-done="{{ strings.get('poc.form.done', 'Request received. We will reply by email to agree the scope.') }}" data-error="{{ strings.get('poc.form.error', 'Could not send your request. Please try again or write to sales@assureproof.com.') }}">
                 <label for="poc-email" data-i18n="poc.form.email">{{ strings.get('poc.form.email', 'Work email') }}</label>
                 <input id="poc-email" class="demo-input" name="email" type="email" autocomplete="email" required>
                 <label for="poc-pair" data-i18n="poc.form.pair">{{ strings.get('poc.form.pair', 'Document pair to cross-check') }}</label>
@@ -90,7 +83,7 @@
                     <legend data-i18n="poc.form.cases">{{ strings.get('poc.form.cases', '5–10 sample cases (up to 50 files) sharable before Dec 10') }}</legend>
                     <label><input type="radio" name="cases" value="yes" required> <span data-i18n="poc.form.cases.yes">{{ strings.get('poc.form.cases.yes', 'Yes') }}</span></label>
                     <label><input type="radio" name="cases" value="check"> <span data-i18n="poc.form.cases.check">{{ strings.get('poc.form.cases.check', 'Need to check') }}</span></label>
-                    <p class="text-small" data-i18n="poc.form.faq">{{ strings.get('poc.form.faq', 'Shared under the 1-Page Trust & Privacy FAQ.') }}</p>
+                    <p class="text-small"><a href="{{ locale_path }}security/" data-i18n="poc.form.faq">{{ strings.get('poc.form.faq', 'How we handle your files') }}</a></p>
                 </fieldset>
                 <fieldset>
                     <legend data-i18n="poc.form.review">{{ strings.get('poc.form.review', 'Who joins the 30-min live findings review before Dec 20?') }}</legend>
@@ -104,6 +97,6 @@
     {% include 'includes/landing_footer.html' %}
     <script src="{{ url_for('static', filename='landing-pilot.js') }}?v={{ landing_js_version }}"></script>
     <script src="{{ url_for('static', filename='landing-i18n.js') }}?v={{ landing_js_version }}"></script>
-    <script>(function(){var f=document.getElementById('poc-form');if(!f)return;f.addEventListener('submit',function(e){e.preventDefault();var d=new FormData(f);var msg='POC request — pair: '+d.get('pair')+'; cases before Dec 10: '+d.get('cases')+'; review before Dec 20: '+d.get('review');fetch('/contact-submit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:'POC request',email:d.get('email'),company:'',message:msg})}).then(function(r){return r.json()}).then(function(){f.innerHTML='<p>Request received. We will confirm your slot by email.</p>'}).catch(function(){f.submit()})});})();</script>
+    <script>(function(){var f=document.getElementById('poc-form');if(!f)return;f.addEventListener('submit',function(e){e.preventDefault();var d=new FormData(f);var msg='Proof of concept request. Documents: '+(d.get('pair')||'')+'; can share 5-10 sample cases: '+d.get('cases')+'; findings review: '+d.get('review');var btn=f.querySelector('button[type=submit]');if(btn)btn.disabled=true;fetch('/contact-submit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:'Proof of concept request',email:d.get('email'),company:'',message:msg})}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);var p=document.createElement('p');p.setAttribute('role','status');p.textContent=f.dataset.done;f.replaceWith(p);}).catch(function(){if(btn)btn.disabled=false;var p=f.querySelector('.form-error');if(!p){p=document.createElement('p');p.className='form-error';p.setAttribute('role','alert');f.appendChild(p);}p.textContent=f.dataset.error;});});})();</script>
 </body>
 </html>

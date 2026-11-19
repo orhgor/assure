@@ -19,9 +19,9 @@ function bindZ3Recalc() {
     if (deltaValue) deltaValue.textContent = sign + formatNumber(delta);
     if (z3ResultText) {
       if (delta !== 0) {
-        z3ResultText.textContent = "Export locked — " + sign + formatNumber(delta) + " " + currency + " overage detected. A person or an agent decides, and the file can still be downloaded.";
+        z3ResultText.textContent = "Mismatch marked: the invoice is " + sign + formatNumber(delta) + " " + currency + " over the contract cap. A person reviews and decides.";
       } else {
-        z3ResultText.textContent = "No conflict — values agree. Export proceeds.";
+        z3ResultText.textContent = "No mismatch: the two figures agree.";
       }
     }
   }
@@ -41,7 +41,7 @@ function bindZ3Recalc() {
 
     btn.disabled = true;
     var originalText = btn.textContent;
-    btn.textContent = "Verifying...";
+    btn.textContent = "Replaying...";
 
     fetch("/api/z3-demo", {
       method: "POST",

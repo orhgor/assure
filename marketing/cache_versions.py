@@ -1,5 +1,5 @@
 """Cache-bust query strings for the marketing site. Own copy, independent
 of the workbench values. Change these, not scattered HTML literals."""
 
-LANDING_CSS = "144"
-LANDING_JS = "49"
+LANDING_CSS = "145"
+LANDING_JS = "50"

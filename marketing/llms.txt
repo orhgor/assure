@@ -1,27 +1,18 @@
-# Assure
+# AssureProof
 
-Assure keeps each figure's source page with ParSure. DraftSure is the draft a language model writes from those files. Z3, an SMT solver (satisfiability modulo theories), decides whether the draft's figures and the values locked from the source can all be true at the same time. For a labeled number, the language model does not make that call. For a sentence with no label, the language model turns it into a numeric comparison, and Z3 decides whether it holds. Red-Hat review is a separate language-model pass that tries to find what is wrong in that draft, and it runs only when someone asks for it. A person decides.
+AssureProof reads your PDFs and scans. You ask for a draft; AssureProof writes it, checks the draft against what it read from your files, and shows the figures and statements that don't match what the files say. A person reviews and decides.
 
-Document extraction tools pull fields out of a file. Assure also checks those figures against the values locked from the source and shows the source page.
+Extraction tools read data out of a file. RAG tools answer questions and cite sources. AssureProof writes a draft and shows where that draft conflicts with the source files.
 
-## Four stages
-
-The order is the compile order: the draft is written first, then Z3 checks that draft, then a person can run Red-Hat review on it.
-
-- ParSure: Reads every file, including scans and handwritten pages, and keeps the page, cell, or row for each figure it extracts.
-- DraftSure: A language model writes the draft from those source files. The figure check runs only after this draft exists.
-- CrossSure: Z3 decides whether the draft's figures and the values locked from the source can all be true at the same time. For a labeled number, the language model does not make that call. For a sentence with no label, the language model turns it into a numeric comparison, and Z3 decides whether it holds.
-- Red-Hat review: Runs only when someone asks for it, on the draft just written. A language model tries to find what is wrong: a mismatch with the attached source sentence, an overstatement, a missing clause, or a figure that needs a citation.
-
-A person decides. The reviewer accepts or rejects each finding. The review screen shows a Z3 contradiction as export blocked. The file can still be downloaded.
-
-## Who it is for
-
-Insurers, public bodies, fuel retailers and industrial groups, and teams handling procurement, grants and compliance evidence, who must check documents before they pay, accept or sign.
+## How it works
+- ParSure reads PDFs, including scans, and PNG, JPEG, TIFF and BMP images (up to 25 MB and 200 pages per file by default). Each extracted field keeps its page. Handwritten and illegible values are flagged; illegible values are not guessed.
+- DraftSure writes the draft when you ask for one. Each draft claim must cite a source, page and field, or a quote from the page; a citation that does not resolve fails the claim.
+- CrossSure checks figures. Z3 is software that decides whether a set of figures can all be true at the same time. It checks the arithmetic and date relations between the draft's figures and the values read from your files, and reports pass, fail, skipped, timeout or error. A skipped or errored check is never reported as a pass. CrossSure also reads spreadsheets (XLSX, XLSM, XLS, CSV, TXT) in code, without a model.
+- Red-Hat review is a second language-model pass that runs on every draft and on each document's fields. It lists weak claims with reasons and does not block anything.
+- A person accepts, corrects or disputes each flagged field. Each action is logged with who, when, old and new value and reason.
 
 ## Deployment
-
-Runs in your own AWS account or on your own machines. You choose where the models run, including your own GPU servers. Access is set per project, and actions and decisions are recorded in an activity log.
+Runs in your own AWS account or on your own servers; model calls go to your Amazon Bedrock account (or a self-hosted model on a GPU). Data is encrypted in transit and at rest. We do not use your documents to train models.
 
 ## Key pages
 
@@ -35,6 +26,7 @@ Runs in your own AWS account or on your own machines. You choose where the model
 - About: https://assureproof.com/about/
 - Security and data: https://assureproof.com/security/
 - Pricing: https://assureproof.com/pricing/
+- Proof of concept: https://assureproof.com/poc/
 - Contact: https://assureproof.com/contact-us/
 - Privacy: https://assureproof.com/privacy/
 - Terms: https://assureproof.com/terms/

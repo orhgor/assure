@@ -89,6 +89,7 @@
                         </div>
                     </div>
                 </div>
+                <p class="proof-label" data-i18n="proof.label">{{ strings.get('proof.label', 'Illustrative example, simulated data, not a customer result') }}</p>
                 <section class="conflict-z3-terminal" id="z3-result">
                     <div class="terminal-header" data-i18n="proof.z3.title">{{ strings.get('proof.z3.title', 'Z3 Formal Verification') }}</div>
                     <div class="terminal-body">
@@ -100,7 +101,7 @@
                 </section>
                 <div class="hero-cta-group">
                     <a href="{{ locale_path }}contact-us/" class="btn-primary" data-i18n="landing.hero.cta_primary">{{ strings.get('landing.hero.cta_primary', 'See the proof') }}</a>
-                    <a href="{{ locale_path }}contact-us/" class="btn-secondary" data-i18n="landing.hero.cta_secondary">{{ strings.get('landing.hero.cta_secondary', 'Run a pilot on your files →') }}</a>
+                    <a href="{{ locale_path }}poc/" class="btn-secondary" data-i18n="landing.hero.cta_secondary">{{ strings.get('landing.hero.cta_secondary', 'Run a pilot on your files →') }}</a>
                 </div>
             </div>
         </section>
@@ -108,50 +109,7 @@
         <!-- ==========================================================================
              HOW IT WORKS — 6-STEP PIPELINE
              ========================================================================== -->
-        <section id="how" class="section">
-            <div class="container">
-                <h2 class="section-title" data-i18n="home.steps.title">{{ strings.get('home.steps.title', 'How it works') }}</h2>
-                <p class="section-sub" data-i18n="home.steps.sub">{{ strings.get('home.steps.sub', 'Standard AI guesses what your documents say. AssureProof proves whether your numbers and clauses actually agree.') }}</p>
-
-                <ol class="pipeline">
-                    <li class="pipeline-step">
-                        <span class="pipeline-step-number">01</span>
-                        <h3 data-i18n="pipeline.1.name">{{ strings.get('pipeline.1.name', 'Ingest Your File Stack') }}</h3>
-                        <p data-i18n="pipeline.1.line">{{ strings.get('pipeline.1.line', 'Upload contracts, invoices, claims, or regulatory filings in any format. Every document stays isolated inside your environment.') }}</p>
-                    </li>
-
-                    <li class="pipeline-step">
-                        <span class="pipeline-step-number">02</span>
-                        <h3 data-i18n="pipeline.2.name">{{ strings.get('pipeline.2.name', 'Page-Pinned Extraction (ParSure)') }}</h3>
-                        <p data-i18n="pipeline.2.line">{{ strings.get('pipeline.2.line', 'Extracts every figure, obligation, and cross-reference—linking each data point directly to the exact page and line it came from.') }}</p>
-                    </li>
-
-                    <li class="pipeline-step">
-                        <span class="pipeline-step-number">03</span>
-                        <h3 data-i18n="pipeline.3.name">{{ strings.get('pipeline.3.name', 'Structured Drafting (DraftSure)') }}</h3>
-                        <p data-i18n="pipeline.3.line">{{ strings.get('pipeline.3.line', 'Generates reports, summaries, or approval memos built strictly from verified source facts, with zero ungrounded claims.') }}</p>
-                    </li>
-
-                    <li class="pipeline-step">
-                        <span class="pipeline-step-number">04</span>
-                        <h3 data-i18n="pipeline.4.name">{{ strings.get('pipeline.4.name', 'Mathematical Consistency Check (Z3 Solver)') }}</h3>
-                        <p data-i18n="pipeline.4.line">{{ strings.get('pipeline.4.line', 'Our formal logic engine tests whether every number and clause across all files can be true at the same time. If two facts conflict, export is automatically locked.') }}</p>
-                    </li>
-
-                    <li class="pipeline-step">
-                        <span class="pipeline-step-number">05</span>
-                        <h3 data-i18n="pipeline.5.name">{{ strings.get('pipeline.5.name', 'Optional Adversarial Stress-Test (Red Hat Review)') }}</h3>
-                        <p data-i18n="pipeline.5.line">{{ strings.get('pipeline.5.line', 'Trigger a separate, independent audit pass to hunt for edge-case ambiguities, missing attachments, or hidden compliance risks.') }}</p>
-                    </li>
-
-                    <li class="pipeline-step">
-                        <span class="pipeline-step-number">06</span>
-                        <h3 data-i18n="pipeline.6.name">{{ strings.get('pipeline.6.name', 'Human Sign-Off & Audit Trail') }}</h3>
-                        <p data-i18n="pipeline.6.line">{{ strings.get('pipeline.6.line', 'No document moves forward silently. An authorized reviewer resolves the conflict—or logs a formal override—before downloading the final file.') }}</p>
-                    </li>
-                </ol>
-            </div>
-        </section>
+        {% set flow_id = 'how' %}{% include 'includes/flow.html' %}
 
         <!-- ==========================================================================
              WHERE IT RUNS + TRUST METRICS BAR (Combined)
@@ -170,61 +128,24 @@
         <!-- ==========================================================================
              WHY NOT AN LLM SECTION
              ========================================================================== -->
-        <section id="why-not-llm" class="why-not-llm">
+        <section id="how-it-differs" class="section differs-section" aria-labelledby="differs-title">
             <div class="container">
                 <div class="section-header">
-                    <span class="section-eyebrow" data-i18n="why-not-llm.eyebrow">{{ strings.get('why-not-llm.eyebrow', 'Probabilistic vs. Deterministic') }}</span>
-                    <h2 class="section-title" data-i18n="why-not-llm.title">{{ strings.get('why-not-llm.title', 'General-purpose AI predicts the next word. AssureProof proves the math.') }}</h2>
-                    <p class="section-sub" data-i18n="why-not-llm.sub">{{ strings.get('why-not-llm.sub', 'ChatGPT and Claude are built to sound plausible, not to guarantee mathematical consistency across a 300-page document stack. When a missed clause or billing overage costs thousands of dollars, probability is not enough.') }}</p>
+                    <h2 class="section-title" id="differs-title" data-i18n="differs.title">{{ strings.get('differs.title', 'How AssureProof differs from extraction tools and RAG tools') }}</h2>
                 </div>
-
-                <div class="comparison-table-container">
-                    <table class="comparison-table">
-                        <thead>
-                            <tr>
-                                <th scope="col" data-i18n="why-not-llm.table.criteria">{{ strings.get('why-not-llm.table.criteria', 'Evaluation Criteria') }}</th>
-                                <th scope="col" data-i18n="why-not-llm.table.llm">{{ strings.get('why-not-llm.table.llm', 'Standard LLMs (ChatGPT, Claude, Gemini)') }}</th>
-                                <th scope="col" data-i18n="why-not-llm.table.assure">{{ strings.get('why-not-llm.table.assure', 'AssureProof (Deterministic Verification)') }}</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <th scope="row" data-i18n="why-not-llm.row.core-engine">{{ strings.get('why-not-llm.row.core-engine', 'Core Engine') }}</th>
-                                <td data-i18n="why-not-llm.row.llm-engine">{{ strings.get('why-not-llm.row.llm-engine', 'Probabilistic — guesses the most likely text based on patterns.') }}</td>
-                                <td data-i18n="why-not-llm.row.assure-engine">{{ strings.get('why-not-llm.row.assure-engine', 'Deterministic — mathematically tests every figure and rule using a Z3 formal logic solver.') }}</td>
-                            </tr>
-                            <tr>
-                                <th scope="row" data-i18n="why-not-llm.row.math">{{ strings.get('why-not-llm.row.math', 'Cross-Document Math') }}</th>
-                                <td data-i18n="why-not-llm.row.llm-math">{{ strings.get('why-not-llm.row.llm-math', 'Often misses subtle discrepancies or loses accuracy as file length grows ("lost in the middle").') }}</td>
-                                <td data-i18n="why-not-llm.row.assure-math">{{ strings.get('why-not-llm.row.assure-math', 'Z3 checks whether every figure, clause, and citation can all be true at the same time. A contradiction stops export.') }}</td>
-                            </tr>
-                            <tr>
-                                <th scope="row" data-i18n="why-not-llm.row.traceability">{{ strings.get('why-not-llm.row.traceability', 'Source Traceability') }}</th>
-                                <td data-i18n="why-not-llm.row.llm-trace">{{ strings.get('why-not-llm.row.llm-trace', 'Citations can be vague, paraphrased, or fabricated.') }}</td>
-                                <td data-i18n="why-not-llm.row.assure-trace">{{ strings.get('why-not-llm.row.assure-trace', 'Every claim is pinned directly to the exact source document, page, and line.') }}</td>
-                            </tr>
-                            <tr>
-                                <th scope="row" data-i18n="why-not-llm.row.conflicts">{{ strings.get('why-not-llm.row.conflicts', 'Conflict Handling') }}</th>
-                                <td data-i18n="why-not-llm.row.llm-conflicts">{{ strings.get('why-not-llm.row.llm-conflicts', 'Quietly smooths over contradictions to give you a polite, confident answer.') }}</td>
-                                <td data-i18n="why-not-llm.row.assure-conflicts">{{ strings.get('why-not-llm.row.assure-conflicts', 'Automatically locks export upon disagreement, forcing a human decision.') }}</td>
-                            </tr>
-                            <tr>
-                                <th scope="row" data-i18n="why-not-llm.row.audit">{{ strings.get('why-not-llm.row.audit', 'Audit & Compliance') }}</th>
-                                <td data-i18n="why-not-llm.row.llm-audit">{{ strings.get('why-not-llm.row.llm-audit', 'No built-in approval gates or cryptographic audit log of who overrode a discrepancy.') }}</td>
-                                <td data-i18n="why-not-llm.row.assure-audit">{{ strings.get('why-not-llm.row.assure-audit', 'Full governance trail recording every flagged conflict, reviewer sign-off, and override.') }}</td>
-                            </tr>
-                            <tr>
-                                <th scope="row" data-i18n="why-not-llm.row.residency">{{ strings.get('why-not-llm.row.residency', 'Data Residency') }}</th>
-                                <td data-i18n="why-not-llm.row.llm-residency">{{ strings.get('why-not-llm.row.llm-residency', 'Prompts and files typically pass through third-party cloud APIs.') }}</td>
-                                <td data-i18n="why-not-llm.row.assure-residency">{{ strings.get('why-not-llm.row.assure-residency', 'Runs 100% inside your AWS account, private GPU, or air-gapped on-prem server.') }}</td>
-                            </tr>
-                        </tbody>
-                    </table>
-
-                    <div class="comparison-cta-wrapper">
-                        <p class="comparison-cta-text" data-i18n="why-not-llm.cta.text">{{ strings.get('why-not-llm.cta.text', 'Use LLMs to brainstorm. Use AssureProof before you sign, pay, or file.') }}</p>
-                        <a href="{{ locale_path }}poc/" class="btn-primary" data-i18n="why-not-llm.cta">{{ strings.get('why-not-llm.cta', 'See the proof') }}</a>
-                    </div>
+                <div class="differs-grid">
+                    <article class="differs-card">
+                        <h3 data-i18n="differs.extract.name">{{ strings.get('differs.extract.name', 'Extraction tools') }}</h3>
+                        <p data-i18n="differs.extract.line">{{ strings.get('differs.extract.line', 'Extraction tools read data out of a file. They return fields. Whether a draft agrees with those fields is left to your rules or your reviewer.') }}</p>
+                    </article>
+                    <article class="differs-card">
+                        <h3 data-i18n="differs.rag.name">{{ strings.get('differs.rag.name', 'RAG tools') }}</h3>
+                        <p data-i18n="differs.rag.line">{{ strings.get('differs.rag.line', 'RAG tools answer questions and cite sources. They answer what you ask.') }}</p>
+                    </article>
+                    <article class="differs-card differs-card--assure">
+                        <h3 data-i18n="differs.assure.name">{{ strings.get('differs.assure.name', 'AssureProof') }}</h3>
+                        <p data-i18n="differs.assure.line">{{ strings.get('differs.assure.line', 'AssureProof writes a draft and shows where that draft conflicts with the source files. A person reviews and decides.') }}</p>
+                    </article>
                 </div>
             </div>
         </section>
@@ -335,7 +256,7 @@
             <div class="container center">
                 <h2 class="section-title" data-i18n="home.start.title">{{ strings.get('home.start.title', 'Test AssureProof on your hardest document packet.') }}</h2>
                 <p class="section-sub" data-i18n="home.start.body">{{ strings.get('home.start.body', 'Bring a live document set. We run it with your team and walk you through the findings.') }}</p>
-                <a href="{{ locale_path }}contact-us/" class="btn-primary" data-i18n="landing.closing.cta">{{ strings.get('landing.closing.cta', 'See the proof') }}</a>
+                <a href="{{ locale_path }}poc/" class="btn-primary" data-i18n="landing.closing.cta">{{ strings.get('landing.closing.cta', 'See the proof') }}</a>
             </div>
         </section>
     </main>

@@ -125,7 +125,6 @@ def test_titles_use_the_brand():
     assert not bad, bad[:20]
 
 
-@pytest.mark.xfail(reason="until phase 06", strict=False)
 def test_no_banned_or_unproven_claims():
     bad = []
     for page in _pages():

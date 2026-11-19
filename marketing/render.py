@@ -367,40 +367,20 @@ def _render_page(app, page: dict, locale: str) -> str:
                         },
                     }
                 )
-                howto_steps = (
-                    (
-                        "Both pages open",
-                        "home.steps.1.text",
-                        "The invoice and the contract cap sit side by side. Every figure keeps its source page.",
-                    ),
-                    (
-                        "Contradiction marked",
-                        "home.steps.2.text",
-                        "The formal consistency check flags the conflict. Export is blocked.",
-                    ),
-                    (
-                        "Person decides",
-                        "home.steps.3.text",
-                        "A person accepts or rejects each finding. The file stays downloadable.",
-                    ),
-                )
                 json_ld.append(
                     {
                         "@context": "https://schema.org",
                         "@type": "HowTo",
-                        "name": full.get(
-                            "home.steps.title",
-                            "How it works",
-                        ),
+                        "name": full.get("howto.name", "How AssureProof checks a draft against your files"),
                         "inLanguage": locale,
                         "step": [
                             {
                                 "@type": "HowToStep",
                                 "position": index,
-                                "name": name,
-                                "text": full.get(key) or fallback,
+                                "name": full.get(f"howto.{index}.name", ""),
+                                "text": full.get(f"howto.{index}.text", ""),
                             }
-                            for index, (name, key, fallback) in enumerate(howto_steps, start=1)
+                            for index in range(1, 5)
                         ],
                     }
                 )

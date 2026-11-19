@@ -80,7 +80,7 @@ function clean(value, max) {
   return String(value || "").trim().slice(0, max || 2000);
 }
 
-/** POST /api/z3-demo — Z3 verification demo for interactive hero card. */
+/** POST /api/z3-demo — replays the illustrative hero example (simple subtraction, not a Z3 run). */
 async function handleZ3Demo(request, env) {
   let body;
   try {
@@ -104,9 +104,9 @@ async function handleZ3Demo(request, env) {
     sourceB: { ...sourceB, value: b },
     delta: { value: delta, currency, conflict },
     message: conflict
-      ? `Export locked — ${delta > 0 ? "+" : ""}${delta.toLocaleString()} ${currency} overage detected.`
-      : "No conflict — values agree.",
-    z3Verification: "Deterministic formal logic check completed.",
+      ? `Mismatch marked: the invoice is ${delta > 0 ? "+" : ""}${delta.toLocaleString()} ${currency} over the contract cap. A person reviews and decides.`
+      : "No mismatch: the two figures agree.",
+    z3Verification: "Illustrative example: simulated data, not a Z3 run.",
   });
 }
 

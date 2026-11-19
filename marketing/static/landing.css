@@ -1789,3 +1789,94 @@ a:hover { color: var(--accent-blue-hover); }
 p { text-wrap: pretty; }
 h1, h2, h3 { text-wrap: balance; }
 .section-sub, .section-p, .hero-sub, .lede { text-wrap: pretty; }
+
+
+/* ==========================================================================
+   Four steps (includes/flow.html), How it differs, example label
+   ========================================================================== */
+.flow-section {
+  padding: var(--space-8) 0;
+}
+
+.flow {
+  list-style: none;
+  margin: var(--space-4) 0 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.flow-step,
+.differs-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3);
+}
+
+.flow-step h3,
+.differs-card h3 {
+  font-size: 1.0625rem;
+  margin: var(--space-2) 0 var(--space-1);
+}
+
+.flow-step p,
+.differs-card p {
+  color: var(--text-secondary);
+  font-size: 0.9375rem;
+  margin: 0;
+}
+
+.flow-icon {
+  width: 40px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center
+  justify-content: center;
+  border-radius: var(--radius);
+  background: var(--accent-alpha);
+  color: var(--accent-blue);
+}
+
+.flow-icon svg {
+  width: 24px;
+  height: 24px;
+}
+
+.differs-grid {
+  display: grid
+  gap: var(--space-3);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: var(--space-4);
+}
+
+.differs-card--assure {
+  border: 2px solid var(--accent-blue);
+}
+
+.proof-label {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  margin: var(--space-2) 0 0;
+}
+
+.form-error {
+  color: #b91c1c;
+  margin-top: var(--space-2);
+}
+
+@media (max-width: 900px) {
+  .flow {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .differs-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 600px) {
+  .flow {
+    grid-template-columns: 1fr;
+  }
+}
