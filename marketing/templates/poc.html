@@ -74,6 +74,8 @@
         </section>
     </main>
     {% include 'includes/landing_footer.html' %}
+    <script src="{{ url_for('static', filename='landing-pilot.js') }}?v={{ landing_js_version }}"></script>
+    <script src="{{ url_for('static', filename='landing-i18n.js') }}?v={{ landing_js_version }}"></script>
     <script>(function(){var f=document.getElementById('poc-form');if(!f)return;f.addEventListener('submit',function(e){e.preventDefault();var d=new FormData(f);var msg='POC request — pair: '+d.get('pair')+'; cases before Dec 10: '+d.get('cases')+'; review before Dec 20: '+d.get('review');fetch('/contact-submit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:'POC request',email:d.get('email'),company:'',message:msg})}).then(function(r){return r.json()}).then(function(){f.innerHTML='<p>Request received. We will confirm your slot by email.</p>'}).catch(function(){f.submit()})});})();</script>
 </body>
 </html>

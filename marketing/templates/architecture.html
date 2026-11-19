@@ -115,7 +115,7 @@
     </main>
 
     {% include 'includes/landing_footer.html' %}
-    <script src="{{ url_for('static', filename='landing-pilot.js') }}?v={{ landing_js_version|default('47') }}"></script>
-    <script src="{{ url_for('static', filename='landing-i18n.js') }}"></script>
+    <script src="{{ url_for('static', filename='landing-pilot.js') }}?v={{ landing_js_version }}"></script>
+    <script src="{{ url_for('static', filename='landing-i18n.js') }}?v={{ landing_js_version }}"></script>
 </body>
 </html>

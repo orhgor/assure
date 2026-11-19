@@ -91,6 +91,31 @@ function bindZ3Recalc() {
   });
 }
 
+function bindMobileMenu() {
+  var btn = document.getElementById("mobile-menu-btn");
+  var menu = document.getElementById("mobile-menu");
+  if (!btn || !menu) return;
+  function setOpen(open) {
+    btn.setAttribute("aria-expanded", open ? "true" : "false");
+    menu.hidden = !open;
+  }
+  btn.addEventListener("click", function () {
+    setOpen(btn.getAttribute("aria-expanded") !== "true");
+  });
+  menu.querySelectorAll("a").forEach(function (link) {
+    link.addEventListener("click", function () {
+      setOpen(false);
+    });
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && !menu.hidden) {
+      setOpen(false);
+      btn.focus();
+    }
+  });
+}
+
 document.addEventListener("DOMContentLoaded", function () {
   bindZ3Recalc();
+  bindMobileMenu();
 });

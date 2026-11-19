@@ -50,10 +50,12 @@
   }
 
   function initLocale() {
-    var select = document.getElementById("landing-lang");
-    if (!select) return;
-    select.addEventListener("change", function () {
-      window.location.href = localeHref(select.value);
+    ["landing-lang", "landing-lang-mobile"].forEach(function (id) {
+      var select = document.getElementById(id);
+      if (!select) return;
+      select.addEventListener("change", function () {
+        window.location.href = localeHref(select.value);
+      });
     });
   }
 

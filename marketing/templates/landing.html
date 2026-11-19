@@ -108,7 +108,7 @@
         <!-- ==========================================================================
              HOW IT WORKS — 6-STEP PIPELINE
              ========================================================================== -->
-        <section id="how" class="section" id="how">
+        <section id="how" class="section">
             <div class="container">
                 <h2 class="section-title" data-i18n="home.steps.title">{{ strings.get('home.steps.title', 'How it works') }}</h2>
                 <p class="section-sub" data-i18n="home.steps.sub">{{ strings.get('home.steps.sub', 'Standard AI guesses what your documents say. AssureProof proves whether your numbers and clauses actually agree.') }}</p>
@@ -156,7 +156,7 @@
         <!-- ==========================================================================
              WHERE IT RUNS + TRUST METRICS BAR (Combined)
              ========================================================================== -->
-        <section id="runs" class="section" id="runs">
+        <section id="runs" class="section">
             <div class="container runs-trust-container">
                 <div class="runs-content">
                     <h2 class="section-title" data-i18n="home.runs.title">{{ strings.get('home.runs.title', 'Where it runs') }}</h2>
@@ -342,29 +342,7 @@
     </div>
 
     {% include 'includes/landing_footer.html' %}
-    <script src="{{ url_for('static', filename='landing-pilot.js') }}?v={{ landing_js_version|default('47') }}"></script>
-    <script src="{{ url_for('static', filename='landing-i18n.js') }}"></script>
-    <script>
-        // Mobile nav toggle
-        document.addEventListener('DOMContentLoaded', () => {
-            const mobileBtn = document.getElementById('mobile-menu-btn');
-            const mobileMenu = document.getElementById('mobile-menu');
-
-            mobileBtn?.addEventListener('click', () => {
-                const isExpanded = mobileBtn.getAttribute('aria-expanded') === 'true';
-                mobileBtn.setAttribute('aria-expanded', String(!isExpanded));
-                mobileMenu?.hidden = !isExpanded;
-            });
-
-            // Close mobile menu on link/button click
-            mobileMenu?.querySelectorAll('a, button').forEach((item) => {
-                item.addEventListener('click', () => {
-                    mobileMenu.hidden = true;
-                    mobileBtn?.setAttribute('aria-expanded', 'false');
-                });
-            });
-        });
-    </script>
-    <script src="{{ url_for('static', filename='landing-i18n.js') }}?v={{ landing_js_version|default('47') }}"></script>
+    <script src="{{ url_for('static', filename='landing-pilot.js') }}?v={{ landing_js_version }}"></script>
+    <script src="{{ url_for('static', filename='landing-i18n.js') }}?v={{ landing_js_version }}"></script>
 </body>
 </html>

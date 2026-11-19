@@ -89,7 +89,6 @@ def test_exactly_one_h1():
     assert not bad, bad[:20]
 
 
-@pytest.mark.xfail(reason="until phase 01", strict=False)
 def test_no_duplicate_ids():
     bad = []
     for page in _pages():

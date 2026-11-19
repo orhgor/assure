@@ -35,27 +35,17 @@
 
             <!-- Primary Header CTA -->
             <a href="{{ locale_path }}contact-us/"
-                href="{{ locale_path }}contact-us/"
                 class="btn-primary header-cta"
                 data-i18n="landing.hero.cta_primary">{{ strings.get('landing.hero.cta_primary', 'See the proof') }}</a>
 
             <!-- Mobile Menu Button -->
-            <a href="{{ locale_path }}contact-us/"
-                id="mobile-menu-btn"
-                class="mobile-menu-btn"
-                aria-expanded="false"
-            </div>
-
-            <!-- Mobile Menu Button -->
-            <a href="{{ locale_path }}contact-us/"
+            <button type="button"
                 id="mobile-menu-btn"
                 class="mobile-menu-btn"
                 aria-expanded="false"
                 aria-controls="mobile-menu"
-                aria-label="{{ strings.get('landing.nav.menu', 'Menu') }}"
-                data-icon="menu"
-                data-size="24"
-                data-stroke-width="2">
+                aria-label="{{ strings.get('landing.nav.menu', 'Menu') }}">
+                <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" focusable="false"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
             </button>
         </div>
     </div>
@@ -82,7 +72,6 @@
         </select>
     </label>
     <a href="{{ locale_path }}contact-us/"
-        href="{{ locale_path }}contact-us/"
         class="btn-primary mobile-cta"
         data-i18n="landing.hero.cta_primary">{{ strings.get('landing.hero.cta_primary', 'See the proof') }}</a>
 </nav>

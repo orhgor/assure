@@ -1685,25 +1685,12 @@ a:hover { color: var(--accent-blue-hover); }
   }
 }
 
-/* Mobile nav toggle script */
-document.addEventListener('DOMContentLoaded', () => {
-  const mobileBtn = document.getElementById('mobile-menu-btn');
-  const mobileMenu = document.getElementById('mobile-menu');
-
-  mobileBtn?.addEventListener('click', () => {
-    const isExpanded = mobileBtn.getAttribute('aria-expanded') === 'true';
-    mobileBtn.setAttribute('aria-expanded', String(!isExpanded));
-    mobileMenu?.hidden = isExpanded;
-  });
-
-  // Close mobile menu on link click
-  mobileMenu?.querySelectorAll('a, button').forEach((item) => {
-    item.addEventListener('click', () => {
-      mobileMenu.hidden = true;
-      mobileBtn?.setAttribute('aria-expanded', 'false');
-    });
-  });
-});
+@media (max-width: 900px) {
+  .nav-actions .landing-lang-wrap,
+  .nav-actions .header-cta {
+    display: none;
+  }
+}
 
 /* ==========================================================================
    Z3 Recalculate Button Handler
