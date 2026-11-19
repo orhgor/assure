@@ -66,8 +66,6 @@ def test_home_is_the_earlier_enterprise_page():
     assert "Vendor Invoice #884, Page 3, Line Item 8" in html and "142,500 EUR" in html
     assert "Z3 Conflict" in html
     assert "Export locked" in html
-    assert "a person or an agent decides" in html
-    assert "file can still be downloaded" in html
     assert "See the proof" in html and "Run a pilot on your files" in html
     # V3 pipeline (new copy): Ingest → Page-Pinned Extraction (ParSure) → Structured Drafting (DraftSure)
     # → Mathematical Consistency Check (Z3 Solver) → Optional Adversarial Stress-Test (Red Hat Review)

@@ -147,6 +147,7 @@ TEMPLATE_TO_META = {
     "pricing.html": "pricing",
     "architecture.html": "architecture",
     "solutions.html": "solutions",
+    "poc.html": "poc",
 }
 
 LOCALE_TO_OG = {

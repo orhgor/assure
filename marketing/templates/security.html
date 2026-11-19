@@ -25,7 +25,7 @@
     <link rel="icon" href="{{ url_for('static', filename='assure-logo.png') }}" type="image/png">
     <link rel="apple-touch-icon" href="{{ url_for('static', filename='assure-logo.png') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
     {% if locale|default('en') == 'ar' %}
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -48,7 +48,7 @@
             <div class="container">
                 <div class="section-header">
                     <span class="section-eyebrow" data-i18n="security.eyebrow">{{ strings.get('security.eyebrow', 'Enterprise Security & Deployment') }}</span>
-                    <h2 class="section-title" data-i18n="security.title">{{ strings.get('security.title', 'Zero data leakage. Built for sovereign and air-gapped environments.') }}</h2>
+                    <h1 class="section-title" data-i18n="security.title">{{ strings.get('security.title', 'Where AssureProof runs and what it stores') }}</h1>
                     <p class="section-sub" data-i18n="security.sub">{{ strings.get('security.sub', 'Your most sensitive contracts, claims, and regulatory filings never have to touch a third-party cloud. AssureProof deploys directly inside your perimeter so your security team retains 100% custody of both documents and models.') }}</p>
                 </div>
 

@@ -79,7 +79,6 @@ def test_static_assets_exist():
     assert not missing, missing[:20]
 
 
-@pytest.mark.xfail(reason="until phase 02", strict=False)
 def test_exactly_one_h1():
     bad = []
     for page in _pages():
@@ -103,7 +102,6 @@ def test_no_duplicate_ids():
     assert not bad, bad[:20]
 
 
-@pytest.mark.xfail(reason="until phase 02", strict=False)
 def test_hreflang_on_every_page():
     bad = []
     for page in _pages():
@@ -113,13 +111,11 @@ def test_hreflang_on_every_page():
     assert not bad, bad[:20]
 
 
-@pytest.mark.xfail(reason="until phase 02", strict=False)
 def test_arabic_pages_are_rtl():
     bad = [_rel(p) for p in _pages() if _rel(p).startswith("ar/") and 'dir="rtl"' not in p.read_text(encoding="utf-8")[:500]]
     assert not bad, bad
 
 
-@pytest.mark.xfail(reason="until phase 02", strict=False)
 def test_titles_use_the_brand():
     bad = []
     for page in _pages():
