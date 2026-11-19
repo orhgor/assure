@@ -32,7 +32,7 @@
   "subprocessors": ["AWS", "Supabase", "Clerk", "Stripe", "Plausible Analytics"],
   "subprocessors_note": "These apply to Mode A only. Mode B requires zero external Assure subprocessors.",
   "dpa_statement": "A data processing agreement and security pack are available on request.",
-  "security_email": "privacy@getassureai.com",
+  "security_email": "privacy@assureproof.com",
   "company_legal_name": "Archeon Cloud",
   "company_address": "",
   "analytics_statement": "This site uses Google Analytics (G-54F5NE9Y0P) to measure visits.",

@@ -170,7 +170,6 @@ def test_terms_fraud_clause_in_all_locales():
             assert unescape(value) in unescape(page.read_text(encoding="utf-8")), loc
 
 
-@pytest.mark.xfail(reason="until phase 03", strict=False)
 def test_csp_allows_analytics():
     src = WORKER.read_text(encoding="utf-8")
     m = re.search(r"const CSP = \[(.*?)\]\.join", src, re.S)
@@ -179,3 +178,11 @@ def test_csp_allows_analytics():
     for host in ("https://www.googletagmanager.com", "https://static.cloudflareinsights.com",
                  "https://*.google-analytics.com", "https://cloudflareinsights.com"):
         assert host in csp, host
+
+
+def test_site_email_addresses_use_assureproof_com():
+    src = WORKER.read_text(encoding="utf-8")
+    assert 'const SALES_INBOX = "sales@assureproof.com";' in src
+    assert "website@assureproof.com" in src
+    bad = [_rel(p) for p in _pages() if re.search(r"[\w.+-]+@getassureai\.com", p.read_text(encoding="utf-8"))]
+    assert not bad, bad
