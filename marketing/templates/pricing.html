@@ -1,71 +1,28 @@
-<!DOCTYPE html>
-<html lang="{{ locale|default('en') }}"{% if locale|default('en') == 'ar' %} dir="rtl"{% endif %}>
-<head>
-    {% include 'includes/gtag.html' %}
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ page_title }}</title>
-    <meta name="description" content="{{ page_description }}">
-    <link rel="canonical" href="{{ page_url }}">
-    <meta property="og:type" content="website">
-    <meta property="og:url" content="{{ page_url }}">
-    <meta property="og:locale" content="{{ og_locale }}">
-    {% for code, path in locale_paths.items() %}
-    <link rel="alternate" hreflang="{{ code }}" href="https://assureproof.com{{ path }}pricing/">
-    {% endfor %}
-    <link rel="alternate" hreflang="x-default" href="{{ en_url }}">
-    <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="{{ page_title }}">
-    <meta name="twitter:description" content="{{ page_description }}">
-    <meta property="og:title" content="{{ page_title }}">
-    <meta property="og:description" content="{{ page_description }}">
-    <meta property="og:image" content="{{ og_image }}">
-    <meta property="og:image:width" content="1200">
-    <meta property="og:image:height" content="630">
-    <link rel="icon" href="{{ url_for('static', filename='assure-logo.png') }}" type="image/png">
-    <link rel="apple-touch-icon" href="{{ url_for('static', filename='assure-logo.png') }}">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-    {% if locale|default('en') == 'ar' %}
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
-    {% endif %}
-    {% for item in json_ld %}
-    <script type="application/ld+json">{{ item|tojson }}</script>
-    {% endfor %}
-    <link rel="stylesheet" href="{{ url_for('static', filename='landing.css') }}?v={{ landing_css_version|default('125') }}">
-    <script>
-      window.__assureLandingStrings = {{ strings|tojson }};
-    </script>
-    <script>if(!matchMedia('(prefers-reduced-motion: reduce)').matches)document.documentElement.classList.add('fx')</script>
-</head>
-<body id="top" class="enterprise-landing">
+{% extends 'base.html' %}
+
+{% block nav_current %}
     {% set nav_current = 'pricing' %}
-    {% include 'includes/landing_header.html' %}
+{% endblock %}
 
-    <main id="main-content">
-        <section class="page-hero">
-            <h1 data-i18n="pricing.title">{{ strings.get('pricing.title', 'Pricing') }}</h1>
-            <p class="lede" data-i18n="pricing.lead">{{ strings.get('pricing.lead', 'Enterprise deployment, priced per team and per workflow. Custom to your document set.') }}</p>
+{% block content %}
+<main id="main-content">
+    <section class="page-hero">
+        <h1 data-i18n="pricing.title">{{ strings.get('pricing.title', 'Pricing') }}</h1>
+        <p class="lede" data-i18n="pricing.lead">{{ strings.get('pricing.lead', 'Enterprise deployment, priced per team and per workflow. Custom to your document set.') }}</p>
+    </section>
+    <div class="price-grid">
+        <section class="card">
+            <h2 data-i18n="pricing.pro">{{ strings.get('pricing.pro', 'Enterprise') }}</h2>
+            <p class="lede" data-i18n="pricing.price">{{ strings.get('pricing.price', 'Custom pricing') }}</p>
+            <ul class="privacy-list">
+                <li data-i18n="pricing.pro.1">{{ strings.get('pricing.pro.1', 'Runs in your own AWS account, on-premises, or private GPU environment, inside a boundary you control. Nothing runs on shared infrastructure, and nothing leaves it without your say-so.') }}</li>
+                <li data-i18n="pricing.pro.2">{{ strings.get('pricing.pro.2', 'You choose where the models run: local, documents stay inside your environment; hosted, customer data is never used to train or fine-tune AI models — zero AI model training — and are deleted after the review according to the agreed retention.') }}</li>
+                <li data-i18n="pricing.pro.3">{{ strings.get('pricing.pro.3', 'Source pages stay linked: every figure keeps the page, cell, or row it came from, so anyone on the team can review the check without hunting for the original document.') }}</li>
+                <li data-i18n="pricing.pro.4">{{ strings.get('pricing.pro.4', 'Export is flagged while a contradiction is unresolved. A person decides. The file can still be downloaded.') }}</li>
+            </ul>
+            <p class="price-note" data-i18n="pricing.selective">{{ strings.get('pricing.selective', '1 workflow. Limited sample cases. A written "Yes, proceed" is required. The assessment runs on your documents, in your environment, with a fixed scope agreed up front and a written review at the end.') }}</p>
+            <p><a href="{{ locale_path }}contact-us/" class="btn-primary" data-i18n="pricing.contact">{{ strings.get('pricing.contact', 'Contact sales') }}</a></p>
         </section>
-        <div class="price-grid">
-            <section class="card">
-                <h2 data-i18n="pricing.pro">{{ strings.get('pricing.pro', 'Enterprise') }}</h2>
-                <p class="lede" data-i18n="pricing.price">{{ strings.get('pricing.price', 'Custom pricing') }}</p>
-                <ul class="privacy-list">
-                    <li data-i18n="pricing.pro.1">{{ strings.get('pricing.pro.1', 'Runs in your own AWS account, on-premises, or private GPU environment, inside a boundary you control. Nothing runs on shared infrastructure, and nothing leaves it without your say-so.') }}</li>
-                    <li data-i18n="pricing.pro.2">{{ strings.get('pricing.pro.2', 'You choose where the models run: local, documents stay inside your environment; hosted, customer data is never used to train or fine-tune AI models — zero AI model training — and are deleted after the review according to the agreed retention.') }}</li>
-                    <li data-i18n="pricing.pro.3">{{ strings.get('pricing.pro.3', 'Source pages stay linked: every figure keeps the page, cell, or row it came from, so anyone on the team can review the check without hunting for the original document.') }}</li>
-                    <li data-i18n="pricing.pro.4">{{ strings.get('pricing.pro.4', 'Export is flagged while a contradiction is unresolved. A person decides. The file can still be downloaded.') }}</li>
-                </ul>
-                <p class="price-note" data-i18n="pricing.selective">{{ strings.get('pricing.selective', '1 workflow. Limited sample cases. A written "Yes, proceed" is required. The assessment runs on your documents, in your environment, with a fixed scope agreed up front and a written review at the end.') }}</p>
-                <p><a href="{{ locale_path }}contact-us/" class="btn-primary" data-i18n="pricing.contact">{{ strings.get('pricing.contact', 'Contact sales') }}</a></p>
-            </section>
-        </div>
-    </main>
-
-    {% include 'includes/landing_footer.html' %}
-    <script src="{{ url_for('static', filename='landing-pilot.js') }}?v={{ landing_js_version }}"></script>
-    <script src="{{ url_for('static', filename='landing-i18n.js') }}?v={{ landing_js_version }}"></script>
-</body>
-</html>
+    </div>
+</main>
+{% endblock %}

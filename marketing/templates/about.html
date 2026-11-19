@@ -1,70 +1,23 @@
-<!DOCTYPE html>
-<html lang="{{ locale|default('en') }}"{% if locale|default('en') == 'ar' %} dir="rtl"{% endif %}>
-<head>
-    {% include 'includes/gtag.html' %}
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ page_title }}</title>
-    <meta name="description" content="{{ page_description }}">
-    <link rel="canonical" href="{{ page_url }}">
-    <meta property="og:type" content="website">
-    <meta property="og:url" content="{{ page_url }}">
-    <meta property="og:locale" content="{{ og_locale }}">
-    {% for code, path in locale_paths.items() %}
-    <link rel="alternate" hreflang="{{ code }}" href="https://assureproof.com{{ path }}about/">
-    {% endfor %}
-    <link rel="alternate" hreflang="x-default" href="{{ en_url }}">
-    <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="{{ page_title }}">
-    <meta name="twitter:description" content="{{ page_description }}">
-    <meta property="og:title" content="{{ page_title }}">
-    <meta property="og:description" content="{{ page_description }}">
-    <meta property="og:image" content="{{ og_image }}">
-    <meta property="og:image:width" content="1200">
-    <meta property="og:image:height" content="630">
-    <link rel="icon" href="{{ url_for('static', filename='assure-logo.png') }}" type="image/png">
-    <link rel="apple-touch-icon" href="{{ url_for('static', filename='assure-logo.png') }}">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-    {% if locale|default('en') == 'ar' %}
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
-    {% endif %}
-    {% for item in json_ld %}
-    <script type="application/ld+json">{{ item|tojson }}</script>
-    {% endfor %}
-    <link rel="stylesheet" href="{{ url_for('static', filename='landing.css') }}?v={{ landing_css_version|default('125') }}">
-    <script>
-      window.__assureLandingStrings = {{ strings|tojson }};
-    </script>
-    <script>if(!matchMedia('(prefers-reduced-motion: reduce)').matches)document.documentElement.classList.add('fx')</script>
-</head>
-<body id="top" class="enterprise-landing">
-    {% set nav_current = 'about' %}
-    {% include 'includes/landing_header.html' %}
+{% extends 'base.html' %}
 
-    <main id="main-content">
-        <div class="page">
-            <div class="page-hero">
-                <h1 data-i18n="about.title">{{ strings.get('about.title', 'About') }}</h1>
-            </div>
-            <section class="card">
-                <h2 data-i18n="about.what">{{ strings.get('about.what', 'What it does') }}</h2>
-                <p data-i18n="about.what.body">{{ strings.get('about.what.body', 'Assure checks one document against another. Both source pages stay open, and the contradiction is shown before you pay. A person decides. The file can still be downloaded. Runs in your own AWS account, on-premises, or private GPU environment. You choose where the models run.') }}</p>
-                <h2 data-i18n="about.engine">{{ strings.get('about.engine', 'Who it is for') }}</h2>
-                <ul class="privacy-list">
-                    <li data-i18n="about.who.1">{{ strings.get('about.who.1', 'Finance: invoices checked against contract caps and agreed terms.') }}</li>
-                    <li data-i18n="about.who.2">{{ strings.get('about.who.2', 'Claims: claim files checked against policies and supporting documents.') }}</li>
-                    <li data-i18n="about.who.3">{{ strings.get('about.who.3', 'Procurement: tenders checked against supplier documents and requirements.') }}</li>
-                </ul>
-                <p data-i18n="about.proof">{{ strings.get('about.proof', 'See the 142,500 EUR invoice checked against the 120,000 EUR contract cap.') }} <a href="{{ locale_path }}use-cases/" data-i18n="about.proof.link">{{ strings.get('about.proof.link', 'See the example') }}</a></p>
-                <p><a href="{{ locale_path }}contact-us/" class="btn-primary" data-i18n="about.cta">{{ strings.get('about.cta', 'See the proof') }}</a></p>
-            </section>
+{% block content %}
+<main id="main-content">
+    <div class="page">
+        <div class="page-hero">
+            <h1 data-i18n="about.title">{{ strings.get('about.title', 'About') }}</h1>
         </div>
-    </main>
-
-    {% include 'includes/landing_footer.html' %}
-    <script src="{{ url_for('static', filename='landing-pilot.js') }}?v={{ landing_js_version }}"></script>
-    <script src="{{ url_for('static', filename='landing-i18n.js') }}?v={{ landing_js_version }}"></script>
-</body>
-</html>
+        <section class="card">
+            <h2 data-i18n="about.what">{{ strings.get('about.what', 'What it does') }}</h2>
+            <p data-i18n="about.what.body">{{ strings.get('about.what.body', 'Assure checks one document against another. Both source pages stay open, and the contradiction is shown before you pay. A person decides. The file can still be downloaded. Runs in your own AWS account, on-premises, or private GPU environment. You choose where the models run.') }}</p>
+            <h2 data-i18n="about.engine">{{ strings.get('about.engine', 'Who it is for') }}</h2>
+            <ul class="privacy-list">
+                <li data-i18n="about.who.1">{{ strings.get('about.who.1', 'Finance: invoices checked against contract caps and agreed terms.') }}</li>
+                <li data-i18n="about.who.2">{{ strings.get('about.who.2', 'Claims: claim files checked against policies and supporting documents.') }}</li>
+                <li data-i18n="about.who.3">{{ strings.get('about.who.3', 'Procurement: tenders checked against supplier documents and requirements.') }}</li>
+            </ul>
+            <p data-i18n="about.proof">{{ strings.get('about.proof', 'See the 142,500 EUR invoice checked against the 120,000 EUR contract cap.') }} <a href="{{ locale_path }}use-cases/" data-i18n="about.proof.link">{{ strings.get('about.proof.link', 'See the example') }}</a></p>
+            <p><a href="{{ locale_path }}contact-us/" class="btn-primary" data-i18n="about.cta">{{ strings.get('about.cta', 'See the proof') }}</a></p>
+        </section>
+    </div>
+</main>
+{% endblock %}

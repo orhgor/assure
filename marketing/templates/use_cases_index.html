@@ -1,183 +1,142 @@
-<!DOCTYPE html>
-<html lang="{{ locale|default('en') }}"{% if locale|default('en') == 'ar' %} dir="rtl"{% endif %}>
-<head>
-    {% include 'includes/gtag.html' %}
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ page_title }}</title>
-    <meta name="description" content="{{ page_description }}">
-    <link rel="canonical" href="{{ page_url }}">
-    <meta property="og:type" content="website">
-    <meta property="og:url" content="{{ page_url }}">
-    <meta property="og:locale" content="{{ og_locale }}">
-    {% for code, path in locale_paths.items() %}
-    <link rel="alternate" hreflang="{{ code }}" href="https://assureproof.com{{ path }}{{ page_suffix|default('') }}">
-    {% endfor %}
-    <link rel="alternate" hreflang="x-default" href="{{ en_url }}">
-    <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="{{ page_title }}">
-    <meta name="twitter:description" content="{{ page_description }}">
-    <meta property="og:title" content="{{ page_title }}">
-    <meta property="og:description" content="{{ page_description }}">
-    <meta property="og:image" content="{{ og_image }}">
-    <meta property="og:image:width" content="1200">
-    <meta property="og:image:height" content="630">
-    <link rel="icon" href="{{ url_for('static', filename='assure-logo.png') }}" type="image/png">
-    <link rel="apple-touch-icon" href="{{ url_for('static', filename='assure-logo.png') }}">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-    {% if locale|default('en') == 'ar' %}
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
-    {% endif %}
-    {% for item in json_ld %}
-    <script type="application/ld+json">{{ item|tojson }}</script>
-    {% endfor %}
-    <link rel="stylesheet" href="{{ url_for('static', filename='landing.css') }}?v={{ landing_css_version|default('125') }}">
-    <script>
-      window.__assureLandingStrings = {{ strings|tojson }};
-    </script>
-    <script>if(!matchMedia('(prefers-reduced-motion: reduce)').matches)document.documentElement.classList.add('fx')</script>
-</head>
-<body id="top" class="enterprise-landing uc-landing">
+{% extends 'base.html' %}
+
+{% block body_attrs %} uc-landing{% endblock %}
+
+{% block nav_current %}
     {% set nav_current = 'use-cases' %}
-    {% include 'includes/landing_header.html' %}
+{% endblock %}
 
-    <main id="main-content">
-        <section class="hero-section uc2-hero">
-            <div class="container">
-                <h1 class="hero-title" data-i18n="uc.index.title">{{ strings.get('uc.index.title', 'Use Cases') }}</h1>
-                <div class="price-grid price-grid--duo home-hero-proof" role="group" aria-label="{{ strings.get('proof.duo.aria', 'Source A — contract cap 120,000 EUR, compared with Source B — invoice 142,500 EUR') }}">
-                    <section class="card">
-                        <h2 data-i18n="proof.a.kicker">{{ strings.get('proof.a.kicker', 'Source A') }}</h2>
-                        <p class="lede" data-i18n="proof.a.title">{{ strings.get('proof.a.title', 'Master Services Agreement (MSA), Page 12, Clause 4.2') }}</p>
-                        <p class="lede" data-i18n="proof.a.value">{{ strings.get('proof.a.value', '120,000 EUR cap') }}</p>
-                    </section>
-                    <section class="card">
-                        <h2 data-i18n="proof.b.kicker">{{ strings.get('proof.b.kicker', 'Source B') }}</h2>
-                        <p class="lede" data-i18n="proof.b.title">{{ strings.get('proof.b.title', 'Vendor Invoice #884, Page 3, Line Item 8') }}</p>
-                        <p class="lede" data-i18n="proof.b.value">{{ strings.get('proof.b.value', '142,500 EUR billed') }}</p>
-                    </section>
-                </div>
-                <section class="card proof-z3">
-                    <h2 data-i18n="proof.z3.title">{{ strings.get('proof.z3.title', 'Z3 Conflict') }}</h2>
-                    <p class="lede" data-i18n="proof.z3.body">{{ strings.get('proof.z3.body', 'Export blocked — the two sources cannot both be true. A person or an agent decides, and the file can still be downloaded.') }}</p>
+{% block content %}
+<main id="main-content">
+    <section class="hero-section uc2-hero">
+        <div class="container">
+            <h1 class="hero-title" data-i18n="uc.index.title">{{ strings.get('uc.index.title', 'Use Cases') }}</h1>
+            <div class="price-grid price-grid--duo home-hero-proof" role="group" aria-label="{{ strings.get('proof.duo.aria', 'Source A — contract cap 120,000 EUR, compared with Source B — invoice 142,500 EUR') }}">
+                <section class="card">
+                    <h2 data-i18n="proof.a.kicker">{{ strings.get('proof.a.kicker', 'Source A') }}</h2>
+                    <p class="lede" data-i18n="proof.a.title">{{ strings.get('proof.a.title', 'Master Services Agreement (MSA), Page 12, Clause 4.2') }}</p>
+                    <p class="lede" data-i18n="proof.a.value">{{ strings.get('proof.a.value', '120,000 EUR cap') }}</p>
                 </section>
-                <p class="hero-sub hero-see" data-i18n="home.hero.see">{{ strings.get('home.hero.see', 'Invoice p.3 and Contract p.12 are both open. Export is flagged.') }}</p>
-                <p class="hero-sub" data-i18n="home.hero.proof.line">{{ strings.get('home.hero.proof.line', 'A person decides.') }}</p>
-                <p class="hero-icp" data-i18n="home.hero.icp">{{ strings.get('home.hero.icp', 'For Finance, Claims, and Procurement teams.') }}</p>
-                <div class="hero-cta-group">
-                    <a href="{{ locale_path }}contact-us/" class="btn-primary" data-i18n="landing.hero.cta_primary">{{ strings.get('landing.hero.cta_primary', 'See the proof') }}</a>
-                    <a href="{{ locale_path }}poc/" class="btn-secondary" data-i18n="landing.hero.cta_secondary">{{ strings.get('landing.hero.cta_secondary', 'Run a POC') }}</a>
-                </div>
+                <section class="card">
+                    <h2 data-i18n="proof.b.kicker">{{ strings.get('proof.b.kicker', 'Source B') }}</h2>
+                    <p class="lede" data-i18n="proof.b.title">{{ strings.get('proof.b.title', 'Vendor Invoice #884, Page 3, Line Item 8') }}</p>
+                    <p class="lede" data-i18n="proof.b.value">{{ strings.get('proof.b.value', '142,500 EUR billed') }}</p>
+                </section>
             </div>
-        </section>
-
-        <section id="problem" class="home-section">
-            <div class="container">
-                <h2 class="section-title" data-i18n="home.pain.title">{{ strings.get('home.pain.title', 'The problem: extraction ≠ verification') }}</h2>
-                <p class="section-sub" data-i18n="home.pain.sub">{{ strings.get('home.pain.sub', 'Most tools extract data. AssureProof verifies whether the extracted data can all be true at the same time.') }}</p>
+            <section class="card proof-z3">
+                <h2 data-i18n="proof.z3.title">{{ strings.get('proof.z3.title', 'Z3 Conflict') }}</h2>
+                <p class="lede" data-i18n="proof.z3.body">{{ strings.get('proof.z3.body', 'Export blocked — the two sources cannot both be true. A person or an agent decides, and the file can still be downloaded.') }}</p>
+            </section>
+            <p class="hero-sub hero-see" data-i18n="home.hero.see">{{ strings.get('home.hero.see', 'Invoice p.3 and Contract p.12 are both open. Export is flagged.') }}</p>
+            <p class="hero-sub" data-i18n="home.hero.proof.line">{{ strings.get('home.hero.proof.line', 'A person decides.') }}</p>
+            <p class="hero-icp" data-i18n="home.hero.icp">{{ strings.get('home.hero.icp', 'For Finance, Claims, and Procurement teams.') }}</p>
+            <div class="hero-cta-group">
+                <a href="{{ locale_path }}contact-us/" class="btn-primary" data-i18n="landing.hero.cta_primary">{{ strings.get('landing.hero.cta_primary', 'See the proof') }}</a>
+                <a href="{{ locale_path }}poc/" class="btn-secondary" data-i18n="landing.hero.cta_secondary">{{ strings.get('landing.hero.cta_secondary', 'Run a POC') }}</a>
             </div>
-        </section>
+        </div>
+    </section>
 
-        <section class="uc2-list">
-            <div class="container">
-                <h2 class="section-title" data-i18n="use-cases.title">{{ strings.get('use-cases.title', 'Use Cases') }}</h2>
+    <section id="problem" class="home-section">
+        <div class="container">
+            <h2 class="section-title" data-i18n="home.pain.title">{{ strings.get('home.pain.title', 'The problem: extraction ≠ verification') }}</h2>
+            <p class="section-sub" data-i18n="home.pain.sub">{{ strings.get('home.pain.sub', 'Most tools extract data. AssureProof verifies whether the extracted data can all be true at the same time.') }}</p>
+        </div>
+    </section>
 
-                <!-- Card 1: Government -->
-                <article class="uc3-case uc3-gov" id="government">
-                    <div class="uc3-intro">
-                        <span class="uc2-num">01</span>
-                        <h2 class="uc2-title" data-i18n="uc.gov.title">{{ strings.get('uc.gov.title', 'Government Document Checks') }}</h2>
-                        <h3 class="uc2-label" data-i18n="uc3.label.docs">{{ strings.get('uc3.label.docs', 'Documents') }}</h3>
-                        <ul class="uc3-docs">
-                            <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V7Z"/><path d="M14 2v4a2 2 0 002 2h4"/></svg><span data-i18n="uc3.gov.doc.1">{{ strings.get('uc3.gov.doc.1', 'RFP / Bid Package') }}</span></li>
-                            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V7Z"/><path d="M14 2v4a2 2 0 002 2h4"/></svg><span data-i18n="uc3.gov.doc.2">{{ strings.get('uc3.gov.doc.2', 'Contract / SOW') }}</span></li>
-                            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V7Z"/><path d="M14 2v4a2 2 0 002 2h4"/></svg><span data-i18n="uc3.gov.doc.3">{{ strings.get('uc3.gov.doc.3', 'Compliance Attestation') }}</span></li>
-                        </ul>
-                        <a class="uc2-more" href="{{ locale_path }}use-cases/government/">{{ strings.get('uc.more', 'See how it works') }} <span aria-hidden="true">→</span></a>
-                    </div>
-                    <div class="uc3-body">
-                        <div class="uc3-sketch" aria-hidden="true">
-                            <figure class="uc3-idcard"><div class="uc3-photo"></div><div class="uc3-lines"><i class="uc2-hl"></i><i></i><i class="uc3-warn"></i><i class="short"></i></div><figcaption data-i18n="uc3.gov.sk.1">{{ strings.get('uc3.gov.sk.1', 'RFP Schedule B caps subcontractors at 15% of total bid value.') }}</figcaption></figure>
-                            <figure class="uc3-form"><div class="uc3-field"><b></b><i class="uc2-hl"></i></div><div class="uc3-field"><b></b><i></i></div><div class="uc3-field"><b></b><i></i></div><div class="uc3-attach"><span></span><span></span><span class="uc3-missing"></span></div><figcaption data-i18n="uc3.gov.sk.2">{{ strings.get('uc3.gov.sk.2', 'Vendor proposal allocates 24.5% to subcontractors — exceeds statutory 15% cap by 9.5%.') }}</figcaption></figure>
-                        </div>
-                        <h3 class="uc2-label" data-i18n="uc3.label.findings">{{ strings.get('uc3.label.findings', 'Findings') }}</h3>
-                        <ul class="uc3-checklist">
-                            <li><span class="uc3-x" aria-hidden="true">✕</span><div><p data-i18n="uc3.gov.f.1">{{ strings.get('uc3.gov.f.1', 'The name on the ID does not match the name on the application form.') }}</p><p class="uc3-src"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false"><path d="M15 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V7Z"/><path d="M14 2v4a2 2 0 002 2h4"/></svg><span data-i18n="uc3.gov.s.1">{{ strings.get('uc3.gov.s.1', 'ID, page 1 · Application form, page 1') }}</span></p></div></li>
-                            <li><span class="uc3-x" aria-hidden="true">✕</span><div><p data-i18n="uc3.gov.f.2">{{ strings.get('uc3.gov.f.2', 'The certificate number on the form does not match the number on the certificate.') }}</p><p class="uc3-src"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false"><path d="M15 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V7Z"/><path d="M14 2v4a2 2 0 002 2h4"/></svg><span data-i18n="uc3.gov.s.2">{{ strings.get('uc3.gov.s.2', 'Certificate, page 1 · Application form, page 2') }}</span></p></div></li>
-                            <li><span class="uc3-x" aria-hidden="true">✕</span><div><p data-i18n="uc3.gov.f.3">{{ strings.get('uc3.gov.f.3', 'The date of birth on the ID does not match the date of birth on the application form.') }}</p><p class="uc3-src"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false"><path d="M15 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V7Z"/><path d="M14 2v4a2 2 0 002 2h4"/></svg><span data-i18n="uc3.gov.s.3">{{ strings.get('uc3.gov.s.3', 'ID, page 1 · Application form, page 1') }}</span></p></div></li>
-                            <li><span class="uc3-x" aria-hidden="true">✕</span><div><p data-i18n="uc3.gov.f.4">{{ strings.get('uc3.gov.f.4', 'The application form lists a supporting certificate that is not in the file.') }}</p><p class="uc3-src"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false"><path d="M15 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V7Z"/><path d="M14 2v4a2 2 0 002 2h4"/></svg><span data-i18n="uc3.gov.s.4">{{ strings.get('uc3.gov.s.4', 'Application form, page 3') }}</span></p></div></li>
-                        </ul>
-                        <p class="uc3-outcome" data-i18n="uc3.gov.outcome">{{ strings.get('uc3.gov.outcome', 'Result: Export Locked — Exceeds statutory subcontracting threshold by 9.5% ($367,500).') }}</p>
-                    </div>
+    <section class="uc2-list">
+        <div class="container">
+            <h2 class="section-title" data-i18n="use-cases.title">{{ strings.get('use-cases.title', 'Use Cases') }}</h2>
+
+            <!-- Card 1: Government -->
+            <article class="uc3-case uc3-gov" id="government">
+                <div class="uc3-intro">
+                    <span class="uc2-num">01</span>
+                    <h2 class="uc2-title" data-i18n="uc.gov.title">{{ strings.get('uc.gov.title', 'Government Document Checks') }}</h2>
+                    <h3 class="uc2-label" data-i18n="uc3.label.docs">{{ strings.get('uc3.label.docs', 'Documents') }}</h3>
+                    <ul class="uc3-docs">
+                        <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V7Z"/><path d="M14 2v4a2 2 0 002 2h4"/></svg><span data-i18n="uc3.gov.doc.1">{{ strings.get('uc3.gov.doc.1', 'RFP / Bid Package') }}</span></li>
+                        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V7Z"/><path d="M14 2v4a2 2 0 002 2h4"/></svg><span data-i18n="uc3.gov.doc.2">{{ strings.get('uc3.gov.doc.2', 'Contract / SOW') }}</span></li>
+                        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V7Z"/><path d="M14 2v4a2 2 0 002 2h4"/></svg><span data-i18n="uc3.gov.doc.3">{{ strings.get('uc3.gov.doc.3', 'Compliance Attestation') }}</span></li>
+                    </ul>
                     <a class="uc2-more" href="{{ locale_path }}use-cases/government/">{{ strings.get('uc.more', 'See how it works') }} <span aria-hidden="true">→</span></a>
-                </article>
+                </div>
+                <div class="uc3-body">
+                    <div class="uc3-sketch" aria-hidden="true">
+                        <figure class="uc3-idcard"><div class="uc3-photo"></div><div class="uc3-lines"><i class="uc2-hl"></i><i></i><i class="uc3-warn"></i><i class="short"></i></div><figcaption data-i18n="uc3.gov.sk.1">{{ strings.get('uc3.gov.sk.1', 'RFP Schedule B caps subcontractors at 15% of total bid value.') }}</figcaption></figure>
+                        <figure class="uc3-form"><div class="uc3-field"><b></b><i class="uc2-hl"></i></div><div class="uc3-field"><b></b><i></i></div><div class="uc3-field"><b></b><i></i></div><div class="uc3-attach"><span></span><span></span><span class="uc3-missing"></span></div><figcaption data-i18n="uc3.gov.sk.2">{{ strings.get('uc3.gov.sk.2', 'Vendor proposal allocates 24.5% to subcontractors — exceeds statutory 15% cap by 9.5%.') }}</figcaption></figure>
+                    </div>
+                    <h3 class="uc2-label" data-i18n="uc3.label.findings">{{ strings.get('uc3.label.findings', 'Findings') }}</h3>
+                    <ul class="uc3-checklist">
+                        <li><span class="uc3-x" aria-hidden="true">✕</span><div><p data-i18n="uc3.gov.f.1">{{ strings.get('uc3.gov.f.1', 'The name on the ID does not match the name on the application form.') }}</p><p class="uc3-src"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false"><path d="M15 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V7Z"/><path d="M14 2v4a2 2 0 002 2h4"/></svg><span data-i18n="uc3.gov.s.1">{{ strings.get('uc3.gov.s.1', 'ID, page 1 · Application form, page 1') }}</span></p></div></li>
+                        <li><span class="uc3-x" aria-hidden="true">✕</span><div><p data-i18n="uc3.gov.f.2">{{ strings.get('uc3.gov.f.2', 'The certificate number on the form does not match the number on the certificate.') }}</p><p class="uc3-src"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false"><path d="M15 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V7Z"/><path d="M14 2v4a2 2 0 002 2h4"/></svg><span data-i18n="uc3.gov.s.2">{{ strings.get('uc3.gov.s.2', 'Certificate, page 1 · Application form, page 2') }}</span></p></div></li>
+                        <li><span class="uc3-x" aria-hidden="true">✕</span><div><p data-i18n="uc3.gov.f.3">{{ strings.get('uc3.gov.f.3', 'The date of birth on the ID does not match the date of birth on the application form.') }}</p><p class="uc3-src"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false"><path d="M15 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V7Z"/><path d="M14 2v4a2 2 0 002 2h4"/></svg><span data-i18n="uc3.gov.s.3">{{ strings.get('uc3.gov.s.3', 'ID, page 1 · Application form, page 1') }}</span></p></div></li>
+                        <li><span class="uc3-x" aria-hidden="true">✕</span><div><p data-i18n="uc3.gov.f.4">{{ strings.get('uc3.gov.f.4', 'The application form lists a supporting certificate that is not in the file.') }}</p><p class="uc3-src"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false"><path d="M15 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V7Z"/><path d="M14 2v4a2 2 0 002 2h4"/></svg><span data-i18n="uc3.gov.s.4">{{ strings.get('uc3.gov.s.4', 'Application form, page 3') }}</span></p></div></li>
+                    </ul>
+                    <p class="uc3-outcome" data-i18n="uc3.gov.outcome">{{ strings.get('uc3.gov.outcome', 'Result: Export Locked — Exceeds statutory subcontracting threshold by 9.5% ($367,500).') }}</p>
+                </div>
+                <a class="uc2-more" href="{{ locale_path }}use-cases/government/">{{ strings.get('uc.more', 'See how it works') }} <span aria-hidden="true">→</span></a>
+            </article>
 
-                <!-- Card 2: Insurance -->
-                <article class="uc3-case uc3-ins uc3-flip" id="insurance">
-                    <div class="uc3-intro">
-                        <span class="uc2-num">02</span>
-                        <h2 class="uc2-title" data-i18n="uc.ins.title">{{ strings.get('uc.ins.title', 'Insurance Claims Review') }}</h2>
-                        <h3 class="uc2-label" data-i18n="uc3.label.docs">{{ strings.get('uc3.label.docs', 'Documents') }}</h3>
-                        <ul class="uc3-docs">
-                            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V7Z"/><path d="M14 2v4a2 2 0 002 2h4"/></svg><span data-i18n="uc3.ins.doc.1">{{ strings.get('uc3.ins.doc.1', 'Policy Declaration Page') }}</span></li>
-                            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V7Z"/><path d="M14 2v4a2 2 0 002 2h4"/></svg><span data-i18n="uc3.ins.doc.2">{{ strings.get('uc3.ins.doc.2', 'Claim Form (FNOL)') }}</span></li>
-                            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V7Z"/><path d="M14 2v4a2 2 0 002 2h4"/></svg><span data-i18n="uc3.ins.doc.3">{{ strings.get('uc3.ins.doc.3', 'Adjuster Worksheet / Medical Bills') }}</span></li>
-                        </ul>
-                        <a class="uc2-more" href="{{ locale_path }}use-cases/insurance/">{{ strings.get('uc.more', 'See how it works') }} <span aria-hidden="true">→</span></a>
-                    </div>
-                    <div class="uc3-body">
-                        <div class="uc3-sketch" aria-hidden="true">
-                            <figure class="uc3-invoice"><div class="uc3-inv-head"><b></b><b class="short"></b></div><div class="uc3-inv-row"><i></i><i class="num"></i></div><div class="uc3-inv-row"><i></i><i class="num"></i></div><div class="uc3-inv-row"><i></i><i class="num"></i></div><div class="uc3-inv-total"><i></i><i class="num uc2-hl"></i></div><figcaption data-i18n="uc3.ins.sk.1">{{ strings.get('uc3.ins.sk.1', 'Claim payout exceeds policy water damage sub-limit by $18,400.') }}</figcaption></figure>
-                            <figure class="uc3-form"><div class="uc3-field"><b></b><i></i></div><div class="uc3-field"><b></b><i class="uc3-warn"></i></div><div class="uc3-field"><b></b><i class="uc2-hl"></i></div><div class="uc3-field"><b></b><i></i></div><figcaption data-i18n="uc3.ins.sk.2">{{ strings.get('uc3.ins.sk.2', 'Adjuster worksheet approves $68,400 remediation — exceeds $50,000 water damage sub-limit by $18,400.') }}</figcaption></figure>
-                        </div>
-                        <h3 class="uc2-label" data-i18n="uc3.label.findings">{{ strings.get('uc3.label.findings', 'Findings') }}</h3>
-                        <table class="uc3-table">
-                            <thead><tr><th data-i18n="uc3.col.finding">{{ strings.get('uc3.col.finding', 'Finding') }}</th><th data-i18n="uc3.col.source">{{ strings.get('uc3.col.source', 'Source') }}</th></tr></thead>
-                            <tbody>
-                                <tr><td data-i18n="uc3.ins.f.1">{{ strings.get('uc3.ins.f.1', 'Adjuster approves $68,400 remediation — exceeds $50,000 water damage sub-limit by $18,400.') }}</td><td class="uc3-src" data-i18n="uc3.ins.s.1">{{ strings.get('uc3.ins.s.1', 'Policy #409-B, Endorsement 3 — Water Damage Sub-Limit: $50,000') }}</td></tr>
-                                <tr><td data-i18n="uc3.ins.f.2">{{ strings.get('uc3.ins.f.2', 'Adjuster worksheet omits required mitigation receipts (per policy §4.2).') }}</td><td class="uc3-src" data-i18n="uc3.ins.s.2">{{ strings.get('uc3.ins.s.2', 'Adjuster Worksheet, p. 6 — Missing receipts for $18,400 line items.') }}</td></tr>
-                                <tr><td data-i18n="uc3.ins.f.3">{{ strings.get('uc3.ins.f.3', 'Mold remediation line item lacks required contractor license verification (per policy §5.1).') }}</td><td class="uc3-src" data-i18n="uc3.ins.s.3">{{ strings.get('uc3.ins.s.3', 'Contractor License Registry — No active license on file for vendor.') }}</td></tr>
-                            </tbody>
-                        </table>
-                        <p class="uc3-outcome"><span class="uc3-outcome-label" data-i18n="uc3.label.outcome">{{ strings.get('uc3.label.outcome', 'Outcome:') }}</span><span data-i18n="uc3.ins.outcome">{{ strings.get('uc3.ins.outcome', 'Result: Export Locked — Exceeds endorsement cap by $18,400.') }}</span></p>
-                    </div>
+            <!-- Card 2: Insurance -->
+            <article class="uc3-case uc3-ins uc3-flip" id="insurance">
+                <div class="uc3-intro">
+                    <span class="uc2-num">02</span>
+                    <h2 class="uc2-title" data-i18n="uc.ins.title">{{ strings.get('uc.ins.title', 'Insurance Claims Review') }}</h2>
+                    <h3 class="uc2-label" data-i18n="uc3.label.docs">{{ strings.get('uc3.label.docs', 'Documents') }}</h3>
+                    <ul class="uc3-docs">
+                        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V7Z"/><path d="M14 2v4a2 2 0 002 2h4"/></svg><span data-i18n="uc3.ins.doc.1">{{ strings.get('uc3.ins.doc.1', 'Policy Declaration Page') }}</span></li>
+                        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V7Z"/><path d="M14 2v4a2 2 0 002 2h4"/></svg><span data-i18n="uc3.ins.doc.2">{{ strings.get('uc3.ins.doc.2', 'Claim Form (FNOL') }}</span></li>
+                        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V7Z"/><path d="M14 2v4a2 2 0 002 2h4"/></svg><span data-i18n="uc3.ins.doc.3">{{ strings.get('uc3.ins.doc.3', 'Adjuster Worksheet / Medical Bills') }}</span></li>
+                    </ul>
                     <a class="uc2-more" href="{{ locale_path }}use-cases/insurance/">{{ strings.get('uc.more', 'See how it works') }} <span aria-hidden="true">→</span></a>
-                </article>
+                </div>
+                <div class="uc3-body">
+                    <div class="uc3-sketch" aria-hidden="true">
+                        <figure class="uc3-invoice"><div class="uc3-inv-head"><b></b><b class="short"></b></div><div class="uc3-inv-row"><i></i><i class="num"></i></div><div class="uc3-inv-row"><i></i><i class="num"></i></div><div class="uc3-inv-row"><i></i><i class="num"></i></div><div class="uc3-inv-total"><i></i><i class="num uc2-hl"></i></div><figcaption data-i18n="uc3.ins.sk.1">{{ strings.get('uc3.ins.sk.1', 'Claim payout exceeds policy water damage sub-limit by $18,400.') }}</figcaption></figure>
+                        <figure class="uc3-form"><div class="uc3-field"><b></b><i></i></div><div class="uc3-field"><b></b><i class="uc3-warn"></i></div><div class="uc3-field"><b></b><i class="uc2-hl"></i></div><div class="uc3-field"><b></b><i></i></div><figcaption data-i18n="uc3.ins.sk.2">{{ strings.get('uc3.ins.sk.2', 'Adjuster worksheet approves $68,400 remediation — exceeds $50,000 water damage sub-limit by $18,400.') }}</figcaption></figure>
+                    </div>
+                    <h3 class="uc2-label" data-i18n="uc3.label.findings">{{ strings.get('uc3.label.findings', 'Findings') }}</h3>
+                    <table class="uc3-table">
+                        <thead><tr><th data-i18n="uc3.col.finding">{{ strings.get('uc3.col.finding', 'Finding') }}</th><th data-i18n="uc3.col.source">{{ strings.get('uc3.col.source', 'Source') }}</th></tr></thead>
+                        <tbody>
+                            <tr><td data-i18n="uc3.ins.f.1">{{ strings.get('uc3.ins.f.1', 'Adjuster approves $68,400 remediation — exceeds $50,000 water damage sub-limit by $18,400.') }}</td><td class="uc3-src" data-i18n="uc3.ins.s.1">{{ strings.get('uc3.ins.s.1', 'Policy #409-B, Endorsement 3 — Water Damage Sub-Limit: $50,000') }}</td></tr>
+                            <tr><td data-i18n="uc3.ins.f.2">{{ strings.get('uc3.ins.f.2', 'Adjuster worksheet omits required mitigation receipts (per policy §4.2).') }}</td><td class="uc3-src" data-i18n="uc3.ins.s.2">{{ strings.get('uc3.ins.s.2', 'Adjuster Worksheet, p. 6 — Missing receipts for $18,400 line items.') }}</td></tr>
+                            <tr><td data-i18n="uc3.ins.f.3">{{ strings.get('uc3.ins.f.3', 'Mold remediation line item lacks required contractor license verification (per policy §5.1).') }}</td><td class="uc3-src" data-i18n="uc3.ins.s.3">{{ strings.get('uc3.ins.s.3', 'Contractor License Registry — No active license on file for vendor.') }}</td></tr>
+                        </tbody>
+                    </table>
+                    <p class="uc3-outcome"><span class="uc3-outcome-label" data-i18n="uc3.label.outcome">{{ strings.get('uc3.label.outcome', 'Outcome:') }}</span><span data-i18n="uc3.ins.outcome">{{ strings.get('uc3.ins.outcome', 'Result: Export Locked — Exceeds endorsement cap by $18,400.') }}</span></p>
+                </div>
+                <a class="uc2-more" href="{{ locale_path }}use-cases/insurance/">{{ strings.get('uc.more', 'See how it works') }} <span aria-hidden="true">→</span></a>
+            </article>
 
-                <!-- Card 3: Invoice vs Contract -->
-                <article class="uc3-case uc3-inv" id="invoice-vs-contract">
-                    <div class="uc3-intro">
-                        <span class="uc2-num">03</span>
-                        <h2 class="uc2-title" data-i18n="uc3.inv.title">{{ strings.get('uc3.inv.title', 'Invoice vs Contract Reconciliation') }}</h2>
-                        <h3 class="uc2-label" data-i18n="uc3.label.docs">{{ strings.get('uc3.label.docs', 'Documents') }}</h3>
-                        <ul class="uc3-docs">
-                            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V7Z"/><path d="M14 2v4a2 2 0 002 2h4"/></svg><span data-i18n="uc3.inv.doc.1">{{ strings.get('uc3.inv.doc.1', 'Master Services Agreement (MSA)') }}</span></li>
-                            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V7Z"/><path d="M14 2v4a2 2 0 002 2h4"/></svg><span data-i18n="uc3.inv.doc.2">{{ strings.get('uc3.inv.doc.2', 'Vendor Invoice') }}</span></li>
-                            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V7Z"/><path d="M14 2v4a2 2 0 002 2h4"/></svg><span data-i18n="uc3.inv.doc.3">{{ strings.get('uc3.inv.doc.3', 'Payment Schedule / SOW') }}</span></li>
-                        </ul>
-                        <a class="uc2-more" href="{{ locale_path }}solutions/">{{ strings.get('uc.more', 'See how it works') }} <span aria-hidden="true">→</span></a>
-                    </div>
-                    <div class="uc3-body">
-                        <div class="uc3-sketch" aria-hidden="true">
-                            <figure class="uc3-invoice"><div class="uc3-inv-head"><b></b><b class="short"></b></div><div class="uc3-inv-row"><i></i><i class="num"></i></div><div class="uc3-inv-row"><i></i><i class="num"></i></div><div class="uc3-inv-row"><i></i><i class="num"></i></div><div class="uc3-inv-total"><i></i><i class="num uc2-hl"></i></div><figcaption data-i18n="uc3.inv.sk.1">{{ strings.get('uc3.inv.sk.1', 'Invoice total exceeds MSA cap by 18.8% ($142,500 vs $120,000 cap).') }}</figcaption></figure>
-                            <figure class="uc3-form"><div class="uc3-field"><b></b><i></i></div><div class="uc3-field"><b></b><i class="uc3-warn"></i></div><div class="uc3-field"><b></b><i class="uc2-hl"></i></div><div class="uc3-field"><b></b><i></i></div><figcaption data-i18n="uc3.inv.sk.2">{{ strings.get('uc3.inv.sk.2', 'Invoice total exceeds MSA cap by 18.8% ($142,500 vs $120,000 cap).') }}</figcaption></figure>
-                        </div>
-                        <h3 class="uc2-label" data-i18n="uc3.label.findings">{{ strings.get('uc3.label.findings', 'Findings') }}</h3>
-                        <div class="uc3-compare">
-                            <div class="uc3-cmp"><p class="uc3-cmp-text" data-i18n="uc3.inv.f.1">{{ strings.get('uc3.inv.f.1', 'Invoice total exceeds MSA cap by 18.8% ($142,500 vs $120,000 cap).') }}</p><div class="uc3-cmp-pair"><span><em data-i18n="uc3.col.statement">{{ strings.get('uc3.col.statement', 'Statement') }}</em>{{ strings.get('uc3.inv.a.1', 'Invoice total: $142,500') }}</span><span class="uc3-ne" aria-hidden="true">&ne;</span><span><em data-i18n="uc3.col.against">{{ strings.get('uc3.col.against', 'vs') }}</em>{{ strings.get('uc3.inv.b.1', 'Contract cap: $120,000') }}</span></div></div>
-                        </div>
-                        <p class="uc3-outcome"><span class="uc3-outcome-label" data-i18n="uc3.label.outcome">{{ strings.get('uc3.label.outcome', 'Outcome:') }}</span><span data-i18n="uc3.inv.outcome">{{ strings.get('uc3.inv.outcome', 'Result: Export Locked — Invoice exceeds MSA cap by 18.8% ($22,500).') }}</span></p>
-                    </div>
+            <!-- Card 3: Invoice vs Contract -->
+            <article class="uc3-case uc3-inv" id="invoice-vs-contract">
+                <div class="uc3-intro">
+                    <span class="uc2-num">03</span>
+                    <h2 class="uc2-title" data-i18n="uc3.inv.title">{{ strings.get('uc3.inv.title', 'Invoice vs Contract Reconciliation') }}</h2>
+                    <h3 class="uc2-label" data-i18n="uc3.label.docs">{{ strings.get('uc3.label.docs', 'Documents') }}</h3>
+                    <ul class="uc3-docs">
+                        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V7Z"/><path d="M14 2v4a2 2 0 002 2h4"/></svg><span data-i18n="uc3.inv.doc.1">{{ strings.get('uc3.inv.doc.1', 'Master Services Agreement (MSA)') }}</span></li>
+                        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V7Z"/><path d="M14 2v4a2 2 0 002 2h4"/></svg><span data-i18n="uc3.inv.doc.2">{{ strings.get('uc3.inv.doc.2', 'Vendor Invoice') }}</span></li>
+                        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V7Z"/><path d="M14 2v4a2 2 0 002 2h4"/></svg><span data-i18n="uc3.inv.doc.3">{{ strings.get('uc3.inv.doc.3', 'Payment Schedule / SOW') }}</span></li>
+                    </ul>
                     <a class="uc2-more" href="{{ locale_path }}solutions/">{{ strings.get('uc.more', 'See how it works') }} <span aria-hidden="true">→</span></a>
-                </article>
-            </div>
-        </section>
-    </main>
-
-    {% include 'includes/landing_footer.html' %}
-    <script src="{{ url_for('static', filename='landing-pilot.js') }}?v={{ landing_js_version }}"></script>
-    <script src="{{ url_for('static', filename='landing-i18n.js') }}?v={{ landing_js_version }}"></script>
-</body>
-</html>
+                </div>
+                <div class="uc3-body">
+                    <div class="uc3-sketch" aria-hidden="true">
+                        <figure class="uc3-invoice"><div class="uc3-inv-head"><b></b><b class="short"></b></div><div class="uc3-inv-row"><i></i><i class="num"></i></div><div class="uc3-inv-row"><i></i><i class="num"></i></div><div class="uc3-inv-row"><i></i><i class="num"></i></div><div class="uc3-inv-total"><i></i><i class="num uc2-hl"></i></div><figcaption data-i18n="uc3.inv.sk.1">{{ strings.get('uc3.inv.sk.1', 'Invoice total exceeds MSA cap by 18.8% ($142,500 vs $120,000 cap).') }}</figcaption></figure>
+                        <figure class="uc3-form"><div class="uc3-field"><b></b><i></i></div><div class="uc3-field"><b></b><i class="uc3-warn"></i></div><div class="uc3-field"><b></b><i class="uc2-hl"></i></div><div class="uc3-field"><b></b><i></i></div><figcaption data-i18n="uc3.inv.sk.2">{{ strings.get('uc3.inv.sk.2', 'Invoice total exceeds MSA cap by 18.8% ($142,500 vs $120,000 cap).') }}</figcaption></figure>
+                    </div>
+                    <h3 class="uc2-label" data-i18n="uc3.label.findings">{{ strings.get('uc3.label.findings', 'Findings') }}</h3>
+                    <div class="uc3-compare">
+                        <div class="uc3-cmp"><p class="uc3-cmp-text" data-i18n="uc3.inv.f.1">{{ strings.get('uc3.inv.f.1', 'Invoice total exceeds MSA cap by 18.8% ($142,500 vs $120,000 cap).') }}</p><div class="uc3-cmp-pair"><span><em data-i18n="uc3.col.statement">{{ strings.get('uc3.col.statement', 'Statement') }}</em>{{ strings.get('uc3.inv.a.1', 'Invoice total: $142,500') }}</span><span class="uc3-ne" aria-hidden="true">&ne;</span><span><em data-i18n="uc3.col.against">{{ strings.get('uc3.col.against', 'vs') }}</em>{{ strings.get('uc3.inv.b.1', 'Contract cap: $120,000') }}</span></div></div>
+                    </div>
+                    <p class="uc3-outcome"><span class="uc3-outcome-label" data-i18n="uc3.label.outcome">{{ strings.get('uc3.label.outcome', 'Outcome:') }}</span><span data-i18n="uc3.inv.outcome">{{ strings.get('uc3.inv.outcome', 'Result: Export Locked — Invoice exceeds MSA cap by 18.8% ($22,500).') }}</span></p>
+                </div>
+                <a class="uc2-more" href="{{ locale_path }}solutions/">{{ strings.get('uc.more', 'See how it works') }} <span aria-hidden="true">→</span></a>
+            </article>
+        </div>
+    </section>
+</main>
+{% endblock %}

@@ -1,6 +1,6 @@
-<!DOCTYPE html>
-<html lang="{{ locale|default('en') }}"{% if locale|default('en') == 'ar' %} dir="rtl"{% endif %}>
-<head>
+{% extends 'base.html' %}
+
+{% block head %}
     {% include 'includes/gtag.html' %}
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -37,66 +37,69 @@
     <script>
       window.__assureLandingStrings = {{ strings|tojson }};
     </script>
-</head>
-<body id="top" class="enterprise-landing">
-    {% include 'includes/landing_header.html' %}
-    <main id="main-content" class="page">
-        <div class="page-hero">
-            <h1 data-i18n="poc.title">{{ strings.get('poc.title', 'Proof of concept') }}</h1>
-            <p class="lede" data-i18n="poc.lead">{{ strings.get('poc.lead', 'One workflow. Limited sample cases. A written “Yes, proceed” starts the assessment.') }}</p>
-        </div>
+{% endblock %}
+
+{% block nav_current %}
+    {% set nav_current = 'poc' %}
+{% endblock %}
+
+{% block content %}
+<main id="main-content" class="page">
+    <div class="page-hero">
+        <h1 data-i18n="poc.title">{{ strings.get('poc.title', 'Proof of concept') }}</h1>
+        <p class="lede" data-i18n="poc.lead">{{ strings.get('poc.lead', 'One workflow. Limited sample cases. A written “Yes, proceed” starts the assessment.') }}</p>
+    </div>
+    <section class="card">
+        <h2 data-i18n="poc.offer.title">{{ strings.get('poc.offer.title', '4 selective, assessment-gated free POC slots') }}</h2>
+        <p data-i18n="poc.offer.body">{{ strings.get('poc.offer.body', 'Before year-end freezes: 1 workflow, 5–10 sample cases (max 50 files), 5-day turnaround, zero IT setup.') }}</p>
+        <ul class="privacy-list">
+            <li data-i18n="poc.assessment.1">{{ strings.get('poc.assessment.1', '1 workflow') }}</li>
+            <li data-i18n="poc.assessment.2">{{ strings.get('poc.assessment.2', 'Limited sample cases') }}</li>
+            <li data-i18n="poc.assessment.3">{{ strings.get('poc.assessment.3', 'A written “Yes, proceed”') }}</li>
+        </ul>
+        <h3 data-i18n="poc.scope.title">{{ strings.get('poc.scope.title', 'Written “Yes, proceed” Scope Note') }}</h3>
+    </section>
+    {% include 'includes/flow.html' %}
+    <div class="price-grid price-grid--duo">
         <section class="card">
-            <h2 data-i18n="poc.offer.title">{{ strings.get('poc.offer.title', '4 selective, assessment-gated free POC slots') }}</h2>
-            <p data-i18n="poc.offer.body">{{ strings.get('poc.offer.body', 'Before year-end freezes: 1 workflow, 5–10 sample cases (max 50 files), 5-day turnaround, zero IT setup.') }}</p>
-            <ul class="privacy-list">
-                <li data-i18n="poc.assessment.1">{{ strings.get('poc.assessment.1', '1 workflow') }}</li>
-                <li data-i18n="poc.assessment.2">{{ strings.get('poc.assessment.2', 'Limited sample cases') }}</li>
-                <li data-i18n="poc.assessment.3">{{ strings.get('poc.assessment.3', 'A written “Yes, proceed”') }}</li>
-            </ul>
-            <h3 data-i18n="poc.scope.title">{{ strings.get('poc.scope.title', 'Written “Yes, proceed” Scope Note') }}</h3>
-        </section>
-        {% include 'includes/flow.html' %}
-        <div class="price-grid price-grid--duo">
-            <section class="card">
-                <h2 data-i18n="proof.a.kicker">{{ strings.get('proof.a.kicker', 'Source A') }}</h2>
-                <p class="lede" data-i18n="proof.a.title">{{ strings.get('proof.a.title', 'Master Services Agreement (MSA), Page 12, Clause 4.2') }}</p>
-                <p class="lede" data-i18n="proof.a.value">{{ strings.get('proof.a.value', '120,000 EUR cap') }}</p>
-            </section>
-            <section class="card">
-                <h2 data-i18n="proof.b.kicker">{{ strings.get('proof.b.kicker', 'Source B') }}</h2>
-                <p class="lede" data-i18n="proof.b.title">{{ strings.get('proof.b.title', 'Vendor Invoice #884, Page 3, Line Item 8') }}</p>
-                <p class="lede" data-i18n="proof.b.value">{{ strings.get('proof.b.value', '142,500 EUR billed') }}</p>
-            </section>
-        </div>
-<section class="card">
-            <h2 data-i18n="sovereign.title">{{ strings.get('sovereign.title', 'Where it runs') }}</h2>
-            <p data-i18n="sovereign.body">{{ strings.get('sovereign.body', 'Runs in your own AWS account, on-premises, or private GPU environment. You choose where the models run. When the model is local, documents stay inside that boundary.') }}</p>
+            <h2 data-i18n="proof.a.kicker">{{ strings.get('proof.a.kicker', 'Source A') }}</h2>
+            <p class="lede" data-i18n="proof.a.title">{{ strings.get('proof.a.title', 'Master Services Agreement (MSA), Page 12, Clause 4.2') }}</p>
+            <p class="lede" data-i18n="proof.a.value">{{ strings.get('proof.a.value', '120,000 EUR cap') }}</p>
         </section>
         <section class="card">
-            <h2 data-i18n="poc.assessment.title">{{ strings.get('poc.assessment.title', 'The assessment') }}</h2>
-            <form id="poc-form" class="poc-form" method="post" action="/contact-submit" data-done="{{ strings.get('poc.form.done', 'Request received. We will reply by email to agree the scope.') }}" data-error="{{ strings.get('poc.form.error', 'Could not send your request. Please try again or write to sales@assureproof.com.') }}">
-                <label for="poc-email" data-i18n="poc.form.email">{{ strings.get('poc.form.email', 'Work email') }}</label>
-                <input id="poc-email" class="demo-input" name="email" type="email" autocomplete="email" required>
-                <label for="poc-pair" data-i18n="poc.form.pair">{{ strings.get('poc.form.pair', 'Document pair to cross-check') }}</label>
-                <input id="poc-pair" class="demo-input" name="pair" type="text" data-i18n-placeholder="poc.form.pair.example" placeholder="{{ strings.get('poc.form.pair.example', 'e.g., Invoice vs. Contract Cap / Claim Form vs. Receipts / Grant Application vs. Attachments') }}">
-                <fieldset>
-                    <legend data-i18n="poc.form.cases">{{ strings.get('poc.form.cases', '5–10 sample cases (up to 50 files) sharable before Dec 10') }}</legend>
-                    <label><input type="radio" name="cases" value="yes" required> <span data-i18n="poc.form.cases.yes">{{ strings.get('poc.form.cases.yes', 'Yes') }}</span></label>
-                    <label><input type="radio" name="cases" value="check"> <span data-i18n="poc.form.cases.check">{{ strings.get('poc.form.cases.check', 'Need to check') }}</span></label>
-                    <p class="text-small"><a href="{{ locale_path }}security/" data-i18n="poc.form.faq">{{ strings.get('poc.form.faq', 'How we handle your files') }}</a></p>
-                </fieldset>
-                <fieldset>
-                    <legend data-i18n="poc.form.review">{{ strings.get('poc.form.review', 'Who joins the 30-min live findings review before Dec 20?') }}</legend>
-                    <label><input type="radio" name="review" value="me" required> <span data-i18n="poc.form.review.me">{{ strings.get('poc.form.review.me', 'Just me') }}</span></label>
-                    <label><input type="radio" name="review" value="me-title"> <span data-i18n="poc.form.review.me.title">{{ strings.get('poc.form.review.me.title', 'Me + Title') }}</span></label>
-                </fieldset>
-                <button type="submit" class="demo-submit" data-i18n="poc.form.submit">{{ strings.get('poc.form.submit', 'Request a slot') }}</button>
-            </form>
+            <h2 data-i18n="proof.b.kicker">{{ strings.get('proof.b.kicker', 'Source B') }}</h2>
+            <p class="lede" data-i18n="proof.b.title">{{ strings.get('proof.b.title', 'Vendor Invoice #884, Page 3, Line Item 8') }}</p>
+            <p class="lede" data-i18n="proof.b.value">{{ strings.get('proof.b.value', '142,500 EUR billed') }}</p>
         </section>
-    </main>
-    {% include 'includes/landing_footer.html' %}
-    <script src="{{ url_for('static', filename='landing-pilot.js') }}?v={{ landing_js_version }}"></script>
-    <script src="{{ url_for('static', filename='landing-i18n.js') }}?v={{ landing_js_version }}"></script>
-    <script>(function(){var f=document.getElementById('poc-form');if(!f)return;f.addEventListener('submit',function(e){e.preventDefault();var d=new FormData(f);var msg='Proof of concept request. Documents: '+(d.get('pair')||'')+'; can share 5-10 sample cases: '+d.get('cases')+'; findings review: '+d.get('review');var btn=f.querySelector('button[type=submit]');if(btn)btn.disabled=true;fetch('/contact-submit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:'Proof of concept request',email:d.get('email'),company:'',message:msg})}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);var p=document.createElement('p');p.setAttribute('role','status');p.textContent=f.dataset.done;f.replaceWith(p);}).catch(function(){if(btn)btn.disabled=false;var p=f.querySelector('.form-error');if(!p){p=document.createElement('p');p.className='form-error';p.setAttribute('role','alert');f.appendChild(p);}p.textContent=f.dataset.error;});});})();</script>
-</body>
-</html>
+    </div>
+    <section class="card">
+        <h2 data-i18n="sovereign.title">{{ strings.get('sovereign.title', 'Where it runs') }}</h2>
+        <p data-i18n="sovereign.body">{{ strings.get('sovereign.body', 'Runs in your own AWS account, on-premises, or private GPU environment. You choose where the models run. When the model is local, documents stay inside that boundary.') }}</p>
+    </section>
+    <section class="card">
+        <h2 data-i18n="poc.assessment.title">{{ strings.get('poc.assessment.title', 'The assessment') }}</h2>
+        <form id="poc-form" class="poc-form" method="post" action="/contact-submit" data-done="{{ strings.get('poc.form.done', 'Request received. We will reply by email to agree the scope.') }}" data-error="{{ strings.get('poc.form.error', 'Could not send your request. Please try again or write to sales@assureproof.com.') }}">
+            <label for="poc-email" data-i18n="poc.form.email">{{ strings.get('poc.form.email', 'Work email') }}</label>
+            <input id="poc-email" class="demo-input" name="email" type="email" autocomplete="email" required>
+            <label for="poc-pair" data-i18n="poc.form.pair">{{ strings.get('poc.form.pair', 'Document pair to cross-check') }}</label>
+            <input id="poc-pair" class="demo-input" name="pair" type="text" data-i18n-placeholder="poc.form.pair.example" placeholder="{{ strings.get('poc.form.pair.example', 'e.g., Invoice vs. Contract Cap / Claim Form vs. Receipts / Grant Application vs. Attachments') }}">
+            <fieldset>
+                <legend data-i18n="poc.form.cases">{{ strings.get('poc.form.cases', '5–10 sample cases (up to 50 files) sharable before Dec 10') }}</legend>
+                <label><input type="radio" name="cases" value="yes" required> <span data-i18n="poc.form.cases.yes">{{ strings.get('poc.form.cases.yes', 'Yes') }}</span></label>
+                <label><input type="radio" name="cases" value="check"> <span data-i18n="poc.form.cases.check">{{ strings.get('poc.form.cases.check', 'Need to check') }}</span></label>
+                <p class="text-small"><a href="{{ locale_path }}security/" data-i18n="poc.form.faq">{{ strings.get('poc.form.faq', 'How we handle your files') }}</a></p>
+            </fieldset>
+            <fieldset>
+                <legend data-i18n="poc.form.review">{{ strings.get('poc.form.review', 'Who joins the 30-min live findings review before Dec 20?') }}</legend>
+                <label><input type="radio" name="review" value="me" required> <span data-i18n="poc.form.review.me">{{ strings.get('poc.form.review.me', 'Just me') }}</span></label>
+                <label><input type="radio" name="review" value="me-title"> <span data-i18n="poc.form.review.me.title">{{ strings.get('poc.form.review.me.title', 'Me + Title') }}</span></label>
+            </fieldset>
+            <button type="submit" class="demo-submit" data-i18n="poc.form.submit">{{ strings.get('poc.form.submit', 'Request a slot') }}</button>
+        </form>
+    </section>
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script>(function(){var f=document.getElementById('poc-form');if(!f)return;f.addEventListener('submit',function(e){e.preventDefault();var d=new FormData(f);var msg='Proof of concept request. Documents: '+(d.get('pair')||'')+'; can share 5-10 sample cases: '+d.get('cases')+'; findings review: '+d.get('review');var btn=f.querySelector('button[type=submit]');if(btn)btn.disabled=true;fetch('/contact-submit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:'Proof of concept request',email:d.get('email'),company:'',message:msg})}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);var p=document.createElement('p');p.setAttribute('role','status');p.textContent=f.dataset.done;f.replaceWith(p);}).catch(function(){if(btn)btn.disabled=false;var p=document.createElement('p');p.setAttribute('role','alert');p.textContent=f.dataset.error;f.replaceWith(p);});});})();</script>
+{% endblock %}

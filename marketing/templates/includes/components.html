@@ -1,0 +1,12 @@
+{% macro button(href, key, default, variant='primary') %}
+<a href="{{ href }}" class="btn-{{ variant }}" data-i18n="{{ key }}">{{ strings.get(key, default) }}</a>
+{% endmacro %}
+
+{% macro section_header(title_key, title_default, sub_key=None, sub_default='', level=2) %}
+<div class="section-header">
+    <h{{ level }} class="section-title" data-i18n="{{ title_key }}">{{ strings.get(title_key, title_default) }}</h{{ level }}>
+    {% if sub_key %}
+    <p class="section-sub" data-i18n="{{ sub_key }}">{{ strings.get(sub_key, sub_default) }}</p>
+    {% endif %}
+</div>
+{% endmacro %}

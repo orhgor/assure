@@ -1,63 +1,22 @@
-<!DOCTYPE html>
-<html lang="{{ locale|default('en') }}"{% if locale|default('en') == 'ar' %} dir="rtl"{% endif %}>
-<head>
-    {% include 'includes/gtag.html' %}
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ page_title }}</title>
-    <meta name="description" content="{{ page_description }}">
-    <link rel="canonical" href="{{ page_url }}">
-    <meta property="og:type" content="website">
-    <meta property="og:url" content="{{ page_url }}">
-    <meta property="og:locale" content="{{ og_locale }}">
-    {% for code, path in locale_paths.items() %}
-    <link rel="alternate" hreflang="{{ code }}" href="https://assureproof.com{{ path }}{{ page_suffix|default('use-cases/government/') }}">
-    {% endfor %}
-    <link rel="alternate" hreflang="x-default" href="{{ en_url }}">
-    <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="{{ page_title }}">
-    <meta name="twitter:description" content="{{ page_description }}">
-    <meta property="og:title" content="{{ page_title }}">
-    <meta property="og:description" content="{{ page_description }}">
-    <meta property="og:image" content="{{ og_image }}">
-    <meta property="og:image:width" content="1200">
-    <meta property="og:image:height" content="630">
-    <link rel="icon" href="{{ url_for('static', filename='assure-logo.png') }}" type="image/png">
-    <link rel="apple-touch-icon" href="{{ url_for('static', filename='assure-logo.png') }}">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-    {% if locale|default('en') == 'ar' %}
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
-    {% endif %}
-    {% for item in json_ld %}
-    <script type="application/ld+json">{{ item|tojson }}</script>
-    {% endfor %}
-    <link rel="stylesheet" href="{{ url_for('static', filename='landing.css') }}?v={{ landing_css_version|default('125') }}">
-    <script>
-      window.__assureLandingStrings = {{ strings|tojson }};
-    </script>
-    <script>if(!matchMedia('(prefers-reduced-motion: reduce)').matches)document.documentElement.classList.add('fx')</script>
-</head>
-<body id="top" class="enterprise-landing uc-landing">
+{% extends 'base.html' %}
+
+{% block body_attrs %} uc-landing{% endblock %}
+
+{% block nav_current %}
     {% set nav_current = 'use-cases' %}
-    {% include 'includes/landing_header.html' %}
+{% endblock %}
 
-    <main id="main-content">
-        <section class="hero-section gov-hero page-hero">
-            <div class="container">
-                <a href="{{ locale_path }}use-cases/" class="back-link" data-i18n="uc.back">{{ strings.get('uc.back', '← All use cases') }}</a>
-                <h1 class="hero-title" data-i18n="uc.gov.title">{{ strings.get('uc.gov.title', 'Government document checks') }}</h1>
-                <p class="hero-sub" data-i18n="uc.gov.sub">{{ strings.get('uc.gov.sub', 'Government procurement bids checked against statutory caps and compliance requirements. Contracts, RFPs, and vendor proposals verified before award.') }}</p>
-            </div>
-        </section>
+{% block content %}
+<main id="main-content">
+    <section class="hero-section gov-hero page-hero">
+        <div class="container">
+            <a href="{{ locale_path }}use-cases/" class="back-link" data-i18n="uc.back">{{ strings.get('uc.back', '← All use cases') }}</a>
+            <h1 class="hero-title" data-i18n="uc.gov.title">{{ strings.get('uc.gov.title', 'Government document checks') }}</h1>
+            <p class="hero-sub" data-i18n="uc.gov.sub">{{ strings.get('uc.gov.sub', 'Government procurement bids checked against statutory caps and compliance requirements. Contracts, RFPs, and vendor proposals verified before award.') }}</p>
+        </div>
+    </section>
 
-        {% include 'includes/flow.html' %}
-        {% include 'includes/demo_cta.html' %}
-    </main>
-
-    {% include 'includes/landing_footer.html' %}
-    <script src="{{ url_for('static', filename='landing-pilot.js') }}?v={{ landing_js_version }}"></script>
-    <script src="{{ url_for('static', filename='landing-i18n.js') }}?v={{ landing_js_version }}"></script>
-</body>
-</html>
+    {% include 'includes/flow.html' %}
+    {% include 'includes/demo_cta.html' %}
+</main>
+{% endblock %}
