@@ -60,7 +60,7 @@ jobs:
         run: bash marketing/build.sh
 
       - name: Website tests
-        run: pytest tests/test_marketing_revision_copy.py -v
+        run: pytest tests/test_marketing_revision_copy.py tests/test_site_static.py -v
 
   deploy:
     runs-on: ubuntu-latest
