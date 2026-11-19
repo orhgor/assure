@@ -384,6 +384,24 @@ def _render_page(app, page: dict, locale: str) -> str:
                         ],
                     }
                 )
+                json_ld.append(
+                    {
+                        "@context": "https://schema.org",
+                        "@type": "FAQPage",
+                        "inLanguage": locale,
+                        "mainEntity": [
+                            {
+                                "@type": "Question",
+                                "name": full.get(f"faq.{i}.q", ""),
+                                "acceptedAnswer": {
+                                    "@type": "Answer",
+                                    "text": full.get(f"faq.{i}.a", "")
+                                },
+                            }
+                            for i in range(1, 11)
+                        ],
+                    }
+                )
             else:
                 home_name = full.get("meta.home.name", "Home")
                 json_ld.append(

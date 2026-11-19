@@ -1716,3 +1716,190 @@ h1, h2, h3 { text-wrap: balance; }
     grid-template-columns: 1fr;
   }
 }
+/* ==========================================================================
+   Mobile Hero — shorter copy at ≤600px
+   ========================================================================== */
+.hero-title-mobile,
+.hero-sub-mobile {
+  display: none;
+}
+
+@media (max-width: 600px) {
+  .hero-title-desktop,
+  .hero-sub-desktop {
+    display: none;
+  }
+  .hero-title-mobile,
+  .hero-sub-mobile {
+    display: inline;
+  }
+}
+
+/* ==========================================================================
+   FAQ Section
+   ========================================================================== */
+.faq-section {
+  padding: var(--space-8) 0;
+  background: var(--surface);
+}
+
+.faq-list {
+  max-width: 48rem;
+  margin: 0 auto;
+}
+
+.faq-item {
+  border-bottom: 1px solid var(--border);
+}
+
+.faq-item:last-child {
+  border-bottom: none;
+}
+
+.faq-item summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  font-size: 1.125rem;
+  font-weight: 500;
+  line-height: 1.4;
+  padding: var(--space-3) 0;
+  list-style: none;
+  color: var(--text);
+}
+
+.faq-item summary::-webkit-details-marker {
+  display: none;
+}
+
+.faq-item summary::after {
+  content: "";
+  width: 1.25rem;
+  height: 1.25rem;
+  flex-shrink: 0;
+  margin-left: 1rem;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23525252' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E") center/contain no-repeat;
+  transition: transform 0.2s ease;
+}
+
+.faq-item[open] summary::after {
+  transform: rotate(180deg);
+}
+
+.faq-item summary:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-alpha);
+  border-radius: var(--radius);
+}
+
+.faq-item dd {
+  margin: 0;
+  padding: 0 0 var(--space-3);
+  animation: faq-open 0.25s ease;
+}
+
+@keyframes faq-open {
+  from {
+    opacity: 0;
+    transform: translateY(-0.5rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.faq-item dd p {
+  color: var(--text-secondary);
+  line-height: 1.7;
+  font-size: 1rem;
+  margin: 0;
+}
+
+/* ==========================================================================
+   Example Card — conflict highlight animation (only under html.fx)
+   ========================================================================== */
+@keyframes conflict-pulse {
+  0% {
+    background-color: transparent;
+  }
+  50% {
+    background-color: rgba(220, 38, 38, 0.15);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+html.fx #hero-proof-card .proof-value,
+html.fx #hero-proof-card .delta-value {
+  animation: conflict-pulse 2s ease-out 0.5s 1;
+}
+
+/* ==========================================================================
+   Security CTA Row
+   ========================================================================== */
+.security-cta-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-6);
+  flex-wrap: wrap;
+}
+
+.security-cta-row .btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* ==========================================================================
+   Inline icons (phase 10) — same treatment as .pillar-icon
+   ========================================================================== */
+.delta-icon svg,
+.use-case-icon svg {
+  display: block;
+  width: 24px;
+  height: 24px;
+}
+
+/* Lean line icons: one thin outline weight everywhere. Red stays only on .delta-icon, which marks the mismatch. */
+.use-case-icon {
+  background: var(--bg);
+  color: var(--accent-blue);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.flow-icon svg,
+.pillar-icon svg,
+.use-case-icon svg,
+.delta-icon svg {
+  stroke-width: 1.5;
+}
+
+/* Use-case icon tone variants */
+.use-case-icon--gov {
+  background: #dbeafe;
+  color: #1d4ed8;
+  border-color: #bfdbfe;
+}
+
+.use-case-icon--ins {
+  background: #fef2f2;
+  color: #dc2626;
+  border-color: #fecaca;
+}
+
+.use-case-icon--bonus {
+  background: #fef3c7;
+  color: #d97706;
+  border-color: #fde68a;
+}
+
+/* Inline icons on the home page (phase 10): same treatment as .pillar-icon */
+.delta-icon svg, .use-case-icon svg { display: block; width: 24px; height: 24px; }
+/* Lean line icons: one thin outline weight everywhere. Red stays only on .delta-icon, which marks the mismatch. */
+.use-case-icon { background: var(--bg); color: var(--accent-blue); border: 1px solid var(--border); border-radius: var(--radius-lg); }
+.flow-icon svg, .pillar-icon svg, .use-case-icon svg, .delta-icon svg { stroke-width: 1.5; }

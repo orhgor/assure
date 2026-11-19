@@ -217,3 +217,27 @@ def test_locale_poc_pages_have_full_head():
         html, _ = _dist_text(f"{locale}/poc/index.html")
         assert html.count('hreflang="') >= 9, locale
         assert f'<html lang="{locale}"' in html, locale
+def test_home_order_and_faq_schema():
+    html, t = _dist_text("index.html")
+    order = ["Upload the document package", "What a check looks like",
+             "How AssureProof differs from extraction tools and RAG tools",
+             "Catch the mismatch before the money or the approval goes out.",
+             "You choose where your documents and models run.", "Questions", "Try it on your own files."]
+    at = 0
+    for token in order:
+        nxt = t.find(token, at)
+        assert nxt >= at, token
+        at = nxt
+    blocks = [json.loads(unescape(b)) for b in re.findall(r'<script type="application/ld\+json">(.*?)</script>', html, re.S)]
+    faq = [b for b in blocks if b.get("@type") == "FAQPage"]
+    assert len(faq) == 1 and len(faq[0]["mainEntity"]) == 10
+    for q in faq[0]["mainEntity"]:
+        assert q["name"] in t and q["acceptedAnswer"]["text"] in t, q["name"]
+def test_home_icons_are_inline_svg():
+    from pathlib import Path
+    html = Path("dist/index.html").read_text()
+    assert "data-icon=" not in html
+    for cls in ("delta-icon", "use-case-icon use-case-icon--gov", "use-case-icon use-case-icon--ins", "use-case-icon use-case-icon--bonus"):
+        i = html.find(f'class="{cls}"')
+        assert i != -1, cls
+        assert "<svg" in html[i:i + 300], cls
