@@ -42,7 +42,7 @@
     {% block head_extra %}{% endblock %}
     {% endblock %}
 </head>
-<body id="top" class="enterprise-landing"{% block body_attrs %}{% endblock %}>
+<body id="top" class="enterprise-landing{% block body_attrs %}{% endblock %}">
     {% block nav_current %}{% endblock %}
     {% include 'includes/landing_header.html' %}
 

@@ -1,6 +1,5 @@
 {% extends 'base.html' %}
 
-{% set landing_css_version = '127' %}
 
 {% block body_attrs %} home-landing{% endblock %}
 
@@ -135,7 +134,7 @@
 
                     <div class="use-case-conflict">
                         <div class="conflict-row"><span data-i18n="use-cases.gov.conflict.label">{{ strings.get('use-cases.gov.conflict.label', 'Live Conflict Example') }}</span><span class="conflict-badge" data-i18n="use-cases.gov.conflict.badge">{{ strings.get('use-cases.gov.conflict.badge', '+9.5% Over Cap') }}</span></div>
-                        <div><span data-i18n="use-cases.gov.conflict.source-a.label">{{ strings.get('use-cases.gov.conflict.source-a.label', 'Source A (RFP Schedule B, p. 4):') }}</span><span data-i18n="use-cases.gov.conflict.source-a">{{ strings.get('use-cases.gov.conflict.source-a', 'Max Subcontractor Cap: 15%') }}</span></div>
+                        <div><span data-i18n="use-cases.gov.conflict.source-a-label">{{ strings.get('use-cases.gov.conflict.source-a.label', 'Source A (RFP Schedule B, p. 4):') }}</span><span data-i18n="use-cases.gov.conflict.source-a">{{ strings.get('use-cases.gov.conflict.source-a', 'Max Subcontractor Cap: 15%') }}</span></div>
                         <div><span data-i18n="use-cases.gov.conflict.source-b.label">{{ strings.get('use-cases.gov.conflict.source-b.label', 'Source B (Vendor Proposal, p. 19):') }}</span><span data-i18n="use-cases.gov.conflict.source-b">{{ strings.get('use-cases.gov.conflict.source-b', 'Subcontractor Allocation: 24.5% ($367,500)') }}</span></div>
                         <div class="conflict-result"><strong data-i18n="use-cases.gov.conflict.result.label">{{ strings.get('use-cases.gov.conflict.result.label', 'Result:') }}</strong><span data-i18n="use-cases.gov.conflict.result">{{ strings.get('use-cases.gov.conflict.result', 'Export Locked — Exceeds statutory threshold by 9.5%.') }}</span></div>
                     </div>
@@ -188,7 +187,7 @@
             <div class="security-pillars">
                 <div class="security-pillar">
                     <div class="pillar-icon">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5.25 14.25h13.5m-13.5 0a3 3 0 01-3-3m3 3a3 3 0 01-3-3m3 3a3 3 0 010 6h13.5a3 3 0 013 3m-19.5 0a4.5 4.5 0 01.9-2.7L5.737 5.1a3.375 3.375 0 012.7-1.35h7.126c1.062 0 2.062.5 2.7 1.35l2.587 3.45a4.5 4.5 0 01.9 2.7"/></svg>
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5.25 14.25h13.5m-13.5 0a3 3 0 01-3-3m3 3a3 3 0 01-3-3m3 3a3 3 0 010 6h13.5a3 3 0 100-6m-16.5-3a3 3 0 013-3h13.5a3 3 0 013 3m-19.5 0a4.5 4.5 0 01.9-2.7L5.737 5.1a3.375 3.375 0 012.7-1.35h7.126c1.062 0 2.062.5 2.7 1.35l2.587 3.45a4.5 4.5 0 01.9 2.7"/></svg>
                     </div>
                     <h3 data-i18n="security.pillar1.title">{{ strings.get('security.pillar1.title', 'Self-Hosted & Air-Gapped Ready') }}</h3>
                     <p data-i18n="security.pillar1.desc">{{ strings.get('security.pillar1.desc', 'Deploy inside your own AWS VPC, private GPU cluster, or on-premises data center. When running local models, zero bytes ever leave your network boundary.') }}</p>
