@@ -1832,7 +1832,7 @@ h1, h2, h3 { text-wrap: balance; }
   width: 40px;
   height: 40px;
   display: inline-flex;
-  align-items: center
+  align-items: center;
   justify-content: center;
   border-radius: var(--radius);
   background: var(--accent-alpha);
@@ -1845,7 +1845,7 @@ h1, h2, h3 { text-wrap: balance; }
 }
 
 .differs-grid {
-  display: grid
+  display: grid;
   gap: var(--space-3);
   grid-template-columns: repeat(3, minmax(0, 1fr));
   margin-top: var(--space-4);

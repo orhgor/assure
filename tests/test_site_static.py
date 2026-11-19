@@ -191,3 +191,12 @@ def test_no_fuel_retail_page_or_link():
     assert not bad, bad
     src = WORKER.read_text(encoding="utf-8")
     assert "/use-cases/bonus-reconciliation/" in src and 'url.hostname === "www.assureproof.com"' in src
+
+
+def test_landing_css_has_no_missing_semicolons():
+    import re
+    from pathlib import Path
+    lines = Path("marketing/static/landing.css").read_text().split("\n")
+    bad = [i + 1 for i, l in enumerate(lines[:-1])
+           if re.match(r"^\s*[a-z-]+\s*:\s*[^;{}]+$", l) and re.match(r"^\s*[a-z-]+\s*:", lines[i + 1])]
+    assert not bad, f"declarations missing a semicolon at lines {bad}"
