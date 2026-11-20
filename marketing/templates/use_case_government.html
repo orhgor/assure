@@ -7,16 +7,18 @@
 {% endblock %}
 
 {% block content %}
-<main id="main-content">
-    <section class="hero-section gov-hero page-hero">
-        <div class="container">
-            <a href="{{ locale_path }}use-cases/" class="back-link" data-i18n="uc.back">{{ strings.get('uc.back', '← All use cases') }}</a>
-            <h1 class="hero-title" data-i18n="uc.gov.title">{{ strings.get('uc.gov.title', 'Government document checks') }}</h1>
-            <p class="hero-sub" data-i18n="uc.gov.sub">{{ strings.get('uc.gov.sub', 'Government procurement bids checked against statutory caps and compliance requirements. Contracts, RFPs, and vendor proposals verified before award.') }}</p>
-        </div>
-    </section>
+<main id="main-content" class="page">
+  <section class="hero-section gov-hero page-hero">
+    <div class="container">
+      <a href="{{ locale_path }}use-cases/" class="back-link" data-i18n="uc.back">{{ strings.get('uc.back', '← All use cases') }}</a>
+      <h1 class="hero-title" data-i18n="uc.gov.title">{{ strings.get('uc.gov.title', 'Government document checks') }}</h1>
+      <p class="hero-sub" data-i18n="uc.gov.sub">{{ strings.get('uc.gov.sub', 'Catch a grant application whose figures don\'t match its attached expense audit before it\'s approved. Figures keep their source pages, and mismatches show up on the review screen. A person reviews and decides.') }}</p>
+    </div>
+  </section>
 
-    {% include 'includes/flow.html' %}
-    {% include 'includes/demo_cta.html' %}
+  {% set uc_key = 'gov' %}
+  {% include 'includes/use_case_detail.html' %}
+  {% include 'includes/flow.html' %}
+  {% include 'includes/demo_cta.html' %}
 </main>
 {% endblock %}

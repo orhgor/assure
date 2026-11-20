@@ -40,9 +40,9 @@ function handleOptions(request) {
 // Content Security Policy
 const CSP = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://static.cloudflareinsights.com",
-  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-  "font-src 'self' https://fonts.gstatic.com data:",
+  "script-src 'self' https://www.googletagmanager.com https://static.cloudflareinsights.com",
+  "style-src 'self' 'unsafe-inline'",
+  "font-src 'self'",
   "img-src 'self' data: https:",
   "connect-src 'self' https://api.resend.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com",
   "frame-ancestors 'none'",

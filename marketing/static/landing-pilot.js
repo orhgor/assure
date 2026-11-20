@@ -75,7 +75,7 @@ function bindZ3Recalc() {
         }
       })
       .catch(function (err) {
-        if (err?.status === 429 && err?.retryAfter) {
+        if (err && err.status === 429 && err.retryAfter) {
           if (z3ResultText) z3ResultText.textContent = err.message;
           z3ResultText.style.color = "var(--warning, #d97706)";
         } else {
@@ -115,7 +115,40 @@ function bindMobileMenu() {
   });
 }
 
+function bindPocForm() {
+  var f = document.getElementById('poc-form');
+  if (!f) return;
+  f.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var d = new FormData(f);
+    var msg = 'Proof of concept request. Documents: ' + (d.get('pair') || '') + '; can share 5-10 sample cases: ' + d.get('cases') + '; findings review: ' + d.get('review');
+    var btn = f.querySelector('button[type=submit]');
+    if (btn) btn.disabled = true;
+    fetch('/contact-submit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Proof of concept request', email: d.get('email'), company: '', message: msg })
+    }).then(function (r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      var p = document.createElement('p');
+      p.setAttribute('role', 'status');
+      p.textContent = f.dataset.done;
+      f.replaceWith(p);
+    }).catch(function () {
+      if (btn) btn.disabled = false;
+      var p = f.querySelector('.form-error');
+      if (!p) {
+        p = document.createElement('p');
+        p.className = 'form-error';
+        p.setAttribute('role', 'alert');
+        f.appendChild(p);
+      }
+      p.textContent = f.dataset.error;
+    });
+  });
+}
+
 document.addEventListener("DOMContentLoaded", function () {
   bindZ3Recalc();
-  bindMobileMenu();
+  bindPocForm();
 });

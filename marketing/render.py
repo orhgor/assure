@@ -253,22 +253,8 @@ def _postprocess(
     html = html.replace('="/static/', f'="{static_base}/')
     html = html.replace("='/static/", f"='{static_base}/")
 
-    # Bake translations into the static HTML for every locale except en, whose
-    # hardcoded template text already is the English source.
     if strings and locale != "en":
         html = _apply_data_i18n(html, strings)
-
-    inject = (
-        "<script>"
-        f"window.__ASSURE_LOCALE_PATHS={json.dumps(_locale_paths())};"
-        f'window.__ASSURE_PAGE_SUFFIX="{page_suffix}";'
-        f'window.__ASSURE_STATIC_LOCALE="{locale}";'
-        "</script>\n"
-    )
-    if "</body>" in html:
-        html = html.replace("</body>", inject + "</body>", 1)
-    else:
-        html += inject
     return html
 
 
@@ -422,13 +408,13 @@ def _render_page(app, page: dict, locale: str) -> str:
                             {
                                 "@type": "ListItem",
                                 "position": 1,
-                                "name": home_name,
-                                "item": "https://assureproof.com/",
+                                "name": full.get("meta.home.name", "Home"),
+                                "item": "https://assureproof.com" + path,
                             },
                             {
                                 "@type": "ListItem",
                                 "position": 2,
-                                "name": page_title,
+                                "name": full.get(f"crumb.{meta_prefix}", page_title) if meta_prefix else page_title,
                                 "item": page_url,
                             },
                         ],

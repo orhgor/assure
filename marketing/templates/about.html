@@ -1,23 +1,99 @@
 {% extends 'base.html' %}
 
+{% block nav_current %}
+    {% set nav_current = 'about' %}
+{% endblock %}
+
 {% block content %}
 <main id="main-content">
-    <div class="page">
-        <div class="page-hero">
-            <h1 data-i18n="about.title">{{ strings.get('about.title', 'About') }}</h1>
-        </div>
-        <section class="card">
-            <h2 data-i18n="about.what">{{ strings.get('about.what', 'What it does') }}</h2>
-            <p data-i18n="about.what.body">{{ strings.get('about.what.body', 'Assure checks one document against another. Both source pages stay open, and the contradiction is shown before you pay. A person decides. The file can still be downloaded. Runs in your own AWS account, on-premises, or private GPU environment. You choose where the models run.') }}</p>
-            <h2 data-i18n="about.engine">{{ strings.get('about.engine', 'Who it is for') }}</h2>
-            <ul class="privacy-list">
-                <li data-i18n="about.who.1">{{ strings.get('about.who.1', 'Finance: invoices checked against contract caps and agreed terms.') }}</li>
-                <li data-i18n="about.who.2">{{ strings.get('about.who.2', 'Claims: claim files checked against policies and supporting documents.') }}</li>
-                <li data-i18n="about.who.3">{{ strings.get('about.who.3', 'Procurement: tenders checked against supplier documents and requirements.') }}</li>
-            </ul>
-            <p data-i18n="about.proof">{{ strings.get('about.proof', 'See the 142,500 EUR invoice checked against the 120,000 EUR contract cap.') }} <a href="{{ locale_path }}use-cases/" data-i18n="about.proof.link">{{ strings.get('about.proof.link', 'See the example') }}</a></p>
-            <p><a href="{{ locale_path }}contact-us/" class="btn-primary" data-i18n="about.cta">{{ strings.get('about.cta', 'See the proof') }}</a></p>
-        </section>
+  <section class="page-hero">
+    <div class="container">
+      <h1 data-i18n="about.title">{{ strings.get('about.title', 'About AssureProof') }}</h1>
     </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-eyebrow" data-i18n="about.what">{{ strings.get('about.what', 'What it is') }}</span>
+        <h2 class="section-title" data-i18n="about.what">{{ strings.get('about.what', 'What it is') }}</h2>
+      </div>
+      <p class="section-sub" style="max-width: 68ch; margin: 0 auto;" data-i18n="about.what.body">{{ strings.get('about.what.body', 'AssureProof is a platform that checks a draft against the files it was written from, before you pay or sign off. If an invoice is over the contract cap, or a claim doesn\'t match the policy, you see the mismatch on the review screen with both source pages open. A person decides whether each flagged figure is right. AssureProof runs inside your own environment.') }}</p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <div class="use-cases-grid" style="margin-top: var(--space-8);">
+        <article class="use-case-card">
+          <div class="use-case-icon use-case-icon--gov" aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect width="16" height="20" x="4" y="2" rx="2" ry="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M12 6h.01"/><path d="M16 6h.01"/><path d="M8 10h.01"/><path d="M12 10h.01"/><path d="M16 10h.01"/><path d="M8 14h.01"/><path d="M12 14h.01"/><path d="M16 14h.01"/></svg></div>
+          <h3 data-i18n="about.who.1">{{ strings.get('about.who.1', 'Finance: catch supplier invoices that go over contract caps or agreed terms before the payment run, with the contract page open next to the invoice.') }}</h3>
+        </article>
+        <article class="use-case-card">
+          <div class="use-case-icon use-case-icon--ins" aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg></div>
+          <h3 data-i18n="about.who.2">{{ strings.get('about.who.2', 'Claims: catch claim figures that don\'t match the policy or the supporting documents before the payout.') }}</h3>
+        </article>
+        <article class="use-case-card">
+          <div class="use-case-icon use-case-icon--bonus" aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 2v20"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
+          <h3 data-i18n="about.who.3">{{ strings.get('about.who.3', 'Procurement: catch bids and supplier packs that don\'t meet the tender requirements before award.') }}</h3>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-eyebrow" data-i18n="about.checks.title">{{ strings.get('about.checks.title', 'How a check works') }}</span>
+        <h2 class="section-title" data-i18n="about.checks.title">{{ strings.get('about.checks.title', 'How a check works') }}</h2>
+      </div>
+      <div style="max-width: 68ch; margin: 0 auto; display: grid; gap: var(--space-6);">
+        <div>
+          <h3 style="font-size: 1.125rem; font-weight: 700; margin-bottom: var(--space-2); color: var(--text);" data-i18n="about.checks.1">{{ strings.get('about.checks.1', 'You upload the files. AssureProof reads each one and keeps every figure tied to its source page. It writes a draft from those files and marks the figures and statements that don\'t match.') }}</h3>
+        </div>
+        <div>
+          <h3 style="font-size: 1.125rem; font-weight: 700; margin-bottom: var(--space-2); color: var(--text);" data-i18n="about.checks.2">{{ strings.get('about.checks.2', 'A person on your team accepts, corrects or disputes each flag, and the decision is recorded.') }}</h3>
+        </div>
+      </div>
+
+      <!-- Example check -->
+      <div style="margin-top: var(--space-8);">
+        <p data-i18n="about.proof">{{ strings.get('about.proof', 'Here\'s what a check looks like: a 142,500 EUR invoice against a 120,000 EUR contract cap. Both source pages stay open, the 22,500 EUR difference is marked, and a person decides before payment. Illustrative example, simulated data, not a customer result.') }}</p>
+        <p style="margin-top: var(--space-3);"><a href="{{ locale_path }}use-cases/" class="btn-secondary" data-i18n="about.proof.link">{{ strings.get('about.proof.link', 'See the example check') }}</a></p>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-eyebrow" data-i18n="about.principles.title">{{ strings.get('about.principles.title', 'How we work') }}</span>
+        <h2 class="section-title" data-i18n="about.principles.title">{{ strings.get('about.principles.title', 'How we work') }}</h2>
+      </div>
+      <div class="use-cases-grid" style="margin-top: var(--space-8);">
+        <article class="use-case-card">
+          <div class="use-case-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="m9 12 2 2 4-4"/></svg></div>
+          <h3 data-i18n="about.p.1.name">{{ strings.get('about.p.1.name', 'Checked against the source') }}</h3>
+          <p data-i18n="about.p.1.text">{{ strings.get('about.p.1.text', 'Each flag shows the page the figure came from.') }}</p>
+        </article>
+        <article class="use-case-card">
+          <div class="use-case-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="9" cy="8" r="4"/><path d="M2 21a7 7 0 0 1 14 0"/><path d="m16 11 2 2 4-4"/></svg></div>
+          <h3 data-i18n="about.p.2.name">{{ strings.get('about.p.2.name', 'A person decides') }}</h3>
+          <p data-i18n="about.p.2.text">{{ strings.get('about.p.2.text', 'AssureProof marks mismatches. Your reviewer accepts, corrects or disputes them, and each decision is recorded.') }}</p>
+        </article>
+        <article class="use-case-card">
+          <div class="use-case-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5.25 14.25h13.5m-13.5 0a3 3 0 01-3-3m3 3a3 3 0 01-3-3m3 3a3 3 0 010 6h13.5a3 3 0 100-6m-16.5-3a3 3 0 013-3h13.5a3 3 0 013 3m-19.5 0a4.5 4.5 0 01.9-2.7L5.737 5.1a3.375 3.375 0 012.7-1.35h7.126c1.062 0 2.062.5 2.7 1.35l2.587 3.45a4.5 4.5 0 01.9 2.7"/></svg></div>
+          <h3 data-i18n="about.p.3.name">{{ strings.get('about.p.3.name', 'Runs where you choose') }}</h3>
+          <p data-i18n="about.p.3.text">{{ strings.get('about.p.3.text', 'Your AWS account, a private GPU or your own servers, including air-gapped networks.') }}</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container center">
+      <a href="{{ locale_path }}poc/" class="btn-primary btn-lg" data-i18n="about.cta">{{ strings.get('about.cta', 'Try it on your own files') }}</a>
+    </div>
+  </section>
 </main>
 {% endblock %}

@@ -1,0 +1,41 @@
+{# use_case_detail.html — included by use_case_*.html after hero, before flow #}
+{# Expects uc_key to be set to 'ins', 'gov', or 'fuel' #}
+<section class="uc-detail-section" aria-labelledby="uc-docs-title">
+  <div class="container">
+    <h2 id="uc-docs-title" data-i18n="uc.h.docs">{{ strings.get('uc.h.docs', 'Documents in') }} {{ strings.get('uc.' ~ uc_key ~ '.title', '') }}</h2>
+    <ul style="list-style: none; padding: 0; margin: 0 0 var(--space-6); display: grid; gap: var(--space-3);">
+      <li><strong data-i18n="uc.{{ uc_key }}.doc.1">{{ strings.get('uc.' ~ uc_key ~ '.doc.1', '') }}</strong></li>
+      <li><strong data-i18n="uc.{{ uc_key }}.doc.2">{{ strings.get('uc.' ~ uc_key ~ '.doc.2', '') }}</strong></li>
+      <li><strong data-i18n="uc.{{ uc_key }}.doc.3">{{ strings.get('uc.' ~ uc_key ~ '.doc.3', '') }}</strong></li>
+    </ul>
+
+    <h2 id="uc-checks-title" data-i18n="uc.h.checks">{{ strings.get('uc.h.checks', 'What AssureProof checks') }}</h2>
+    <ul style="list-style: none; padding: 0; margin: 0 0 var(--space-6); display: grid; gap: var(--space-3);">
+      <li data-i18n="uc.{{ uc_key }}.check.1">{{ strings.get('uc.' ~ uc_key ~ '.check.1', '') }}</li>
+      <li data-i18n="uc.{{ uc_key }}.check.2">{{ strings.get('uc.' ~ uc_key ~ '.check.2', '') }}</li>
+      <li data-i18n="uc.{{ uc_key }}.check.3">{{ strings.get('uc.' ~ uc_key ~ '.check.3', '') }}</li>
+    </ul>
+
+    <h2 id="uc-example-title" data-i18n="uc.h.example">{{ strings.get('uc.h.example', 'Illustrative example') }}</h2>
+    <div class="uc-example">
+      <p class="proof-label" data-i18n="uc.example.label">{{ strings.get('uc.example.label', 'Illustrative example, simulated data, not a customer result') }}</p>
+      <p data-i18n="uc.{{ uc_key }}.example">{{ strings.get('uc.' ~ uc_key ~ '.example', '') }}</p>
+    </div>
+
+    <h2 id="uc-faq-title" data-i18n="uc.h.faq">{{ strings.get('uc.h.faq', 'Questions') }}</h2>
+    <div class="uc-faq">
+      <details>
+        <summary data-i18n="uc.{{ uc_key }}.faq.1.q">{{ strings.get('uc.' ~ uc_key ~ '.faq.1.q', '') }}</summary>
+        <div data-i18n="uc.{{ uc_key }}.faq.1.a">{{ strings.get('uc.' ~ uc_key ~ '.faq.1.a', '') }}</div>
+      </details>
+      <details>
+        <summary data-i18n="uc.{{ uc_key }}.faq.2.q">{{ strings.get('uc.' ~ uc_key ~ '.faq.2.q', '') }}</summary>
+        <div data-i18n="uc.{{ uc_key }}.faq.2.a">{{ strings.get('uc.' ~ uc_key ~ '.faq.2.a', '') }}</div>
+      </details>
+      <details>
+        <summary data-i18n="uc.{{ uc_key }}.faq.3.q">{{ strings.get('uc.' ~ uc_key ~ '.faq.3.q', '') }}</summary>
+        <div data-i18n="uc.{{ uc_key }}.faq.3.a">{{ strings.get('uc.' ~ uc_key ~ '.faq.3.a', '') }}</div>
+      </details>
+    </div>
+  </div>
+</section>

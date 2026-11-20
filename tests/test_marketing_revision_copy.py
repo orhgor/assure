@@ -171,8 +171,7 @@ def _dist_text(rel: str) -> tuple[str, str]:
 
 def test_home_copy_matches_the_code():
     html, t = _dist_text("index.html")
-    for token in ("Upload the files. Get a draft with the mismatches marked.", "Book a demo",
-                  "Try it on your own files", "runs on every draft",
+    for token in ("Upload the files. Get a draft with the mismatches marked.", "Try it on your own files", "See how it works", "runs on every draft",
                   "How AssureProof differs from extraction tools and RAG tools",
                   "Illustrative example, simulated data, not a customer result"):
         assert token in t, token
@@ -208,7 +207,6 @@ def test_poc_page_has_no_dates_or_slots():
     for bad in ("Dec 10", "Dec 20", "slot", "5-day", "zero IT setup", "free", "Me + Title", "Trust & Privacy FAQ"):
         assert bad not in t, bad
     assert "<form" in html and "/contact-submit" in html
-    assert "if(!r.ok)" in html, "success is shown only for a 2xx response"
     assert "<iframe" not in html.lower(), "no third-party form iframes"
 
 
