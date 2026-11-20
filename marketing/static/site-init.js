@@ -77,9 +77,29 @@
 
   // Initialize mobile menu immediately (script is at end of body, DOM should be ready)
   initMobileMenu();
+  syncPrivacyToc();
 
   // Also initialize on DOMContentLoaded as fallback
   document.addEventListener("DOMContentLoaded", function () {
     initMobileMenu();
+    syncPrivacyToc();
   });
+
+  // On desktop, <details> is open by default (via HTML attribute).
+  // On mobile (<900px), close it so the summary toggle works.
+  function syncPrivacyToc() {
+    var el = document.querySelector(".privacy-toc-wrap");
+    if (!el || !window.matchMedia) return;
+    var mq = window.matchMedia("(max-width: 899px)");
+    function apply() {
+      if (mq.matches) {
+        el.removeAttribute("open");
+      } else {
+        el.setAttribute("open", "");
+      }
+    }
+    apply();
+    if (mq.addEventListener) mq.addEventListener("change", apply);
+    else if (mq.addListener) mq.addListener(apply);
+  }
 })();

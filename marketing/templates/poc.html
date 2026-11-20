@@ -62,10 +62,14 @@
       <div class="card">
         <h2 data-i18n="poc.assessment.title">{{ strings.get('poc.assessment.title', 'Request a proof of concept') }}</h2>
         <form id="poc-form" class="poc-form" method="post" action="/contact-submit" data-done="{{ strings.get('poc.form.done', 'Request received. We will reply by email to agree the scope.') }}" data-error="{{ strings.get('poc.form.error', 'Could not send your request. Please try again or write to sales@assureproof.com.') }}">
-          <label for="poc-email" data-i18n="poc.form.email">{{ strings.get('poc.form.email', 'Work email') }}</label>
-          <input id="poc-email" class="demo-input" name="email" type="email" autocomplete="email" required>
-          <label for="poc-pair" data-i18n="poc.form.pair">{{ strings.get('poc.form.pair', 'Which documents should we check against each other?') }}</label>
-          <input id="poc-pair" class="demo-input" name="pair" type="text" data-i18n-placeholder="poc.form.pair.example" placeholder="{{ strings.get('poc.form.pair.example', 'e.g., Invoice vs. Contract Cap / Claim Form vs. Receipts / Grant Application vs. Attachments') }}">
+          <div class="form-field">
+            <label for="poc-email" data-i18n="poc.form.email">{{ strings.get('poc.form.email', 'Work email') }}</label>
+            <input id="poc-email" class="demo-input" name="email" type="email" autocomplete="email" required>
+          </div>
+          <div class="form-field">
+            <label for="poc-pair" data-i18n="poc.form.pair">{{ strings.get('poc.form.pair', 'Which documents should we check against each other?') }}</label>
+            <input id="poc-pair" class="demo-input" name="pair" type="text" data-i18n-placeholder="poc.form.pair.example" placeholder="{{ strings.get('poc.form.pair.example', 'e.g., Invoice vs. Contract Cap / Claim Form vs. Receipts / Grant Application vs. Attachments') }}">
+          </div>
           <fieldset>
             <legend data-i18n="poc.form.cases">{{ strings.get('poc.form.cases', 'Can you share 5-10 sample cases (up to 50 files)?') }}</legend>
             <div class="radio-group">

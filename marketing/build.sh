@@ -80,10 +80,13 @@ for url in locs:
     home = tail == "" or (tail.count("/") == 1 and len(tail.strip("/")) == 2)
     freq = "weekly" if home else "monthly"
     priority = "1.0" if home else "0.6"
+    lines.append("  <url>")
     lines.append(f"    <loc>{url}</loc>")
     lines.append(f"    <lastmod>{__import__('datetime').date.today().isoformat()}</lastmod>")
     lines.append(f"    <changefreq>{freq}</changefreq>")
     lines.append(f"    <priority>{priority}</priority>")
+    lines.append("  </url>")
+lines.append("</urlset>")
 (root / "sitemap.xml").write_text("\\n".join(lines) + "\\n", encoding="utf-8")
 print(f"→ Sitemap: {len(locs)} URLs")
 PY
