@@ -340,8 +340,8 @@ def test_design_tokens_enforced():
     # Container max-width 1120px
     assert "max-width: 1120px" in css_content or "max-width: var(--container-max)" in css_content or "max-width: 70rem" in css_content, "Container max-width 1120px not found"
 
-    # Section padding 96/64 via clamp
-    assert "clamp(64px" in css_content and "96px" in css_content, "Section padding clamp(64px, ..., 96px) not found"
+    # Section rhythm: about 120px desktop, 72px mobile
+    assert "clamp(72px" in css_content and "120px" in css_content, "Section padding clamp(72px, ..., 120px) not found"
 
     # text-wrap: balance on headings/buttons
     assert "text-wrap: balance" in css_content, "text-wrap: balance not found"
@@ -365,3 +365,28 @@ def test_design_tokens_enforced():
 
     # Font-size floors
     assert "max(1rem, 14px)" in css_content or "max(0.875rem, 12px)" in css_content, "Font-size floors not found"
+
+
+_RAW_KEY = re.compile(r"(?<![\w@/])([a-z][a-z0-9_-]*(?:\.[a-z0-9_-]+){2,})(?![\w])")
+_TLDS = {"com", "org", "net", "io", "png", "jpg", "jpeg", "svg", "css", "js", "html", "woff2", "xml"}
+
+
+def test_no_raw_i18n_keys_in_visible_html():
+    """A dotted catalog key in the visible page, or an empty data-i18n node, is a miss."""
+    bad = []
+    empty = re.compile(r'data-i18n="([^"]+)"[^>]*>\s*</', re.I)
+    echoed = re.compile(r'data-i18n="([^"]+)"[^>]*>\s*\1\s*<', re.I)
+    for page in _pages():
+        html = page.read_text(encoding="utf-8")
+        visible = _visible(html)
+        for match in _RAW_KEY.finditer(visible):
+            token = match.group(1)
+            if token.rsplit(".", 1)[-1] in _TLDS:
+                continue
+            bad.append((_rel(page), token))
+        for pattern in (empty, echoed):
+            for match in pattern.finditer(html):
+                key = match.group(1)
+                if "." in key and "{{" not in key:
+                    bad.append((_rel(page), "empty-or-echo:" + key))
+    assert not bad, bad[:30]

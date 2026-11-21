@@ -2,15 +2,15 @@
 {# Expects uc_key to be set to 'ins', 'gov', or 'fuel' #}
 <section class="uc-detail-section" aria-labelledby="uc-docs-title">
   <div class="container">
-    <h2 id="uc-docs-title" data-i18n="uc.h.docs">{{ strings.get('uc.h.docs', 'Documents in') }} {{ strings.get('uc.' ~ uc_key ~ '.title', '') }}</h2>
-    <ul style="list-style: none; padding: 0; margin: 0 0 var(--space-6); display: grid; gap: var(--space-3);">
+    <h2 id="uc-docs-title"><span data-i18n="uc.h.docs">{{ strings.get('uc.h.docs', 'Documents in') }}</span> <span data-i18n="uc.{{ uc_key }}.title">{{ strings.get('uc.' ~ uc_key ~ '.title', '') }}</span></h2>
+    <ul class="uc-points">
       <li><strong data-i18n="uc.{{ uc_key }}.doc.1">{{ strings.get('uc.' ~ uc_key ~ '.doc.1', '') }}</strong></li>
       <li><strong data-i18n="uc.{{ uc_key }}.doc.2">{{ strings.get('uc.' ~ uc_key ~ '.doc.2', '') }}</strong></li>
       <li><strong data-i18n="uc.{{ uc_key }}.doc.3">{{ strings.get('uc.' ~ uc_key ~ '.doc.3', '') }}</strong></li>
     </ul>
 
     <h2 id="uc-checks-title" data-i18n="uc.h.checks">{{ strings.get('uc.h.checks', 'What AssureProof checks') }}</h2>
-    <ul style="list-style: none; padding: 0; margin: 0 0 var(--space-6); display: grid; gap: var(--space-3);">
+    <ul class="uc-points">
       <li data-i18n="uc.{{ uc_key }}.check.1">{{ strings.get('uc.' ~ uc_key ~ '.check.1', '') }}</li>
       <li data-i18n="uc.{{ uc_key }}.check.2">{{ strings.get('uc.' ~ uc_key ~ '.check.2', '') }}</li>
       <li data-i18n="uc.{{ uc_key }}.check.3">{{ strings.get('uc.' ~ uc_key ~ '.check.3', '') }}</li>

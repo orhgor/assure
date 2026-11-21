@@ -45,13 +45,13 @@
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.745 3.745 0 01-3.296-1.043A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 01-3.296-1.043A3.745 3.745 0 0112 3c1.268 0-2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12z"/></svg>
           </div>
           <h3 data-i18n="security.pillar4.title">{{ strings.get('security.pillar4.title', 'Every decision logged') }}</h3>
-          <p data-i18n="security.pillar4.desc">{{ strings.get('security.pillar4.desc', 'Every extracted figure, flagged contradiction, reviewer sign-off, and manual override is cryptographically timestamped.') }}</p>
+          <p data-i18n="security.pillar4.desc">{{ strings.get('security.pillar4.desc', 'Every accept, correction, dispute and override is logged with who, when and why.') }}</p>
         </div>
       </div>
 
       <!-- Boundary Diagram -->
       <figure class="boundary" aria-labelledby="security-diagram-title">
-        <h2 id="security-diagram-title" class="section-title" style="margin-top: 0; margin-bottom: var(--space-6);" data-i18n="security.diagram.title">{{ strings.get('security.diagram.title', 'What stays inside your environment') }}</h2>
+        <h2 id="security-diagram-title" class="section-title" data-i18n="security.diagram.title">{{ strings.get('security.diagram.title', 'What stays inside your environment') }}</h2>
         <div class="env-box" data-label="{{ strings.get('security.diagram.env', 'Your AWS account or your own servers') }}">
           <div class="env-item">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><path d="M8 21h8"/><path d="M12 17v4"/></svg>
