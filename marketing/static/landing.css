@@ -2353,7 +2353,9 @@ button.btn-primary:hover {
 .closing-section .section-title {
   color: var(--bg);
   margin: 0 auto 32px;
-  max-width: 16em;
+  max-width: 18em;
+  text-wrap: balance;
+  line-height: 1.15;
 }
 
 .closing-section a.btn-primary,
