@@ -6,22 +6,21 @@
 
 {% block content %}
 <main id="main-content">
-  <section class="page-hero">
+  <section class="page-hero uc-hero">
     <div class="container">
-      <h1 data-i18n="arch.title">{{ strings.get('arch.title', 'Architecture') }}</h1>
-      <p class="lede" data-i18n="arch.where.body">{{ strings.get('arch.where.body', 'AssureProof runs in your own AWS account, on-premises, or in a private GPU environment, including air-gapped networks. You choose where the models run. With a self-hosted model, your documents stay inside that boundary.') }}</p>
-    </div>
-  </section>
-
-  {% include 'includes/flow.html' %}
-
-  <section class="section">
-    <div class="container">
-      <div class="section-header">
-        <h2 class="section-title" data-i18n="arch.where.title">{{ strings.get('arch.where.title', 'Where it runs') }}</h2>
+      <div class="uc-hero-grid">
+        <div class="uc-hero-copy">
+          <h1 data-i18n="arch.title">{{ strings.get('arch.title', 'Architecture') }}</h1>
+          <p class="lede" data-i18n="arch.where.title">{{ strings.get('arch.where.title', 'Where it runs') }}</p>
+        </div>
+        <aside class="uc-summary">
+          <p class="uc-summary-note" data-i18n="arch.where.body">{{ strings.get('arch.where.body', 'AssureProof runs in your own AWS account, on-premises, or in a private GPU environment, including air-gapped networks. You choose where the models run. With a self-hosted model, your documents stay inside that boundary.') }}</p>
+        </aside>
       </div>
-      <p data-i18n="arch.where.body">{{ strings.get('arch.where.body', 'AssureProof runs in your own AWS account, on-premises, or in a private GPU environment, including air-gapped networks. You choose where the models run. With a self-hosted model, your documents stay inside that boundary.') }}</p>
     </div>
   </section>
+
+  {% set flow_compact = true %}
+  {% include 'includes/flow.html' %}
 </main>
 {% endblock %}

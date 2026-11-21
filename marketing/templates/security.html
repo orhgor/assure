@@ -6,10 +6,23 @@
 
 {% block content %}
 <main id="main-content">
-  <section class="page-hero">
+  <section class="page-hero uc-hero">
     <div class="container">
-      <h1 data-i18n="security.title">{{ strings.get('security.title', 'Where AssureProof runs and what it stores') }}</h1>
-      <p class="lede" data-i18n="security.sub">{{ strings.get('security.sub', 'AssureProof runs in your own AWS account, on a private GPU or on your own servers, including air-gapped networks. With a self-hosted model, document text stays inside your environment. Files are stored on your own disk or in your S3 bucket.') }}</p>
+      <div class="uc-hero-grid">
+        <div class="uc-hero-copy">
+          <h1 data-i18n="security.title">{{ strings.get('security.title', 'Where AssureProof runs and what it stores') }}</h1>
+          <p class="lede" data-i18n="security.sub">{{ strings.get('security.sub', 'AssureProof runs in your own AWS account, on a private GPU or on your own servers, including air-gapped networks. With a self-hosted model, document text stays inside your environment. Files are stored on your own disk or in your S3 bucket.') }}</p>
+        </div>
+        <aside class="uc-summary">
+          <p class="uc-summary-label" data-i18n="security.diagram.title">{{ strings.get('security.diagram.title', 'What stays inside your environment') }}</p>
+          <ul class="uc-summary-list">
+            <li data-i18n="security.pillar1.title">{{ strings.get('security.pillar1.title', 'Your cloud or air-gapped') }}</li>
+            <li data-i18n="security.pillar2.title">{{ strings.get('security.pillar2.title', 'Your keys (BYOK)') }}</li>
+            <li data-i18n="security.pillar3.title">{{ strings.get('security.pillar3.title', 'No training on your data') }}</li>
+            <li data-i18n="security.pillar4.title">{{ strings.get('security.pillar4.title', 'Every decision logged') }}</li>
+          </ul>
+        </aside>
+      </div>
     </div>
   </section>
 
