@@ -100,6 +100,16 @@ if [ -f "$ROOT/marketing/googledd970fc4996a6661.html" ]; then
   cp "$ROOT/marketing/googledd970fc4996a6661.html" "$DIST_DIR/googledd970fc4996a6661.html"
 fi
 
+# /404 and /404/ both resolve. The Worker 404-page still reads 404.html.
+python3 - <<PY
+from pathlib import Path
+root = Path("$DIST_DIR")
+for page in root.rglob("404.html"):
+    target = page.parent / "404" / "index.html"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(page.read_text(encoding="utf-8"), encoding="utf-8")
+PY
+
 if [ -f "$ROOT/marketing/static/favicon.svg" ]; then
   cp "$ROOT/marketing/static/favicon.svg" "$DIST_DIR/favicon.svg"
 fi

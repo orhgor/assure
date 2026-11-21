@@ -153,6 +153,8 @@ TEMPLATE_TO_META = {
     "use_cases_index.html": "use_cases_index",
     "use_case_government.html": "use_case_government",
     "use_case_insurance.html": "use_case_insurance",
+    "use_case_finance.html": "use_case_finance",
+    "use_case_procurement.html": "use_case_procurement",
     "use_case_fuel.html": "use_case_fuel",
     "landing_privacy.html": "landing_privacy",
     "contact.html": "contact",
