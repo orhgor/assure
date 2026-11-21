@@ -1144,15 +1144,19 @@ a:hover { color: var(--accent-blue-hover); }
 
 .footer-tagline {
   font-size: 0.9375rem;
-  line-height: 1.6;
+  line-height: 1.45;
   color: rgba(255,255,255,0.6);
-  max-width: 22ch;
+  max-width: 18em;
+  text-wrap: balance;
 }
 
 .footer-deployment {
   font-size: 0.8125rem;
+  line-height: 1.45;
   color: rgba(255,255,255,0.4);
   margin-top: var(--space-3);
+  max-width: 26em;
+  text-wrap: pretty;
 }
 
 .footer-col { min-width: 0; }
@@ -1167,15 +1171,26 @@ a:hover { color: var(--accent-blue-hover); }
 }
 
 .footer-links-col {
+  list-style: none;
+  margin: 0;
+  padding: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: 10px;
+}
+
+.footer-links-col li {
+  margin: 0;
+  padding: 0;
 }
 
 .footer-links-col a {
+  display: inline-block;
   font-size: 0.9375rem;
+  line-height: 1.35;
   color: rgba(255,255,255,0.7);
   transition: color 0.15s ease;
+  text-wrap: pretty;
 }
 
 .footer-links-col a:hover { color: white; }
@@ -2378,12 +2393,12 @@ button.btn-primary:hover {
 
 @media (min-width: 1025px) {
   .footer-grid {
-    grid-template-columns: minmax(180px, 1.4fr) repeat(3, minmax(0, 1fr));
-    column-gap: clamp(24px, 3vw, 48px);
+    grid-template-columns: minmax(240px, 1.5fr) repeat(3, minmax(140px, 1fr));
+    column-gap: clamp(28px, 3.5vw, 56px);
     align-items: start;
   }
   .footer-links-col a {
-    white-space: normal;
+    white-space: nowrap;
     font-size: 15px;
     letter-spacing: 0;
   }
@@ -2392,7 +2407,15 @@ button.btn-primary:hover {
     padding-left: var(--container-padding);
     padding-right: var(--container-padding);
   }
-  .footer-tagline { max-width: 28ch; }
+  .footer-tagline { max-width: 16em; }
+  .footer-deployment {
+    max-width: none;
+    white-space: nowrap;
+  }
+}
+
+@media (min-width: 1025px) and (max-width: 1180px) {
+  .footer-deployment { white-space: normal; max-width: 22em; }
 }
 
 @media (max-width: 1100px) {
