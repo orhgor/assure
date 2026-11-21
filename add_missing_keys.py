@@ -80,7 +80,7 @@ MISSING_EN_KEYS = {
 # New keys to add to all locales
 NEW_KEYS = {
     "about.who.title": "Who it is for",
-    "brand.subtitle": "Every figure checked against its source page",
+    "brand.subtitle": "Every figure, sourced.",
     "security.pillar4.desc": "Every extracted figure, flagged contradiction, reviewer sign-off, and manual override is cryptographically timestamped.",
     "security.pillar4.title": "Every decision logged",
 }

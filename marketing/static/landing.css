@@ -379,11 +379,10 @@ a:hover { color: var(--accent-blue-hover); }
   padding: 0 var(--container-padding);
 }
 
-.logo { display: flex; align-items: center; gap: var(--space-3); text-decoration: none; color: inherit; }
+.logo { display: flex; align-items: center; gap: var(--space-3); text-decoration: none; color: inherit; flex-shrink: 0; }
 .logo-mark { width: 32px; height: 32px; flex-shrink: 0; }
-.logo-copy { display: flex; flex-direction: column; line-height: 1.1; }
-.logo-name { font-weight: 700; font-size: 1.125rem; letter-spacing: -0.02em; color: var(--text); }
-.logo-copy { max-width: 8.75rem; }
+.logo-copy { display: flex; flex-direction: column; line-height: 1.1; max-width: none; flex-shrink: 0; }
+.logo-name { font-weight: 700; font-size: 1.125rem; letter-spacing: -0.02em; color: var(--text); white-space: nowrap; }
 .logo-subtitle {
   display: none;
   font-size: 12px;
@@ -392,7 +391,7 @@ a:hover { color: var(--accent-blue-hover); }
   color: var(--text-muted);
   letter-spacing: 0;
   text-transform: none;
-  white-space: normal;
+  white-space: nowrap;
 }
 @media (min-width: 1100px) {
   .logo-subtitle { display: block; }
