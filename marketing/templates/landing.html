@@ -37,6 +37,7 @@
     <script src="{{ url_for('static', filename='icons.js') }}"></script>
     <script>
       window.__assureLandingStrings = {{ strings|tojson }};
+    <script>window.__ASSURE_LOCALE_PATHS = {{ locale_paths|tojson }};</script>
     </script>
     <script>if(!matchMedia('(prefers-reduced-motion: reduce)').matches)document.documentElement.classList.add('fx')</script>
 </head>
@@ -117,38 +118,26 @@
                 <ol class="pipeline">
                     <li class="pipeline-step" data-step="01">
                         <span class="pipeline-step-number">01</span>
-                        <h3 data-i18n="pipeline.1.name">{{ strings.get('pipeline.1.name', 'Ingest Your File Stack') }}</h3>
-                        <p data-i18n="pipeline.1.line">{{ strings.get('pipeline.1.line', 'Upload contracts, invoices, claims, or regulatory filings in any format. Every document stays isolated inside your environment.') }}</p>
+                        <h3 data-i18n="pipeline.1.name">{{ strings.get('pipeline.1.name', 'Upload the document package') }}</h3>
+                        <p data-i18n="pipeline.1.line">{{ strings.get('pipeline.1.line', 'PDFs, scans and images up to 25 MB and 200 pages. Spreadsheets are read in code, without a model.') }}</p>
                     </li>
 
                     <li class="pipeline-step" data-step="02">
                         <span class="pipeline-step-number">02</span>
-                        <h3 data-i18n="pipeline.2.name">{{ strings.get('pipeline.2.name', 'Page-Pinned Extraction (ParSure)') }}</h3>
-                        <p data-i18n="pipeline.2.line">{{ strings.get('pipeline.2.line', 'Extracts every figure, obligation, and cross-reference—linking each data point directly to the exact page and line it came from.') }}</p>
+                        <h3 data-i18n="pipeline.2.name">{{ strings.get('pipeline.2.name', 'Read and draft') }}</h3>
+                        <p data-i18n="pipeline.2.line">{{ strings.get('pipeline.2.line', 'Every page is read, and each field is pinned to its source page. The draft is written with a citation for every claim.') }}</p>
                     </li>
 
                     <li class="pipeline-step" data-step="03">
                         <span class="pipeline-step-number">03</span>
-                        <h3 data-i18n="pipeline.3.name">{{ strings.get('pipeline.3.name', 'Structured Drafting (DraftSure)') }}</h3>
-                        <p data-i18n="pipeline.3.line">{{ strings.get('pipeline.3.line', 'Generates reports, summaries, or approval memos built strictly from verified source facts, with zero ungrounded claims.') }}</p>
+                        <h3 data-i18n="pipeline.3.name">{{ strings.get('pipeline.3.name', 'Check and cross-check') }}</h3>
+                        <p data-i18n="pipeline.3.line">{{ strings.get('pipeline.3.line', 'Every figure and date is tested against your files. Each citation is verified against its source page. A second review lists weak claims.') }}</p>
                     </li>
 
                     <li class="pipeline-step" data-step="04">
                         <span class="pipeline-step-number">04</span>
-                        <h3 data-i18n="pipeline.4.name">{{ strings.get('pipeline.4.name', 'Mathematical Consistency Check (Z3 Solver)') }}</h3>
-                        <p data-i18n="pipeline.4.line">{{ strings.get('pipeline.4.line', 'Our formal logic engine tests whether every number and clause across all files can be true at the same time. If two facts conflict, export is automatically locked.') }}</p>
-                    </li>
-
-                    <li class="pipeline-step" data-step="05">
-                        <span class="pipeline-step-number">05</span>
-                        <h3 data-i18n="pipeline.5.name">{{ strings.get('pipeline.5.name', 'Optional Adversarial Stress-Test (Red Hat Review)') }}</h3>
-                        <p data-i18n="pipeline.5.line">{{ strings.get('pipeline.5.line', 'Trigger a separate, independent audit pass to hunt for edge-case ambiguities, missing attachments, or hidden compliance risks.') }}</p>
-                    </li>
-
-                    <li class="pipeline-step" data-step="06">
-                        <span class="pipeline-step-number">06</span>
-                        <h3 data-i18n="pipeline.6.name">{{ strings.get('pipeline.6.name', 'Human Sign-Off & Audit Trail') }}</h3>
-                        <p data-i18n="pipeline.6.line">{{ strings.get('pipeline.6.line', 'No document moves forward silently. An authorized reviewer resolves the conflict—or logs a formal override—before downloading the final file.') }}</p>
+                        <h3 data-i18n="pipeline.4.name">{{ strings.get('pipeline.4.name', 'A person decides') }}</h3>
+                        <p data-i18n="pipeline.4.line">{{ strings.get('pipeline.4.line', 'The review screen shows the contradiction and export is flagged. A person accepts or rejects each finding. The file stays downloadable.') }}</p>
                     </li>
                 </ol>
             </div>
@@ -359,6 +348,41 @@
 
                 <div class="security-whitepaper-link">
                     <a href="{{ locale_path }}poc/" class="btn-secondary" data-demo-open>{{ strings.get('security.whitepaper', 'Request the Security & Architecture Whitepaper →') }}</a>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==========================================================================
+             FAQ
+             ========================================================================== -->
+        <section id="faq" class="section">
+            <div class="container">
+                <h2 class="section-title" data-i18n="faq.title">{{ strings.get('faq.title', 'Frequently Asked Questions') }}</h2>
+                <div class="faq-grid">
+                    <details class="faq-item">
+                        <summary data-i18n="faq.q1">{{ strings.get('faq.q1', 'What is AssureProof?') }}</summary>
+                        <p data-i18n="faq.a1">{{ strings.get('faq.a1', 'AssureProof reads your contracts, invoices, claims and bids together and marks every figure that does not match across them, with both source pages open. A person reviews each flag and decides. It runs in your own AWS account or on your own servers, including air-gapped networks.') }}</p>
+                    </details>
+                    <details class="faq-item">
+                        <summary data-i18n="faq.q2">{{ strings.get('faq.q2', 'What is Z3?') }}</summary>
+                        <p data-i18n="faq.a2">{{ strings.get('faq.a2', 'Z3 is a formal logic solver (SMT solver) that mathematically proves whether a set of figures and constraints can all be true at the same time. It gives a deterministic yes/no answer — no probability, no hallucination.') }}</p>
+                    </details>
+                    <details class="faq-item">
+                        <summary data-i18n="faq.q3">{{ strings.get('faq.q3', 'What does &ldquo;deterministic&rdquo; mean here?') }}</summary>
+                        <p data-i18n="faq.a3">{{ strings.get('faq.a3', 'The same inputs always produce the same output. There is no randomness, no temperature setting, and no model drift. If the figures conflict today, they will conflict tomorrow.') }}</p>
+                    </details>
+                    <details class="faq-item">
+                        <summary data-i18n="faq.q4">{{ strings.get('faq.q4', 'What is Red-Hat review?') }}</summary>
+                        <p data-i18n="faq.a4">{{ strings.get('faq.a4', 'An optional, separate adversarial pass where a language model tries to find flaws in the draft — missing citations, overstated claims, or numbers that do not trace back to a source page. It runs only when requested.') }}</p>
+                    </details>
+                    <details class="faq-item">
+                        <summary data-i18n="faq.q5">{{ strings.get('faq.q5', 'Does a contradiction block export?') }}</summary>
+                        <p data-i18n="faq.a5">{{ strings.get('faq.a5', 'Yes. Export is automatically locked while any contradiction is unresolved. A person (or an authorized agent) must accept or reject each finding before the file can be downloaded. The file stays downloadable the entire time — you just cannot export a conflicted version.') }}</p>
+                    </details>
+                    <details class="faq-item">
+                        <summary data-i18n="faq.q6">{{ strings.get('faq.q6', 'Where does AssureProof run?') }}</summary>
+                        <p data-i18n="faq.a6">{{ strings.get('faq.a6', 'In your own AWS account (using Amazon Bedrock), on a private GPU, or on your own on-premises servers — including air-gapped networks. You choose the deployment model; documents never leave your boundary unless you connect an external endpoint yourself.') }}</p>
+                    </details>
                 </div>
             </div>
         </section>
