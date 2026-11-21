@@ -89,20 +89,39 @@
           </div>
         </article>
 
-        <!-- Card 3: Invoice vs Contract -->
-        <article class="use-case-card" id="invoice-vs-contract">
-          <div class="use-case-icon use-case-icon--bonus" aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 2v20"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
-          <h3 data-i18n="use-cases.fuel.title">{{ strings.get('use-cases.fuel.title', 'Bonus and commission checks') }}</h3>
+        <!-- Card 3: Finance / AP -->
+        <article class="use-case-card" id="finance">
+          <div class="use-case-icon use-case-icon--fin" aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 2v20"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/><path d="M8 12h8"/><path d="M8 16h8"/></svg></div>
+          <h3 data-i18n="use-cases.fin.title">{{ strings.get('use-cases.fin.title', 'Finance / Accounts Payable checks') }}</h3>
+          <p data-i18n="use-cases.fin.desc">{{ strings.get('use-cases.fin.desc', 'Three-way match the invoice against the purchase order and goods receipt; flag duplicates and altered invoices.') }}</p>
 
           <div class="use-case-conflict">
-            <div class="conflict-row"><span data-i18n="use-cases.fuel.conflict.label">{{ strings.get('use-cases.fuel.conflict.label', 'Illustrative example') }}</span><span class="conflict-badge" data-i18n="use-cases.fuel.conflict.badge">{{ strings.get('use-cases.fuel.conflict.badge', '+$31,200 Over') }}</span></div>
-            <div><span data-i18n="use-cases.fuel.conflict.source-a.label">{{ strings.get('use-cases.fuel.conflict.source-a.label', 'Source A (FY26 Comp Plan, Sec. 3.1):') }}</span><span data-i18n="use-cases.fuel.conflict.source-a">{{ strings.get('use-cases.fuel.conflict.source-a', 'Accelerator Rate (100%+ Quota): 1.5x') }}</span></div>
-            <div><span data-i18n="use-cases.fuel.conflict.source-b.label">{{ strings.get('use-cases.fuel.conflict.source-b.label', 'Source B (Q4 Payroll Sheet, Row 42):') }}</span><span data-i18n="use-cases.fuel.conflict.source-b">{{ strings.get('use-cases.fuel.conflict.source-b', 'Applied Multiplier: 2.0x (+$31,200)') }}</span></div>
-            <div class="conflict-result"><strong data-i18n="use-cases.fuel.conflict.result.label">{{ strings.get('use-cases.fuel.conflict.result.label', 'Result:') }}</strong><span data-i18n="use-cases.fuel.conflict.result">{{ strings.get('use-cases.fuel.conflict.result', 'Mismatch marked: payroll applied 2.0x, but the signed plan says 1.5x.') }}</span></div>
+            <div class="conflict-row"><span data-i18n="use-cases.fin.conflict.label">{{ strings.get('use-cases.fin.conflict.label', 'Illustrative example') }}</span><span class="conflict-badge" data-i18n="use-cases.fin.conflict.badge">{{ strings.get('use-cases.fin.conflict.badge', '+$2,500 Variance') }}</span></div>
+            <div><span data-i18n="use-cases.fin.conflict.source-a.label">{{ strings.get('use-cases.fin.conflict.source-a.label', 'Source A (PO #4421):') }}</span><span data-i18n="use-cases.fin.conflict.source-a">{{ strings.get('use-cases.fin.conflict.source-a', 'PO: 500 units × $120 = $60,000') }}</span></div>
+            <div><span data-i18n="use-cases.fin.conflict.source-b.label">{{ strings.get('use-cases.fin.conflict.source-b.label', 'Source B (Invoice #9872, line 1) & Receipt #3310:') }}</span><span data-i18n="use-cases.fin.conflict.source-b">{{ strings.get('use-cases.fin.conflict.source-b', 'Invoice: 500 units × $125 = $62,500; Receipt: 480 units') }}</span></div>
+            <div class="conflict-result"><strong data-i18n="use-cases.fin.conflict.result.label">{{ strings.get('use-cases.fin.conflict.result.label', 'Result:') }}</strong><span data-i18n="use-cases.fin.conflict.result">{{ strings.get('use-cases.fin.conflict.result', 'Mismatch marked: invoice bills 500 units at $125; PO authorizes 500 at $120; receipt shows 480 received.') }}</span></div>
           </div>
           <div style="display: flex; gap: var(--space-3); margin-top: var(--space-4);">
-            <a href="{{ locale_path }}use-cases/bonus-reconciliation/" class="btn-primary" style="flex: 1;" data-i18n="uc.inv.more">{{ strings.get('uc.inv.more', 'See an invoice check') }}</a>
-            <a href="{{ locale_path }}contact-us/" class="btn-secondary" style="flex: 1;" data-i18n="use-cases.fuel.cta">{{ strings.get('use-cases.fuel.cta', 'Check a commission batch with us') }}</a>
+            <a href="{{ locale_path }}use-cases/finance/" class="btn-primary" style="flex: 1;" data-i18n="uc.fin.more">{{ strings.get('uc.fin.more', 'See a finance check') }}</a>
+            <a href="{{ locale_path }}contact-us/" class="btn-secondary" style="flex: 1;" data-i18n="use-cases.fin.cta">{{ strings.get('use-cases.fin.cta', 'Check an AP batch with us') }}</a>
+          </div>
+        </article>
+
+        <!-- Card 4: Procurement -->
+        <article class="use-case-card" id="procurement">
+          <div class="use-case-icon use-case-icon--proc" aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect width="16" height="20" x="4" y="2" rx="2" ry="2"/><path d="M8 10h8"/><path d="M8 14h8"/><path d="M8 18h8"/></svg></div>
+          <h3 data-i18n="use-cases.proc.title">{{ strings.get('use-cases.proc.title', 'Procurement document checks') }}</h3>
+          <p data-i18n="use-cases.proc.desc">{{ strings.get('use-cases.proc.desc', 'Find price, quantity and payment-term mismatches across the contract, purchase order and invoice before payment is released.') }}</p>
+
+          <div class="use-case-conflict">
+            <div class="conflict-row"><span data-i18n="use-cases.proc.conflict.label">{{ strings.get('use-cases.proc.conflict.label', 'Illustrative example') }}</span><span class="conflict-badge" data-i18n="use-cases.proc.conflict.badge">{{ strings.get('use-cases.proc.conflict.badge', '+$4.20 Over') }}</span></div>
+            <div><span data-i18n="use-cases.proc.conflict.source-a.label">{{ strings.get('use-cases.proc.conflict.source-a.label', 'Source A (Contract, Sec. 4.2):') }}</span><span data-i18n="use-cases.proc.conflict.source-a">{{ strings.get('use-cases.proc.conflict.source-a', 'Contract Unit Price Cap: $42.00') }}</span></div>
+            <div><span data-i18n="use-cases.proc.conflict.source-b.label">{{ strings.get('use-cases.proc.conflict.source-b.label', 'Source B (Invoice #7341, line 3):') }}</span><span data-i18n="use-cases.proc.conflict.source-b">{{ strings.get('use-cases.proc.conflict.source-b', 'Invoice Unit Price: $46.20') }}</span></div>
+            <div class="conflict-result"><strong data-i18n="use-cases.proc.conflict.result.label">{{ strings.get('use-cases.proc.conflict.result.label', 'Result:') }}</strong><span data-i18n="use-cases.proc.conflict.result">{{ strings.get('use-cases.proc.conflict.result', 'Mismatch marked: invoice unit price is $4.20 over the contract cap.') }}</span></div>
+          </div>
+          <div style="display: flex; gap: var(--space-3); margin-top: var(--space-4);">
+            <a href="{{ locale_path }}use-cases/procurement/" class="btn-primary" style="flex: 1;" data-i18n="uc.proc.more">{{ strings.get('uc.proc.more', 'See a procurement check') }}</a>
+            <a href="{{ locale_path }}contact-us/" class="btn-secondary" style="flex: 1;" data-i18n="use-cases.proc.cta">{{ strings.get('use-cases.proc.cta', 'Check a procurement packet with us') }}</a>
           </div>
         </article>
       </div>

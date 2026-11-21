@@ -441,11 +441,12 @@ a:hover { color: var(--accent-blue-hover); }
   box-shadow: 0 0 0 3px var(--accent-alpha);
 }
 
-/* Header CTA */
+/* Header CTA — slimmer: ~40px tall, 8px vertical padding, one-line label */
 .header-cta {
-  min-height: 44px;
+  min-height: 40px;
   padding: var(--space-2) var(--space-4);
   font-size: 0.875rem;
+  white-space: nowrap;
 }
 
 /* Mobile menu button */
@@ -943,7 +944,8 @@ a:hover { color: var(--accent-blue-hover); }
 .use-case-icon--gov { background: #fef3c7; color: #b45309; border-color: #fde68a; }
 .use-case-icon--ins { background: #dbeafe; color: #1e40af; border-color: #93c5fd; }
 .use-case-icon--bonus { background: #fce7f3; color: #be185d; border-color: #fbcfe8; }
-
+.use-case-icon--fin { background: #dcfce7; color: #166534; border-color: #86efac; }
+.use-case-icon--proc { background: #fef3c7; color: #b45309; border-color: #fde68a; }
 @media (max-width: 1024px) {
   .use-cases-grid { grid-template-columns: repeat(2, 1fr); }
 }

@@ -53,6 +53,18 @@ PAGES: list[dict] = [
         "suffix": "use-cases/insurance/",
     },
     {
+        "template": "use_case_finance.html",
+        "output": "use-cases/finance/index.html",
+        "kind": "landing",
+        "suffix": "use-cases/finance/",
+    },
+    {
+        "template": "use_case_procurement.html",
+        "output": "use-cases/procurement/index.html",
+        "kind": "landing",
+        "suffix": "use-cases/procurement/",
+    },
+    {
         "template": "use_case_fuel.html",
         "output": "use-cases/bonus-reconciliation/index.html",
         "kind": "landing",
