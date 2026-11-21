@@ -4,12 +4,16 @@ from __future__ import annotations
 
 import json
 import re
+import sys
 from html import unescape
 from pathlib import Path
 
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "marketing"))
+from cache_versions import LANDING_CSS  # noqa: E402
+
 DIST = ROOT / "dist"
 
 PAGES = {
@@ -53,114 +57,18 @@ def test_no_table_leaks_or_confirm():
         assert "[CONFIRM]" not in html, name
 
 
-def test_home_is_the_earlier_enterprise_page():
-    html = _pages()["/"]
-    # The fold: H1, the labeled proof duo (Source A | Source B + Z3 Conflict Box), CTAs.
-    assert "When two documents disagree, both pages are already open." in html
-    assert "Source A" in html and "Source B" in html
-    assert "Master Services Agreement (MSA), Page 12, Clause 4.2" in html and "120,000 EUR" in html
-    assert "Vendor Invoice #884, Page 3, Line Item 8" in html and "142,500 EUR" in html
-    assert "Z3 Conflict" in html
-    assert "Export locked" in html
-    assert "a person or an agent decides" in html
-    assert "file can still be downloaded" in html
-    assert "See the proof" in html and "Run a pilot on your files" in html
-    # V3 pipeline (new copy): Ingest → Page-Pinned Extraction (ParSure) → Structured Drafting (DraftSure)
-    # → Mathematical Consistency Check (Z3 Solver) → Optional Adversarial Stress-Test (Red Hat Review)
-    # → Human Sign-Off & Audit Trail
-    for stage in ("Ingest Your File Stack", "Page-Pinned Extraction", "Structured Drafting",
-                  "Mathematical Consistency Check", "Optional Adversarial Stress-Test", "Human Sign-Off"):
-        assert stage in html
-    # Sovereign boundary wording
-    assert "Runs in your own AWS account, on-premises, or private GPU environment." in html
-    assert "When the model is local, documents stay inside that boundary." in html
-    # Retired copy is gone
-    assert "Before you pay, accept, or sign." not in html
-    assert "For teams that check before they act." not in html
-    assert "Launch App" not in html
-    assert "0F5C4D" not in html
-    assert "A person decides." not in _visible(html)
-    # The Open Graph image meta must point at the canonical URL, exactly.
-    assert '<meta property="og:image" content="https://assureproof.com/static/og-image.png">' in html
 
 
-def test_v3_pipeline_order_on_core_pages():
-    for rel in ["index.html", "architecture/index.html", "solutions/index.html", "poc/index.html"]:
-        p = DIST / rel
-        if not p.is_file():
-            pytest.skip("marketing dist is not built: " + rel)
-        t = _visible(p.read_text(encoding="utf-8"))
-        stages = ["Ingest Your File Stack", "Page-Pinned Extraction", "Structured Drafting",
-                  "Mathematical Consistency Check", "Optional Adversarial Stress-Test", "Human Sign-Off"]
-        pos = [t.find(s) for s in stages]
-        assert all(i >= 0 for i in pos), (rel, [s for s, i in zip(stages, pos) if i < 0])
-        assert pos == sorted(pos), (rel, pos)
 
 
-def test_v3_export_blocked_phrasing():
-    for rel in ["index.html", "architecture/index.html", "solutions/index.html", "poc/index.html",
-                "use-cases/insurance/index.html", "use-cases/fuel-retail/index.html",
-                "use-cases/government/index.html"]:
-        p = DIST / rel
-        if not p.is_file():
-            pytest.skip("marketing dist is not built: " + rel)
-        t = _visible(p.read_text(encoding="utf-8")).lower()
-        if "export" not in t:
-            continue
-        assert "export locked" in t, rel
-        assert "a person or an agent decides" in t, rel
-        assert "file can still be downloaded" in t, rel
 
 
 def _visible(html: str) -> str:
     return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", unescape(html))).strip()
 
 
-def test_v3_pipeline_order_on_core_pages():
-    for rel in ["index.html", "architecture/index.html", "solutions/index.html", "poc/index.html"]:
-        p = DIST / rel
-        if not p.is_file():
-            pytest.skip("marketing dist is not built: " + rel)
-        t = _visible(p.read_text(encoding="utf-8"))
-        stages = ["Ingest Your File Stack", "Page-Pinned Extraction", "Structured Drafting",
-                  "Mathematical Consistency Check", "Optional Adversarial Stress-Test", "Human Sign-Off"]
-        pos = [t.find(s) for s in stages]
-        assert all(i >= 0 for i in pos), (rel, [s for s, i in zip(stages, pos) if i < 0])
-        assert pos == sorted(pos), (rel, pos)
 
-def test_v3_export_blocked_phrasing():
-    for rel in ["index.html", "architecture/index.html", "solutions/index.html", "poc/index.html",
-                "use-cases/insurance/index.html", "use-cases/fuel-retail/index.html",
-                "use-cases/government/index.html"]:
-        p = DIST / rel
-        if not p.is_file():
-            pytest.skip("marketing dist is not built: " + rel)
-        t = _visible(p.read_text(encoding="utf-8")).lower()
-        if "export" not in t:
-            continue
-        # Different pages use different phrasing for export locking
-        assert any(phrase in t for phrase in ["export blocked", "export locked", "export is automatically locked"]), rel
-        # POC page uses "person decides" not full phrase
-        if rel == "poc/index.html":
-            assert "person" in t and "decide" in t, rel
-            assert "file" in t and "download" in t, rel
-        else:
-            assert "a person or an agent decides" in t, rel
-            assert "file can still be downloaded" in t, rel
 
-def test_v3_poc_conversion_hub():
-    p = DIST / "poc" / "index.html"
-    if not p.is_file():
-        pytest.skip("marketing dist is not built: poc")
-    html = p.read_text(encoding="utf-8")
-    t = _visible(html)
-    for token in ("4 selective, assessment-gated free POC slots", "1 workflow",
-                  "sample cases", "max 50 files", "5-day turnaround", "zero IT setup",
-                  "Yes, proceed", "Dec 10", "Dec 20", "Trust & Privacy FAQ",
-                  "Work email", "Document pair to cross-check", "Just me", "Me + Title"):
-        assert token in t, token
-    assert "<form" in html and "/contact-submit" in html
-    assert "<iframe" not in html.lower(), "no third-party form iframes"
 
 
 def test_v3_security_trust_faq():
@@ -168,14 +76,15 @@ def test_v3_security_trust_faq():
         p = DIST / rel
         if not p.is_file():
             pytest.skip("marketing dist is not built: " + rel)
-        t = _visible(p.read_text(encoding="utf-8"))
-        for token in ("100%", "0 Bytes", "Z3-Verified", "Page-and-line citation traceability",
-                      "External data egress", "Formal mathematical proof", "cross-document check"):
-            assert token in t, (rel, token)
+        raw = p.read_text(encoding="utf-8")
+        for token in ("trust-metrics-bar-inline", "trust-metrics-bar", "trust-metric-value-inline",
+                      "metric-value", "0 Bytes", "Z3-Verified", "100%</div>",
+                      "Page-and-line citation traceability", "External data egress"):
+            assert token not in raw, (rel, token)
 def test_v3_vertical_pages():
     pages = {
         "use-cases/insurance/index.html": ("Insurance claims review", "Insurance claims review"),
-        "use-cases/fuel-retail/index.html": ("Fuel retail bonus reconciliation", "Fuel retail bonus reconciliation"),
+        "use-cases/bonus-reconciliation/index.html": ("Bonus and rebate reconciliation", "Bonus and rebate reconciliation"),
         "use-cases/government/index.html": ("Government document checks", "Government document checks"),
     }
     for rel, tokens in pages.items():
@@ -183,20 +92,10 @@ def test_v3_vertical_pages():
         if not p.is_file():
             pytest.skip("marketing dist is not built: " + rel)
         html = p.read_text(encoding="utf-8")
-        assert "landing.css?v=138" in html, rel
+        assert f"landing.css?v={LANDING_CSS}" in html, rel
         t = _visible(html)
         for token in tokens:
             assert token in t, (rel, token)
-def test_v3_locale_parity():
-    for locale in ("es", "zh", "fr", "de", "ja", "tr", "ar"):
-        p = DIST / locale / "poc" / "index.html"
-        if not p.is_file():
-            pytest.skip("marketing dist is not built: " + locale)
-        t = _visible(p.read_text(encoding="utf-8"))
-        assert re.search(r"142[.,\u00a0\u2009 ]?500", t), locale
-        assert re.search(r"120[.,\u00a0\u2009 ]?000", t), locale
-        for stale in ("Contract cap", "The assessment", "1 workflow", "Limited sample cases", "Book a demo"):
-            assert stale not in t, (locale, stale)
 
 
 def _og_png_dimensions(path: Path) -> tuple[int, int]:
@@ -254,3 +153,94 @@ def test_software_application_schema_has_category_and_operating_system():
         assert app.get("operatingSystem") == "Web", locale
         assert "offers" not in app, locale
         assert "aggregateRating" not in app, locale
+
+STEPS = ["Upload the document package", "Read and draft",
+         "Check and cross-check", "A person decides"]
+EN_COPY_PAGES = ["index.html", "about/index.html", "architecture/index.html", "solutions/index.html",
+                 "poc/index.html", "pricing/index.html", "security/index.html", "contact-us/index.html",
+                 "use-cases/index.html", "use-cases/insurance/index.html", "use-cases/government/index.html"]
+
+
+def _dist_text(rel: str) -> tuple[str, str]:
+    p = DIST / rel
+    if not p.is_file():
+        pytest.skip("marketing dist is not built: " + rel)
+    html = p.read_text(encoding="utf-8")
+    return html, _visible(re.sub(r"<script\b.*?</script>", " ", html, flags=re.S))
+
+
+def test_home_copy_matches_the_code():
+    html, t = _dist_text("index.html")
+    for token in ("Catch the figure that doesn't match before you pay or approve.", "Try it on your own files", "See how it works", "How AssureProof differs from extraction tools and RAG tools",
+                  "Illustrative example, simulated data, not a customer result"):
+        assert token in t, token
+    assert "See the proof" not in t
+    assert 'href="/poc/"' in html
+    header = re.search(r'<a href="([^"]+)"\s+class="btn-primary header-cta"', html)
+    assert header and header.group(1).endswith("poc/"), header
+    hero = re.search(r'<a href="([^"]+)" class="btn-primary" data-i18n="landing.hero.cta_primary"', html)
+    assert hero and hero.group(1).endswith("poc/"), hero
+    assert '<meta property="og:image" content="https://assureproof.com/static/og-image.png">' in html
+
+
+def test_four_steps_in_order_on_core_pages():
+    for rel in ["index.html", "architecture/index.html", "solutions/index.html", "poc/index.html",
+                "use-cases/insurance/index.html", "use-cases/government/index.html"]:
+        _, t = _dist_text(rel)
+        at = t.find(STEPS[0])
+        assert at >= 0, (rel, STEPS[0])
+        for step in STEPS[1:]:
+            nxt = t.find(step, at)
+            assert nxt > at, (rel, "step missing or out of order: " + step)
+            at = nxt
+
+
+def test_no_export_lock_or_agent_claims():
+    for rel in EN_COPY_PAGES:
+        _, t = _dist_text(rel)
+        low = t.lower()
+        for bad in ("export locked", "export blocked", "export is flagged", "export flagged",
+                    "or an agent", "optional adversarial", "stops export", "nothing is approved automatically"):
+            assert bad not in low, (rel, bad)
+
+
+def test_poc_page_has_no_dates_or_slots():
+    html, t = _dist_text("poc/index.html")
+    for token in ("Yes, proceed", "Work email", "Me and a colleague (add their role)",
+                  "5–10 sample cases (up to 50 files)"):
+        assert token in t, token
+    for bad in ("Dec 10", "Dec 20", "slot", "5-day", "zero IT setup", "free", "Me + Title", "Trust & Privacy FAQ"):
+        assert bad not in t, bad
+    assert "<form" in html and "/contact-submit" in html
+    assert "<iframe" not in html.lower(), "no third-party form iframes"
+
+
+def test_locale_poc_pages_have_full_head():
+    for locale in ("es", "zh", "fr", "de", "ja", "tr", "ar"):
+        html, _ = _dist_text(f"{locale}/poc/index.html")
+        assert html.count('hreflang="') >= 9, locale
+        assert f'<html lang="{locale}"' in html, locale
+def test_home_order_and_faq_schema():
+    html, t = _dist_text("index.html")
+    order = ["Upload the document package", "What it does", "What a check looks like",
+             "How AssureProof differs from extraction tools and RAG tools",
+             "Catch the mismatch before the money or the approval goes out.",
+             "You choose where your documents and models run.", "Questions", "Try it on your own files"]
+    at = 0
+    for token in order:
+        nxt = t.find(token, at)
+        assert nxt >= at, token
+        at = nxt
+    blocks = [json.loads(unescape(b)) for b in re.findall(r'<script type="application/ld\+json">(.*?)</script>', html, re.S)]
+    faq = [b for b in blocks if b.get("@type") == "FAQPage"]
+    assert len(faq) == 1 and len(faq[0]["mainEntity"]) == 10
+    for q in faq[0]["mainEntity"]:
+        assert q["name"] in t and q["acceptedAnswer"]["text"] in t, q["name"]
+def test_home_icons_are_inline_svg():
+    from pathlib import Path
+    html = Path("dist/index.html").read_text()
+    assert "data-icon=" not in html
+    for cls in ("delta-icon", "use-case-icon use-case-icon--gov", "use-case-icon use-case-icon--ins", "use-case-icon use-case-icon--bonus"):
+        i = html.find(f'class="{cls}"')
+        assert i != -1, cls
+        assert "<svg" in html[i:i + 300], cls
