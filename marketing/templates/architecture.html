@@ -1,37 +1,27 @@
 {% extends 'base.html' %}
 
-
 {% block nav_current %}
     {% set nav_current = 'architecture' %}
 {% endblock %}
 
 {% block content %}
 <main id="main-content">
-    <section class="hero-section arch-hero">
-        <div class="container">
-            <h1 data-i18n="arch.title">{{ strings.get('arch.title', 'Architecture') }}</h1>
-        </div>
-    </section>
+  <section class="page-hero">
+    <div class="container">
+      <h1 data-i18n="arch.title">{{ strings.get('arch.title', 'Architecture') }}</h1>
+      <p class="lede" data-i18n="arch.where.body">{{ strings.get('arch.where.body', 'AssureProof runs in your own AWS account, on-premises, or in a private GPU environment, including air-gapped networks. You choose where the models run. With a self-hosted model, your documents stay inside that boundary.') }}</p>
+    </div>
+  </section>
 
-    {% include 'includes/flow.html' %}
+  {% include 'includes/flow.html' %}
 
-    <section class="section">
-        <div class="container">
-            <h2 class="section-title" data-i18n="arch.flow.title">{{ strings.get('arch.flow.title', 'The flow') }}</h2>
-            <ol class="arch-steps">
-                <li><strong data-i18n="arch.flow.1">{{ strings.get('arch.flow.1', 'Both pages open') }}</strong><span data-i18n="arch.flow.1.text">{{ strings.get('arch.flow.1.text', 'Assure reads both documents side by side and keeps the page, cell, or row for every figure it extracts.') }}</span></li>
-                <li><strong data-i18n="arch.flow.2">{{ strings.get('arch.flow.2', 'Contradiction marked') }}</strong><span data-i18n="arch.flow.2.text">{{ strings.get('arch.flow.2.text', 'Figures are compared one to one. Where two labeled numbers cannot both be true, the conflict is marked on the review screen.') }}</span></li>
-                <li><strong data-i18n="arch.flow.3">{{ strings.get('arch.flow.3', 'Export flagged') }}</strong><span data-i18n="arch.flow.3.text">{{ strings.get('arch.flow.3.text', 'The document cannot be exported while a contradiction is unresolved. Export blocked on the review screen. A person or an agent decides, and the file can still be downloaded.') }}</span></li>
-                <li><strong data-i18n="arch.flow.4">{{ strings.get('arch.flow.4', 'A person or agent decides') }}</strong><span data-i18n="arch.flow.4.text">{{ strings.get('arch.flow.4.text', 'A person or an agent decides, and the file can still be downloaded.') }}</span></li>
-            </ol>
-        </div>
-    </section>
-
-    <section class="section">
-        <div class="container">
-            <h2 class="section-title" data-i18n="arch.where.title">{{ strings.get('arch.where.title', 'Where it runs') }}</h2>
-            <p data-i18n="arch.where.body">{{ strings.get('arch.where.body', 'Runs in your own AWS account, on-premises, or private GPU environment. You choose where the models run. When the model is local, documents stay inside that boundary.') }}</p>
-        </div>
-    </section>
+  <section class="section">
+    <div class="container">
+      <div class="section-header">
+        <h2 class="section-title" data-i18n="arch.where.title">{{ strings.get('arch.where.title', 'Where it runs') }}</h2>
+      </div>
+      <p data-i18n="arch.where.body">{{ strings.get('arch.where.body', 'AssureProof runs in your own AWS account, on-premises, or in a private GPU environment, including air-gapped networks. You choose where the models run. With a self-hosted model, your documents stay inside that boundary.') }}</p>
+    </div>
+  </section>
 </main>
 {% endblock %}

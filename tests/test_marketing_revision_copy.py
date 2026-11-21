@@ -171,7 +171,7 @@ def _dist_text(rel: str) -> tuple[str, str]:
 
 def test_home_copy_matches_the_code():
     html, t = _dist_text("index.html")
-    for token in ("Catch the figure that doesn't match before you pay or approve.", "See the proof", "Run a pilot on your files →", "How AssureProof differs from extraction tools and RAG tools",
+    for token in ("Catch the figure that doesn't match before you pay or approve.", "See the proof", "Try it on your own files →", "How AssureProof differs from extraction tools and RAG tools",
                   "Illustrative example, simulated data, not a customer result"):
         assert token in t, token
     assert '<meta property="og:image" content="https://assureproof.com/static/og-image.png">' in html
@@ -219,7 +219,7 @@ def test_home_order_and_faq_schema():
     order = ["Upload the document package", "What it does", "What a check looks like",
              "How AssureProof differs from extraction tools and RAG tools",
              "Catch the mismatch before the money or the approval goes out.",
-             "You choose where your documents and models run.", "Questions", "Try it on your own files."]
+             "You choose where your documents and models run.", "Questions", "Try it on your own files"]
     at = 0
     for token in order:
         nxt = t.find(token, at)

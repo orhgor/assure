@@ -14,13 +14,13 @@
          ========================================================================== -->
     <section class="hero-section">
         <div class="hero-inner">
-            <div class="hero-eyebrow" data-i18n="home.hero.eyebrow">{{ strings.get('home.hero.eyebrow', 'Deterministic Document Verification') }}</div>
-            <h1 class="hero-title"><span class="hero-title-desktop" data-i18n="brand.hero_title_html">{{ strings.get('brand.hero_title_html', 'Upload the files. Get a draft with the mismatches marked.') }}</span><span class="hero-title-mobile" data-i18n="home.hero.mobile_title">{{ strings.get('home.hero.mobile_title', 'Catch a wrong figure before you pay.') }}</span></h1>
-            <p class="hero-sub"><span class="hero-sub-desktop" data-i18n="home.hero.sub">{{ strings.get('home.hero.sub', 'AssureProof cross-checks every number, clause, and citation across your entire document set—pinpointing exact conflicts to the page and line before you approve, pay, or publish.') }}</span><span class="hero-sub-mobile" data-i18n="home.hero.mobile_sub">{{ strings.get('home.hero.mobile_sub', 'AssureProof checks the draft against your files and shows both pages when they disagree. A person decides.') }}</span></p>
+            <div class="hero-eyebrow" data-i18n="home.hero.eyebrow">{{ strings.get('home.hero.eyebrow', 'Document checking platform for finance, claims and procurement teams') }}</div>
+            <h1 class="hero-title"><span class="hero-title-desktop" data-i18n="brand.hero_title_html">{{ strings.get('brand.hero_title_html', "Catch the figure that doesn't match before you pay or approve.") }}</span><span class="hero-title-mobile" data-i18n="home.hero.mobile_title">{{ strings.get('home.hero.mobile_title', "Catch the figure that doesn't match before you pay or approve.") }}</span></h1>
+            <p class="hero-sub"><span class="hero-sub-desktop" data-i18n="home.hero.sub">{{ strings.get('home.hero.sub', 'AssureProof reads your contracts, invoices, claims and bids, drafts with a source for every figure, and marks every mismatch with both pages. A person decides.') }}</span><span class="hero-sub-mobile" data-i18n="home.hero.mobile_sub">{{ strings.get('home.hero.mobile_sub', 'AssureProof reads your contracts, invoices, claims and bids, drafts with a source for every figure, and marks every mismatch with both pages. A person decides.') }}</span></p>
 
             <div class="hero-cta-group">
                 <a href="{{ locale_path }}contact-us/" class="btn-primary" data-i18n="landing.hero.cta_primary">{{ strings.get('landing.hero.cta_primary', 'See the proof') }}</a>
-                <a href="{{ locale_path }}poc/" class="btn-secondary" data-i18n="landing.hero.cta_secondary">{{ strings.get('landing.hero.cta_secondary', 'Run a pilot on your files →') }}</a>
+                <a href="{{ locale_path }}poc/" class="btn-secondary" data-i18n="landing.pilot.cta_primary">{{ strings.get('landing.pilot.cta_primary', 'Try it on your own files →') }}</a>
             </div>
         </div>
     </section>
@@ -37,6 +37,10 @@
         <div class="container">
             <h2 class="section-title" id="what-it-does-title" data-i18n="home.whatitdoes.title">{{ strings.get('home.whatitdoes.title', 'What it does') }}</h2>
             <div class="what-it-does-grid">
+                <article class="differs-card differs-card--check">
+                    <h3 data-i18n="home.whatitdoes.check.title">{{ strings.get('home.whatitdoes.check.title', 'Check') }}</h3>
+                    <p data-i18n="home.whatitdoes.check.desc">{{ strings.get('home.whatitdoes.check.desc', 'Figures and statements tested against your files.') }}</p>
+                </article>
                 <article class="differs-card">
                     <h3 data-i18n="home.whatitdoes.read.title">{{ strings.get('home.whatitdoes.read.title', 'Read') }}</h3>
                     <p data-i18n="home.whatitdoes.read.desc">{{ strings.get('home.whatitdoes.read.desc', 'PDFs, scans and images, every field kept with its page.') }}</p>
@@ -46,10 +50,6 @@
                     <p data-i18n="home.whatitdoes.draft.desc">{{ strings.get('home.whatitdoes.draft.desc', 'Reports and summaries with a source for each claim.') }}</p>
                 </article>
                 <article class="differs-card">
-                    <h3 data-i18n="home.whatitdoes.check.title">{{ strings.get('home.whatitdoes.check.title', 'Check') }}</h3>
-                    <p data-i18n="home.whatitdoes.check.desc">{{ strings.get('home.whatitdoes.check.desc', 'Figures and statements tested against your files.') }}</p>
-                </article>
-                <article class="differs-card differs-card--assure">
                     <h3 data-i18n="home.whatitdoes.crosscheck.title">{{ strings.get('home.whatitdoes.crosscheck.title', 'Cross-check') }}</h3>
                     <p data-i18n="home.whatitdoes.crosscheck.desc">{{ strings.get('home.whatitdoes.crosscheck.desc', 'Spreadsheets and packets compared against each other.') }}</p>
                 </article>
@@ -102,12 +102,12 @@
             </div>
             <p class="proof-label" data-i18n="proof.label">{{ strings.get('proof.label', 'Illustrative example, simulated data, not a customer result') }}</p>
             <section class="conflict-z3-terminal" id="z3-result">
-                <div class="terminal-header" data-i18n="proof.z3.title">{{ strings.get('proof.z3.title', 'Z3 Formal Verification') }}</div>
+                <div class="terminal-header" data-i18n="proof.z3.title">{{ strings.get('proof.z3.title', 'Conflict check') }}</div>
                 <div class="terminal-body">
-                    <div class="terminal-line" id="z3-result-text" data-i18n="proof.z3.body">{{ strings.get('proof.z3.body', 'Export locked — the two sources cannot both be true. A person or an agent decides, and the file can still be downloaded.') }}</div>
+                    <div class="terminal-line" id="z3-result-text" data-i18n="proof.z3.body">{{ strings.get('proof.z3.body', 'Mismatch marked: the invoice is 22,500 EUR over the contract cap. A person reviews and decides.') }}</div>
                 </div>
                 <div class="z3-actions">
-                    <button type="button" class="btn-primary z3-recalculate" id="z3-recalculate-btn" data-i18n="proof.z3.recalculate">{{ strings.get('proof.z3.recalculate', 'View Conflict Details') }}</button>
+                    <button type="button" class="btn-primary z3-recalculate" id="z3-recalculate-btn" data-i18n="proof.z3.recalculate">{{ strings.get('proof.z3.recalculate', 'Replay example') }}</button>
                 </div>
             </section>
         </div>
@@ -125,15 +125,15 @@
             <div class="differs-grid">
                 <article class="differs-card">
                     <h3 data-i18n="differs.extract.name">{{ strings.get('differs.extract.name', 'Extraction tools') }}</h3>
-                    <p data-i18n="differs.extract.line">{{ strings.get('differs.extract.line', 'Extraction tools read data out of a file. They return fields. Whether a draft agrees with those fields is left to your rules or your reviewer.') }}</p>
+                    <p data-i18n="differs.extract.line">{{ strings.get('differs.extract.line', 'They return fields. They don\'t tell you if your draft or your documents disagree.') }}</p>
                 </article>
                 <article class="differs-card">
                     <h3 data-i18n="differs.rag.name">{{ strings.get('differs.rag.name', 'RAG tools') }}</h3>
-                    <p data-i18n="differs.rag.line">{{ strings.get('differs.rag.line', 'RAG tools answer questions and cite sources. They answer what you ask.') }}</p>
+                    <p data-i18n="differs.rag.line">{{ strings.get('differs.rag.line', 'They answer what you ask. They don\'t tell you when two documents conflict.') }}</p>
                 </article>
                 <article class="differs-card differs-card--assure">
                     <h3 data-i18n="differs.assure.name">{{ strings.get('differs.assure.name', 'AssureProof') }}</h3>
-                    <p data-i18n="differs.assure.line">{{ strings.get('differs.assure.line', 'AssureProof writes a draft and shows where that draft conflicts with the source files. A person reviews and decides.') }}</p>
+                    <p data-i18n="differs.assure.line">{{ strings.get('differs.assure.line', 'Others match fields. AssureProof shows the conflict across your whole packet, with both pages, inside your own cloud.') }}</p>
                 </article>
             </div>
         </div>
@@ -197,7 +197,6 @@
             </div>
         </div>
     </section>
-
     <!-- ==========================================================================
          SECURITY & DEPLOYMENT
          ========================================================================== -->
@@ -213,24 +212,32 @@
                     <div class="pillar-icon">
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5.25 14.25h13.5m-13.5 0a3 3 0 01-3-3m3 3a3 3 0 01-3-3m3 3a3 3 0 010 6h13.5a3 3 0 100-6m-16.5-3a3 3 0 013-3h13.5a3 3 0 013 3m-19.5 0a4.5 4.5 0 01.9-2.7L5.737 5.1a3.375 3.375 0 012.7-1.35h7.126c1.062 0 2.062.5 2.7 1.35l2.587 3.45a4.5 4.5 0 01.9 2.7"/></svg>
                     </div>
-                    <h3 data-i18n="security.pillar1.title">{{ strings.get('security.pillar1.title', 'Self-Hosted & Air-Gapped Ready') }}</h3>
-                    <p data-i18n="security.pillar1.desc">{{ strings.get('security.pillar1.desc', 'Deploy inside your own AWS VPC, private GPU cluster, or on-premises data center. When running local models, zero bytes ever leave your network boundary.') }}</p>
+                    <h3 data-i18n="security.pillar1.title">{{ strings.get('security.pillar1.title', 'Your cloud or air-gapped') }}</h3>
+                    <p data-i18n="security.pillar1.desc">{{ strings.get('security.pillar1.desc', 'Deploy in your AWS VPC, on a private GPU cluster, or on-premises data center. When running local models, zero bytes ever leave your network boundary.') }}</p>
                 </div>
 
                 <div class="security-pillar">
                     <div class="pillar-icon">
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z"/></svg>
                     </div>
-                    <h3 data-i18n="security.pillar2.title">{{ strings.get('security.pillar2.title', 'Zero Model Training or Retention') }}</h3>
-                    <p data-i18n="security.pillar2.desc">{{ strings.get('security.pillar2.desc', 'Your documents are never logged, pooled, or used to train external foundation models. Every session executes in an isolated environment under your existing IAM and encryption keys (BYOK).') }}</p>
+                    <h3 data-i18n="security.pillar2.title">{{ strings.get('security.pillar2.title', 'Your keys (BYOK)') }}</h3>
+                    <p data-i18n="security.pillar2.desc">{{ strings.get('security.pillar2.desc', 'Bring your own encryption keys. Data encrypted in transit with TLS 1.3 and at rest with AES-256.') }}</p>
                 </div>
 
                 <div class="security-pillar">
                     <div class="pillar-icon">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.745 3.745 0 01-3.296-1.043A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 01-3.296-1.043A3.745 3.745 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12z"/></svg>
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.745 3.745 0 01-3.296-1.043A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 01-3.296-1.043A3.745 3.745 0 0112 3c1.268 0-2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12z"/></svg>
                     </div>
-                    <h3 data-i18n="security.pillar3.title">{{ strings.get('security.pillar3.title', 'Immutable Governance & Audit Logs') }}</h3>
-                    <p data-i18n="security.pillar3.desc">{{ strings.get('security.pillar3.desc', 'Every extracted figure, flagged contradiction, reviewer sign-off, and manual override is cryptographically timestamped—giving internal auditors and regulators a complete chain of custody.') }}</p>
+                    <h3 data-i18n="security.pillar3.title">{{ strings.get('security.pillar3.title', 'No training on your data') }}</h3>
+                    <p data-i18n="security.pillar3.desc">{{ strings.get('security.pillar3.desc', 'Your documents are never logged, pooled, or used to train external foundation models.') }}</p>
+                </div>
+
+                <div class="security-pillar">
+                    <div class="pillar-icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.745 3.745 0 01-3.296-1.043A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 01-3.296-1.043A3.745 3.745 0 0112 3c1.268 0-2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12z"/></svg>
+                    </div>
+                    <h3 data-i18n="security.pillar4.title">{{ strings.get('security.pillar4.title', 'Every decision logged') }}</h3>
+                    <p data-i18n="security.pillar4.desc">{{ strings.get('security.pillar4.desc', 'Every extracted figure, flagged contradiction, reviewer sign-off, and manual override is cryptographically timestamped.') }}</p>
                 </div>
             </div>
 
@@ -251,9 +258,8 @@
          ========================================================================== -->
     <section class="closing-section">
         <div class="container center">
-            <h2 class="section-title" data-i18n="home.start.title">{{ strings.get('home.start.title', 'Test AssureProof on your hardest document packet.') }}</h2>
-            <p class="section-sub" data-i18n="home.start.body">{{ strings.get('home.start.body', 'Bring a live document set. We run it with your team and walk you through the findings.') }}</p>
-            <a href="{{ locale_path }}poc/" class="btn-primary" data-i18n="landing.closing.cta">{{ strings.get('landing.closing.cta', 'See the proof') }}</a>
+            <h2 class="section-title" data-i18n="home.start.title">{{ strings.get('home.start.title', "Bring a real packet. See what doesn't match.") }}</h2>
+            <a href="{{ locale_path }}poc/" class="btn-primary" data-i18n="landing.pilot.cta_primary">{{ strings.get('landing.pilot.cta_primary', 'Try it on your own files') }}</a>
         </div>
     </section>
 </main>

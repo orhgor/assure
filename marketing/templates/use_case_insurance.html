@@ -11,14 +11,19 @@
   <section class="hero-section gov-hero page-hero">
     <div class="container">
       <a href="{{ locale_path }}use-cases/" class="back-link" data-i18n="uc.back">{{ strings.get('uc.back', '← All use cases') }}</a>
-      <h1 class="hero-title" data-i18n="uc.ins.title">{{ strings.get('uc.ins.title', 'Insurance Claims Review') }}</h1>
-      <p class="hero-sub" data-i18n="uc.ins.sub">{{ strings.get('uc.ins.sub', 'Catch a claim amount that doesn\'t match the receipts and medical bills behind it before the payout. Figures keep their source pages, and mismatches show up on the review screen. A person reviews and decides.') }}</p>
+      <h1 class="hero-title" data-i18n="uc.ins.title">{{ strings.get('uc.ins.title', 'Insurance claims review') }}</h1>
+      <p class="hero-sub" data-i18n="uc.ins.sub">{{ strings.get('uc.ins.sub', "Catch a claim amount that doesn't match the receipts and medical bills behind it before the payout. Figures keep their source pages, and mismatches show up on the review screen. A person reviews and decides.") }}</p>
     </div>
   </section>
 
   {% set uc_key = 'ins' %}
   {% include 'includes/use_case_detail.html' %}
   {% include 'includes/flow.html' %}
-  {% include 'includes/demo_cta.html' %}
+
+  <section class="demo-cta">
+    <div class="container center">
+      <a href="{{ locale_path }}poc/" class="btn-primary" data-i18n="landing.pilot.cta_primary">{{ strings.get('landing.pilot.cta_primary', 'Try it on your own files') }}</a>
+    </div>
+  </section>
 </main>
 {% endblock %}

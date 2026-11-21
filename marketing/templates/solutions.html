@@ -1,51 +1,60 @@
 {% extends 'base.html' %}
 
-
 {% block nav_current %}
     {% set nav_current = 'solutions' %}
 {% endblock %}
 
 {% block content %}
 <main id="main-content">
-    <section class="hero-section">
-        <div class="container">
-            <h1 data-i18n="solutions.title">{{ strings.get('solutions.title', 'Solutions') }}</h1>
-            <div class="price-grid price-grid--duo">
-                <section class="card">
-                    <h2 data-i18n="proof.a.kicker">{{ strings.get('proof.a.kicker', 'Source A') }}</h2>
-                    <p class="lede" data-i18n="proof.a.title">{{ strings.get('proof.a.title', 'Master Services Agreement (MSA), Page 12, Clause 4.2') }}</p>
-                    <p class="lede" data-i18n="proof.a.value">{{ strings.get('proof.a.value', '120,000 EUR cap') }}</p>
-                </section>
-                <section class="card">
-                    <h2 data-i18n="proof.b.kicker">{{ strings.get('proof.b.kicker', 'Source B') }}</h2>
-                    <p class="lede" data-i18n="proof.b.title">{{ strings.get('proof.b.title', 'Vendor Invoice #884, Page 3, Line Item 8') }}</p>
-                    <p class="lede" data-i18n="proof.b.value">{{ strings.get('proof.b.value', '142,500 EUR billed') }}</p>
-                </section>
-            </div>
-            <section class="card proof-z3">
-                <h2 data-i18n="proof.z3.title">{{ strings.get('proof.z3.title', 'Z3 Conflict') }}</h2>
-                <p class="lede" data-i18n="proof.z3.body">{{ strings.get('proof.z3.body', 'Export locked — the two sources cannot both be true. A person or an agent decides, and the file can still be downloaded.') }}</p>
-            </section>
-            <p class="lede" data-i18n="solutions.line">{{ strings.get('solutions.line', 'Invoice p.3 and Contract p.12 are both open. Export is flagged.') }}</p>
-            {% include 'includes/flow.html' %}
-            <section class="card">
-                <h2 data-i18n="solutions.cards.1.name">{{ strings.get('solutions.cards.1.name', 'Invoice vs contract') }}</h2>
-                <p data-i18n="solutions.cards.1.finding">{{ strings.get('solutions.cards.1.finding', 'The invoice total is 142,500 EUR. The contract cap is 120,000 EUR. Both source pages stay open.') }}</p>
-            </section>
-            <section class="card">
-                <h2 data-i18n="solutions.cards.2.name">{{ strings.get('solutions.cards.2.name', 'Claims') }}</h2>
-                <p data-i18n="solutions.cards.2.finding">{{ strings.get('solutions.cards.2.finding', 'The invoice total is different from the amount on the claim form.') }}</p>
-            </section>
-            <section class="card">
-                <h2 data-i18n="solutions.cards.3.name">{{ strings.get('solutions.cards.3.name', 'Compliance pack') }}</h2>
-                <p data-i18n="solutions.cards.3.finding">{{ strings.get('solutions.cards.3.finding', 'The certificate number on the form does not match the certificate.') }}</p>
-            </section>
-            <section class="card">
-                <h2 data-i18n="solutions.cards.4.name">{{ strings.get('solutions.cards.4.name', 'Internal report') }}</h2>
-                <p data-i18n="solutions.cards.4.finding">{{ strings.get('solutions.cards.4.finding', 'The volume on the report is different from the sales records.') }}</p>
-            </section>
-            <a href="{{ locale_path }}contact-us/" class="btn-primary" data-i18n="landing.pilot.cta_primary">{{ strings.get('landing.pilot.cta_primary', 'Request Live Proof Walkthrough →') }}</a>
-        </div>
-    </section>
+  <section class="page-hero">
+    <div class="container">
+      <h1 data-i18n="solutions.title">{{ strings.get('solutions.title', 'Solutions') }}</h1>
+      <p class="lede" data-i18n="solutions.line">{{ strings.get('solutions.line', 'Invoice p.3 and Contract p.12 are both open. Export is flagged.') }}</p>
+    </div>
+  </section>
+
+  {% include 'includes/flow.html' %}
+
+  <section class="section">
+    <div class="container">
+      <div class="section-header">
+        <h2 class="section-title" data-i18n="solutions.cards.1.name">{{ strings.get('solutions.cards.1.name', 'Invoice vs contract') }}</h2>
+      </div>
+      <p data-i18n="solutions.cards.1.finding">{{ strings.get('solutions.cards.1.finding', 'The invoice total is 142,500 EUR. The contract cap is 120,000 EUR. Both source pages stay open.') }}</p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <div class="section-header">
+        <h2 class="section-title" data-i18n="solutions.cards.2.name">{{ strings.get('solutions.cards.2.name', 'Claims') }}</h2>
+      </div>
+      <p data-i18n="solutions.cards.2.finding">{{ strings.get('solutions.cards.2.finding', 'The invoice total is different from the amount on the claim form.') }}</p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <div class="section-header">
+        <h2 class="section-title" data-i18n="solutions.cards.3.name">{{ strings.get('solutions.cards.3.name', 'Compliance pack') }}</h2>
+      </div>
+      <p data-i18n="solutions.cards.3.finding">{{ strings.get('solutions.cards.3.finding', 'The certificate number on the form does not match the certificate.') }}</p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <div class="section-header">
+        <h2 class="section-title" data-i18n="solutions.cards.4.name">{{ strings.get('solutions.cards.4.name', 'Internal report') }}</h2>
+      </div>
+      <p data-i18n="solutions.cards.4.finding">{{ strings.get('solutions.cards.4.finding', 'The volume on the report is different from the sales records.') }}</p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container center">
+      <a href="{{ locale_path }}poc/" class="btn-primary" data-i18n="landing.pilot.cta_primary">{{ strings.get('landing.pilot.cta_primary', 'Try it on your own files') }}</a>
+    </div>
+  </section>
 </main>
 {% endblock %}
