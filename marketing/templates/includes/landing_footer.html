@@ -1,9 +1,48 @@
-{# landing_footer.html - Footer #}
+{# landing_footer.html - Enterprise Footer #}
 <footer class="site-footer">
-    <div class="container center">
-        <p class="footer-owner" data-i18n="landing.footer.owner">{{ strings.get('landing.footer.owner', '© 2026 AssureProof. All rights reserved.') }}</p>
-        <p class="footer-engineer" data-i18n="landing.footer.engineer_tagline">{{ strings.get('landing.footer.engineer_tagline', 'Checked against the source. Decided by a person.') }}</p>
-        <p class="footer-links"><a href="{{ locale_path }}privacy/" data-i18n="nav.privacy">{{ strings.get('nav.privacy', 'Privacy') }}</a> · <a href="{{ locale_path }}security/" data-i18n="nav.security">{{ strings.get('nav.security', 'Security') }}</a> · <a href="{{ locale_path }}terms/" data-i18n="nav.terms">{{ strings.get('nav.terms', 'Terms') }}</a> · <a href="{{ locale_path }}about/" data-i18n="landing.footer.about">{{ strings.get('landing.footer.about', 'About') }}</a></p>
-        <a class="footer-back-top" href="#top" data-i18n="landing.footer.back_top">{{ strings.get('landing.footer.back_top', 'Back to top') }}</a>
+    <div class="container">
+        <div class="footer-grid">
+            <div class="footer-brand">
+                <div class="footer-logo-row">
+                    <img src="{{ url_for('static', filename='assure-logo.png') }}" alt="AssureProof logo" width="28" height="28" class="footer-logo-img">
+                    <span class="footer-logo" data-i18n="brand.name">{{ strings.get('brand.name', 'AssureProof') }}</span>
+                </div>
+                <p class="footer-tagline" data-i18n="landing.footer.engineer_tagline">{{ strings.get('landing.footer.engineer_tagline', 'Checked against the source. Decided by a person.') }}</p>
+                <p class="footer-deployment" data-i18n="footer.deployment">{{ strings.get('footer.deployment', 'AWS, private GPU, or air-gapped on-prem.') }}</p>
+            </div>
+            <div class="footer-col">
+                <p class="footer-heading" data-i18n="footer.product">{{ strings.get('footer.product', 'Product') }}</p>
+                <ul class="footer-links-col">
+                    <li><a href="{{ locale_path }}#how" data-i18n="landing.nav.how">{{ strings.get('landing.nav.how', 'How it works') }}</a></li>
+                    <li><a href="{{ locale_path }}architecture/" data-i18n="footer.architecture">{{ strings.get('footer.architecture', 'How it works in detail') }}</a></li>
+                    <li><a href="{{ locale_path }}#how-it-differs" data-i18n="landing.nav.why">{{ strings.get('landing.nav.why', 'How it differs') }}</a></li>
+                    <li><a href="{{ locale_path }}security/" data-i18n="nav.security">{{ strings.get('nav.security', 'Security') }}</a></li>
+                </ul>
+            </div>
+            <div class="footer-col">
+                <p class="footer-heading" data-i18n="footer.workflows">{{ strings.get('footer.workflows', 'Workflows') }}</p>
+                <ul class="footer-links-col">
+                    {# Home card order first, then the two additional workflow pages. #}
+                    <li><a href="{{ locale_path }}use-cases/government/" data-i18n="footer.wf.gov">{{ strings.get('footer.wf.gov', 'Government') }}</a></li>
+                    <li><a href="{{ locale_path }}use-cases/insurance/" data-i18n="footer.wf.insurance">{{ strings.get('footer.wf.insurance', 'Insurance claims') }}</a></li>
+                    <li><a href="{{ locale_path }}use-cases/bonus-reconciliation/" data-i18n="footer.wf.fuel">{{ strings.get('footer.wf.fuel', 'Bonus and rebates') }}</a></li>
+                    <li><a href="{{ locale_path }}use-cases/finance/" data-i18n="footer.wf.fin">{{ strings.get('footer.wf.fin', 'Finance / AP') }}</a></li>
+                    <li><a href="{{ locale_path }}use-cases/procurement/" data-i18n="footer.wf.proc">{{ strings.get('footer.wf.proc', 'Procurement') }}</a></li>
+                </ul>
+            </div>
+            <div class="footer-col">
+                <p class="footer-heading" data-i18n="footer.company">{{ strings.get('footer.company', 'Company') }}</p>
+                <ul class="footer-links-col">
+                    <li><a href="{{ locale_path }}about/" data-i18n="landing.footer.about">{{ strings.get('landing.footer.about', 'About') }}</a></li>
+                    <li><a href="{{ locale_path }}contact-us/" data-i18n="footer.contact">{{ strings.get('footer.contact', 'Contact') }}</a></li>
+                    <li><a href="{{ locale_path }}privacy/" data-i18n="nav.privacy">{{ strings.get('nav.privacy', 'Privacy') }}</a></li>
+                    <li><a href="{{ locale_path }}terms/" data-i18n="nav.terms">{{ strings.get('nav.terms', 'Terms') }}</a></li>
+                </ul>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p class="footer-owner" data-i18n="landing.footer.owner">{{ strings.get('landing.footer.owner', '\u00a9 2026 AssureProof. All rights reserved.') }}</p>
+            <a class="footer-back-top" href="#top" data-i18n="landing.footer.back_top">{{ strings.get('landing.footer.back_top', 'Back to top') }}</a>
+        </div>
     </div>
 </footer>

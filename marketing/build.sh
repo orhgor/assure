@@ -1,189 +1,122 @@
 #!/usr/bin/env bash
+# Build static marketing site from Flask templates → dist/
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DIST_DIR="${DIST_DIR:-$ROOT/dist-test-render}"
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+DIST_DIR="${DIST_DIR:-$ROOT/dist}"
+PYTHON="${PYTHON:-$ROOT/.venv/bin/python}"
+CDN_BASE_URL="${CDN_BASE_URL:-/static}"
 
-echo "Building marketing site to $DIST_DIR"
+cd "$ROOT"
+
+if [ ! -x "$PYTHON" ]; then
+  PYTHON=python3
+fi
 
 rm -rf "$DIST_DIR"
-mkdir -p "$DIST_DIR"
+mkdir -p "$DIST_DIR/static"
 
-# Export ROOT for Python
-export ROOT
+echo "→ Copying static assets…"
+rsync -a \
+  --include 'landing.css' \
+  --include 'landing-pilot.js' \
+  --include 'landing-i18n.js' \
+  --include 'site-init.js' \
+  --include 'gtag-init.js' \
+  --include 'favicon.svg' \
+  --include 'favicon.ico' \
+  --include 'assure-logo.png' \
+  --include 'og-image.png' \
+  --include 'aws-startups.svg' \
+  --include 's3-icon.svg' \
+  --include 'onprem-icon.svg' \
+  --include 'fonts/' \
+  --include 'fonts/*' \
+  --exclude '*' \
+  "$ROOT/marketing/static/" "$DIST_DIR/static/"
 
-python3 << 'PYEOF'
-import os
-import sys
-import json
+if [ ! -f "$ROOT/marketing/static/favicon.ico" ]; then
+  "$PYTHON" "$ROOT/marketing/make_favicon.py" || echo "warn: favicon.ico generation failed"
+fi
+
+# Published locales, including ar. Override with PUBLISH_LOCALES if a build should omit one.
+PUBLISH_LOCALES="${PUBLISH_LOCALES:-en es zh fr de ja tr ar}"
+export PUBLISH_LOCALES
+
+for LOCALE in $PUBLISH_LOCALES; do
+  if [ "$LOCALE" = "en" ]; then
+    OUT="$DIST_DIR"
+  else
+    OUT="$DIST_DIR/$LOCALE"
+  fi
+  echo "→ Rendering locale: $LOCALE → $OUT"
+  "$PYTHON" "$ROOT/marketing/render.py" \
+    --locale "$LOCALE" \
+    --output "$OUT" \
+    --static-base "$CDN_BASE_URL"
+done
+
+if [ -f "$ROOT/marketing/_headers" ]; then
+  cp "$ROOT/marketing/_headers" "$DIST_DIR/_headers"
+fi
+
+if [ -f "$ROOT/marketing/robots.txt" ]; then
+  cp "$ROOT/marketing/robots.txt" "$DIST_DIR/robots.txt"
+fi
+"$PYTHON" - <<PY
 from pathlib import Path
+root = Path("$DIST_DIR")
+locs = []
+for path in sorted(root.rglob("index.html")):
+    rel = path.relative_to(root).as_posix()
+    if rel == "index.html":
+        url = "https://assureproof.com/"
+    else:
+        url = "https://assureproof.com/" + rel[: -len("index.html")]
+    locs.append(url)
+lines = ['<?xml version="1.0" encoding="UTF-8"?>', '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">']
+for url in locs:
+    tail = url.removeprefix("https://assureproof.com/")
+    home = tail == "" or (tail.count("/") == 1 and len(tail.strip("/")) == 2)
+    freq = "weekly" if home else "monthly"
+    priority = "1.0" if home else "0.6"
+    lines.append("  <url>")
+    lines.append(f"    <loc>{url}</loc>")
+    lines.append(f"    <lastmod>{__import__('datetime').date.today().isoformat()}</lastmod>")
+    lines.append(f"    <changefreq>{freq}</changefreq>")
+    lines.append(f"    <priority>{priority}</priority>")
+    lines.append("  </url>")
+lines.append("</urlset>")
+(root / "sitemap.xml").write_text("\\n".join(lines) + "\\n", encoding="utf-8")
+print(f"→ Sitemap: {len(locs)} URLs")
+PY
+# /llms.txt is authored in marketing/.
+if [ -f "$ROOT/marketing/llms.txt" ]; then
+  cp "$ROOT/marketing/llms.txt" "$DIST_DIR/llms.txt"
+fi
 
-# Get ROOT from environment
-ROOT = Path(os.environ['ROOT'])
-sys.path.insert(0, str(ROOT.parent))
+# Google Search Console ownership verification file (domain root).
+if [ -f "$ROOT/marketing/googledd970fc4996a6661.html" ]; then
+  cp "$ROOT/marketing/googledd970fc4996a6661.html" "$DIST_DIR/googledd970fc4996a6661.html"
+fi
 
-# Load cache versions
-from marketing.cache_versions import LANDING_CSS, LANDING_JS
+# /404 and /404/ both resolve. The Worker 404-page still reads 404.html.
+python3 - <<PY
+from pathlib import Path
+root = Path("$DIST_DIR")
+for page in root.rglob("404.html"):
+    target = page.parent / "404" / "index.html"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(page.read_text(encoding="utf-8"), encoding="utf-8")
+PY
 
-# Load locales
-locales_dir = ROOT / "locales"
-LOCALES = ['en', 'es', 'fr', 'de', 'ja', 'zh', 'tr', 'ar']
+if [ -f "$ROOT/marketing/static/favicon.svg" ]; then
+  cp "$ROOT/marketing/static/favicon.svg" "$DIST_DIR/favicon.svg"
+fi
+if [ -f "$ROOT/marketing/static/favicon.ico" ]; then
+  cp "$ROOT/marketing/static/favicon.ico" "$DIST_DIR/favicon.ico"
+fi
 
-strings_cache = {}
-for loc in LOCALES:
-    path = locales_dir / f"{loc}.json"
-    with open(path, 'r') as f:
-        strings_cache[loc] = json.load(f)
-
-# Locale paths
-locale_paths = {
-    'en': '/', 'es': '/es/', 'fr': '/fr/', 'de': '/de/',
-    'ja': '/ja/', 'zh': '/zh/', 'tr': '/tr/', 'ar': '/ar/',
-}
-
-# Languages for selector
-languages = {
-    'en': 'English', 'es': 'Español', 'fr': 'Français', 'de': 'Deutsch',
-    'ja': '日本語', 'zh': '中文', 'tr': 'Türkçe', 'ar': 'العربية',
-}
-
-# Setup Jinja2
-from jinja2 import Environment, FileSystemLoader, select_autoescape
-env = Environment(
-    loader=FileSystemLoader(str(ROOT / 'templates')),
-    autoescape=select_autoescape(['html', 'xml'])
-)
-
-# Add url_for function
-def url_for(endpoint, **values):
-    if endpoint == 'static':
-        filename = values.get('filename', '')
-        return f'/static/{filename}?v={LANDING_CSS}' if filename.endswith('.css') else f'/static/{filename}?v={LANDING_JS}' if filename.endswith('.js') else f'/static/{filename}'
-    return '/'
-
-env.globals['url_for'] = url_for
-
-# Base template context
-base_context = {
-    'landing_css_version': LANDING_CSS,
-    'landing_js_version': LANDING_JS,
-    'locale_paths': locale_paths,
-    'en_url': 'https://assureproof.com/',
-    'og_image': 'https://assureproof.com/static/og-image.png',
-    'json_ld': [],
-    'languages': languages,
-}
-
-# Pages to render
-pages = [
-    ('index.html', 'landing.html', {
-        'page_title': 'AssureProof | Catch the figure that does not match before you pay or approve',
-        'page_description': 'AssureProof reads your contracts, invoices, claims and bids together and marks every figure that does not match across them, with both source pages open. A person reviews each flag and decides. Runs in your own AWS account or on your own servers, including air-gapped networks.',
-        'page_suffix': '',
-    }),
-    ('terms/index.html', 'terms.html', {
-        'page_title': 'Terms of use | AssureProof',
-        'page_description': 'AssureProof runs in your own AWS account, on a private GPU, or on your own servers, including air-gapped networks. Model calls go to Amazon Bedrock in your account or to a self-hosted model.',
-        'page_suffix': 'terms/',
-    }),
-    ('privacy/index.html', 'privacy.html', {
-        'page_title': 'Privacy Policy | AssureProof',
-        'page_description': 'How deployment affects what AssureProof stores, and how the marketing site handles contact details.',
-        'page_suffix': 'privacy/',
-    }),
-    ('solutions/index.html', 'solutions.html', {
-        'page_title': 'Verify figures across invoices, contracts and claims | AssureProof',
-        'page_description': 'AssureProof cross-checks invoices against contracts, claims against policies, and bids against requirements.',
-        'page_suffix': 'solutions/',
-    }),
-    ('about/index.html', 'about.html', {
-        'page_title': 'About AssureProof | Cross-document figure verification',
-        'page_description': 'AssureProof reads your contracts, invoices, claims and bids together and marks every figure that does not match across them, with both source pages open.',
-        'page_suffix': 'about/',
-    }),
-    ('architecture/index.html', 'architecture.html', {
-        'page_title': 'How AssureProof verifies figures across your documents | AssureProof',
-        'page_description': 'The invoice is read, the contract is read, the relation "invoice total ≤ contract cap" is checked deterministically, and both source pages stay open for the reviewer.',
-        'page_suffix': 'architecture/',
-    }),
-    ('security/index.html', 'security.html', {
-        'page_title': 'Security and data | AssureProof',
-        'page_description': 'Zero data leakage. Built for sovereign and air-gapped environments.',
-        'page_suffix': 'security/',
-    }),
-    ('contact-us/index.html', 'contact.html', {
-        'page_title': 'Contact | AssureProof',
-        'page_description': 'Before you pay, accept, or sign, you still open the contract and the invoice side by side.',
-        'page_suffix': 'contact/',
-    }),
-    ('pricing/index.html', 'pricing.html', {
-        'page_title': 'Pricing | AssureProof',
-        'page_description': 'Simple, transparent pricing for teams that verify before they approve.',
-        'page_suffix': 'pricing/',
-    }),
-    ('use-cases/index.html', 'use_cases_index.html', {
-        'page_title': 'Use cases | AssureProof',
-        'page_description': 'Where a single missed number creates legal or financial exposure.',
-        'page_suffix': 'use-cases/',
-    }),
-    ('use-cases/government/index.html', 'use_case_government.html', {
-        'page_title': 'Government document checks · AssureProof',
-        'page_description': 'Government procurement bids checked against statutory caps and compliance requirements.',
-        'page_suffix': 'use-cases/government/',
-    }),
-    ('use-cases/insurance/index.html', 'use_case_insurance.html', {
-        'page_title': 'Insurance claims review · AssureProof',
-        'page_description': 'Insurance claim files checked against policies and supporting documents.',
-        'page_suffix': 'use-cases/insurance/',
-    }),
-    ('use-cases/fuel-retail/index.html', 'use_case_fuel.html', {
-        'page_title': 'Fuel retail bonus reconciliation · AssureProof',
-        'page_description': 'Fuel Delivery Logs are checked against Bonus Rebate Statements.',
-        'page_suffix': 'use-cases/fuel-retail/',
-    }),
-    ('poc/index.html', 'poc.html', {
-        'page_title': 'POC | AssureProof',
-        'page_description': 'Run a pilot on your files.',
-        'page_suffix': 'poc/',
-    }),
-    ('404.html', '404.html', {
-        'page_title': 'Page not found',
-        'page_description': '',
-        'page_suffix': '',
-    }),
-]
-
-# Render each locale
-DIST_DIR = Path(os.environ.get('DIST_DIR', str(ROOT / 'dist-test-render')))
-
-for locale in LOCALES:
-    strings = strings_cache[locale]
-    
-    context = {
-        **base_context,
-        'locale': locale,
-        'strings': strings,
-        'locale_path': locale_paths[locale],
-        'page_url': f'https://assureproof.com{locale_paths[locale]}',
-        'og_locale': locale + '_' + locale.upper(),
-    }
-    
-    locale_dist = DIST_DIR / locale.lstrip('/')
-    locale_dist.mkdir(parents=True, exist_ok=True)
-    
-    for out_file, template_name, page_ctx in pages:
-        template = env.get_template(template_name)
-        full_context = {**context, **page_ctx}
-        html = template.render(full_context)
-        out_path = locale_dist / out_file
-        out_path.parent.mkdir(parents=True, exist_ok=True)
-        out_path.write_text(html, encoding='utf-8')
-        
-        # Also copy English to root for backward compatibility
-        if locale == 'en':
-            root_path = DIST_DIR / out_file
-            root_path.parent.mkdir(parents=True, exist_ok=True)
-            root_path.write_text(html, encoding='utf-8')
-
-print("Build complete")
-PYEOF
+echo "✅ Static marketing site built in $DIST_DIR"
+HTML_COUNT="$(find "$DIST_DIR" -name 'index.html' | wc -l | tr -d ' ')"
+echo "   HTML index files: $HTML_COUNT"

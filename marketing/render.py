@@ -53,10 +53,22 @@ PAGES: list[dict] = [
         "suffix": "use-cases/insurance/",
     },
     {
-        "template": "use_case_fuel.html",
-        "output": "use-cases/fuel-retail/index.html",
+        "template": "use_case_finance.html",
+        "output": "use-cases/finance/index.html",
         "kind": "landing",
-        "suffix": "use-cases/fuel-retail/",
+        "suffix": "use-cases/finance/",
+    },
+    {
+        "template": "use_case_procurement.html",
+        "output": "use-cases/procurement/index.html",
+        "kind": "landing",
+        "suffix": "use-cases/procurement/",
+    },
+    {
+        "template": "use_case_fuel.html",
+        "output": "use-cases/bonus-reconciliation/index.html",
+        "kind": "landing",
+        "suffix": "use-cases/bonus-reconciliation/",
     },
     {
         "template": "landing_privacy.html",
@@ -128,17 +140,21 @@ PAGES: list[dict] = [
 
 
 _I18N_ATTR_RE = re.compile(r'data-i18n(?:-html|-placeholder|-aria|-label)?="([^"]+)"')
-_GET_KEY_RE = re.compile(r"strings\.get\(\s*['\"]([a-zA-Z0-9_.]+)['\"]")
+_GET_KEY_RE = re.compile(r"strings\.get\(\s*['\"]([a-zA-Z0-9_.-]+)['\"]")
+_UC_SET_RE = re.compile(r"uc_key\s*=\s*['\"]([a-z]+)['\"]")
+_UC_ATTR_RE = re.compile(r"uc\.\{\{\s*uc_key\s*\}\}\.([a-z0-9.]+)")
+_UC_GET_RE = re.compile(r"uc\.'\s*~\s*uc_key\s*~\s*'\.([a-z0-9.]+)")
 _INCLUDE_RE = re.compile(r"{%-?\s*include\s+['\"]([^']+?)['\"]\s*%-?\}")
 _EXTENDS_RE = re.compile(r"{%-?\s*extends\s+['\"]([^']+?)['\"]\s*%-?\}")
 TEMPLATES_DIR = ROOT / "marketing" / "templates"
 
 TEMPLATE_TO_META = {
     "landing.html": "landing",
-    "government.html": "government",
     "use_cases_index.html": "use_cases_index",
     "use_case_government.html": "use_case_government",
     "use_case_insurance.html": "use_case_insurance",
+    "use_case_finance.html": "use_case_finance",
+    "use_case_procurement.html": "use_case_procurement",
     "use_case_fuel.html": "use_case_fuel",
     "landing_privacy.html": "landing_privacy",
     "contact.html": "contact",
@@ -148,6 +164,7 @@ TEMPLATE_TO_META = {
     "pricing.html": "pricing",
     "architecture.html": "architecture",
     "solutions.html": "solutions",
+    "poc.html": "poc",
 }
 
 LOCALE_TO_OG = {
@@ -253,44 +270,52 @@ def _postprocess(
     html = html.replace('="/static/', f'="{static_base}/')
     html = html.replace("='/static/", f"='{static_base}/")
 
-    # Bake translations into the static HTML for every locale except en, whose
-    # hardcoded template text already is the English source.
     if strings and locale != "en":
         html = _apply_data_i18n(html, strings)
-
-    inject = (
-        "<script>"
-        f"window.__ASSURE_LOCALE_PATHS={json.dumps(_locale_paths())};"
-        f'window.__ASSURE_PAGE_SUFFIX="{page_suffix}";'
-        f'window.__ASSURE_STATIC_LOCALE="{locale}";'
-        "</script>\n"
-    )
-    if "</body>" in html:
-        html = html.replace("</body>", inject + "</body>", 1)
-    else:
-        html += inject
     return html
 
 
-def _used_string_keys(app, template_name: str, seen: set | None = None) -> set[str]:
+def _expand_i18n_key(raw: str, uc_keys: set[str]) -> set[str]:
+    """Turn a template attribute into catalog keys.
+
+    use_case_detail.html writes data-i18n="uc.{{ uc_key }}.doc.1". The page
+    only ships strings whose keys were found literally, so the browser fell
+    through to the attribute and painted uc.proc.doc.1.
+    """
+    match = _UC_ATTR_RE.fullmatch(raw)
+    if match:
+        return {f"uc.{uk}.{match.group(1)}" for uk in uc_keys}
+    if "{{" in raw or "{%" in raw:
+        return set()
+    if re.fullmatch(r"[a-zA-Z0-9_.-]+", raw):
+        return {raw}
+    return set()
+
+
+def _used_string_keys(app, template_name: str, seen: set | None = None, uc_keys: set[str] | None = None) -> set[str]:
     """Collect i18n keys a template (and its includes) actually reference."""
     seen = seen if seen is not None else set()
     if template_name in seen:
         return set()
     seen.add(template_name)
     keys: set[str] = set()
+    uc_keys = set(uc_keys or ())
     try:
         source = (TEMPLATES_DIR / template_name).read_text(encoding="utf-8")
     except Exception:
         return keys
+    uc_keys |= set(_UC_SET_RE.findall(source))
     for match in _I18N_ATTR_RE.finditer(source):
-        keys.add(match.group(1))
+        keys |= _expand_i18n_key(match.group(1), uc_keys)
     for match in _GET_KEY_RE.finditer(source):
         keys.add(match.group(1))
+    for match in _UC_GET_RE.finditer(source):
+        suffix = match.group(1)
+        keys |= {f"uc.{uk}.{suffix}" for uk in uc_keys}
     for match in _INCLUDE_RE.finditer(source):
-        keys |= _used_string_keys(app, match.group(1), seen)
+        keys |= _used_string_keys(app, match.group(1), seen, uc_keys)
     for match in _EXTENDS_RE.finditer(source):
-        keys |= _used_string_keys(app, match.group(1), seen)
+        keys |= _used_string_keys(app, match.group(1), seen, uc_keys)
     return keys
 
 
@@ -314,12 +339,12 @@ def _render_page(app, page: dict, locale: str) -> str:
             meta_prefix = TEMPLATE_TO_META.get(page["template"])
             full = string_catalog(locale)
             if page["template"] == "404.html":
-                page_title = full.get("error404.title", "Page not found") + " · Assure"
+                page_title = full.get("error404.title", "Page not found") + " · AssureProof"
                 page_description = full.get("error404.body", "")
             else:
                 page_title = full.get(f"meta.{meta_prefix}.title") if meta_prefix else None
                 if not page_title:
-                    page_title = full.get("brand.page_title", "Assure")
+                    page_title = full.get("brand.page_title", "AssureProof")
                 page_description = (
                     full.get(f"meta.{meta_prefix}.description") if meta_prefix else None
                 ) or full.get("brand.meta_description", "")
@@ -335,7 +360,7 @@ def _render_page(app, page: dict, locale: str) -> str:
                     {
                         "@context": "https://schema.org",
                         "@type": "Organization",
-                        "name": "Assure",
+                        "name": "AssureProof",
                         "url": "https://assureproof.com",
                         "logo": "https://assureproof.com/static/assure-logo.png",
                         "inLanguage": locale,
@@ -345,7 +370,7 @@ def _render_page(app, page: dict, locale: str) -> str:
                     {
                         "@context": "https://schema.org",
                         "@type": "WebSite",
-                        "name": "Assure",
+                        "name": "AssureProof",
                         "url": "https://assureproof.com/",
                         "inLanguage": locale,
                     }
@@ -354,7 +379,7 @@ def _render_page(app, page: dict, locale: str) -> str:
                     {
                         "@context": "https://schema.org",
                         "@type": "SoftwareApplication",
-                        "name": "Assure",
+                        "name": "AssureProof",
                         "applicationCategory": "BusinessApplication",
                         "operatingSystem": "Web",
                         "description": page_description,
@@ -362,45 +387,43 @@ def _render_page(app, page: dict, locale: str) -> str:
                         "inLanguage": locale,
                         "provider": {
                             "@type": "Organization",
-                            "name": "Assure",
+                            "name": "AssureProof",
                             "url": "https://assureproof.com",
                         },
                     }
-                )
-                howto_steps = (
-                    (
-                        "Both pages open",
-                        "home.steps.1.text",
-                        "The invoice and the contract cap sit side by side. Every figure keeps its source page.",
-                    ),
-                    (
-                        "Contradiction marked",
-                        "home.steps.2.text",
-                        "The formal consistency check flags the conflict. Export is blocked.",
-                    ),
-                    (
-                        "Person decides",
-                        "home.steps.3.text",
-                        "A person accepts or rejects each finding. The file stays downloadable.",
-                    ),
                 )
                 json_ld.append(
                     {
                         "@context": "https://schema.org",
                         "@type": "HowTo",
-                        "name": full.get(
-                            "home.steps.title",
-                            "How it works",
-                        ),
+                        "name": full.get("howto.name", "How AssureProof checks a draft against your files"),
                         "inLanguage": locale,
                         "step": [
                             {
                                 "@type": "HowToStep",
                                 "position": index,
-                                "name": name,
-                                "text": full.get(key) or fallback,
+                                "name": full.get(f"howto.{index}.name", ""),
+                                "text": full.get(f"howto.{index}.text", ""),
                             }
-                            for index, (name, key, fallback) in enumerate(howto_steps, start=1)
+                            for index in range(1, 5)
+                        ],
+                    }
+                )
+                json_ld.append(
+                    {
+                        "@context": "https://schema.org",
+                        "@type": "FAQPage",
+                        "inLanguage": locale,
+                        "mainEntity": [
+                            {
+                                "@type": "Question",
+                                "name": full.get(f"faq.{i}.q", ""),
+                                "acceptedAnswer": {
+                                    "@type": "Answer",
+                                    "text": full.get(f"faq.{i}.a", "")
+                                },
+                            }
+                            for i in range(1, 11)
                         ],
                     }
                 )
@@ -424,13 +447,13 @@ def _render_page(app, page: dict, locale: str) -> str:
                             {
                                 "@type": "ListItem",
                                 "position": 1,
-                                "name": home_name,
-                                "item": "https://assureproof.com/",
+                                "name": full.get("meta.home.name", "Home"),
+                                "item": "https://assureproof.com" + path,
                             },
                             {
                                 "@type": "ListItem",
                                 "position": 2,
-                                "name": page_title,
+                                "name": full.get(f"crumb.{meta_prefix}", page_title) if meta_prefix else page_title,
                                 "item": page_url,
                             },
                         ],

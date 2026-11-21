@@ -13,42 +13,6 @@
  * (wrangler assets.directory); the ASSETS binding delivers the files.
  */
 
-// Rate limiting (KV-backed)
-async function checkRateLimit(env, key, limit, windowSeconds) {
-  if (!env.RATE_LIMIT) return true;
-  const now = Math.floor(Date.now() / 1000);
-  const windowKey = `${key}:${Math.floor(now / windowSeconds)}`;
-  const count = (await env.RATE_LIMIT.get(windowKey, "json")) || 0;
-  if (count >= limit) return false;
-  await env.RATE_LIMIT.put(windowKey, count + 1, { expirationTtl: windowSeconds + 1 });
-  return true;
-}
-
-function clientIp(request) {
-  return (
-    request.headers.get("CF-Connecting-IP") ||
-    request.headers.get("X-Forwarded-For")?.split(",")[0]?.trim() ||
-    "unknown"
-  );
-}
-
-function rateLimitResponse(retryAfterSec = 60) {
-  return new Response(
-    JSON.stringify({
-      ok: false,
-      error: "Too many requests. Please wait and try again.",
-      retry_after: retryAfterSec,
-    }),
-    {
-      status: 429,
-      headers: {
-        "Content-Type": "application/json; charset=utf-8",
-        "Retry-After": String(retryAfterSec),
-      },
-    }
-  );
-}
-
 // CORS handling
 function corsHeaders(origin) {
   const allowedOrigins = [
@@ -76,11 +40,11 @@ function handleOptions(request) {
 // Content Security Policy
 const CSP = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline'",
-  "style-src 'self' 'unsafe-inline' fonts.googleapis.com",
-  "font-src 'self' fonts.gstatic.com data:",
+  "script-src 'self' https://www.googletagmanager.com https://static.cloudflareinsights.com",
+  "style-src 'self' 'unsafe-inline'",
+  "font-src 'self'",
   "img-src 'self' data: https:",
-  "connect-src 'self' https://api.resend.com",
+  "connect-src 'self' https://api.resend.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com",
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",
@@ -98,8 +62,8 @@ const SECURITY_HEADERS = {
 // Locale folders in dist/ (mirrors marketing/locales; en lives at the root).
 const LOCALES = ["de", "es", "fr", "tr", "ja", "zh", "ar"];
 
-const SALES_INBOX = "sales@getassureai.com";
-const EMAIL_FROM = "Assure Website <website@getassureai.com>";
+const SALES_INBOX = "sales@assureproof.com";
+const EMAIL_FROM = "AssureProof Website <website@assureproof.com>";
 
 function json(data, status) {
   return new Response(JSON.stringify(data), {
@@ -116,14 +80,8 @@ function clean(value, max) {
   return String(value || "").trim().slice(0, max || 2000);
 }
 
-/** POST /api/z3-demo — Z3 verification demo for interactive hero card. */
+/** POST /api/z3-demo — replays the illustrative hero example (simple subtraction, not a Z3 run). */
 async function handleZ3Demo(request, env) {
-  const ip = clientIp(request);
-  // Rate limit: 30 req/min per IP
-  if (!(await checkRateLimit(env, `z3-demo:${ip}`, 30, 60))) {
-    return rateLimitResponse(60);
-  }
-
   let body;
   try {
     body = await request.json();
@@ -146,20 +104,14 @@ async function handleZ3Demo(request, env) {
     sourceB: { ...sourceB, value: b },
     delta: { value: delta, currency, conflict },
     message: conflict
-      ? `Export locked — ${delta > 0 ? "+" : ""}${delta.toLocaleString()} ${currency} overage detected.`
-      : "No conflict — values agree.",
-    z3Verification: "Deterministic formal logic check completed.",
+      ? `Mismatch marked: the invoice is ${delta > 0 ? "+" : ""}${delta.toLocaleString()} ${currency} over the contract cap. A person reviews and decides.`
+      : "No mismatch: the two figures agree.",
+    z3Verification: "Illustrative example: simulated data, not a Z3 run.",
   });
 }
 
 /** POST /contact-submit — enterprise contact form → Resend email. */
 async function handleContactSubmit(request, env) {
-  const ip = clientIp(request);
-  // Rate limit: 10 req/min per IP
-  if (!(await checkRateLimit(env, `contact-submit:${ip}`, 10, 60))) {
-    return rateLimitResponse(60);
-  }
-
   if (!env.RESEND_API_KEY) {
     return json({ error: "Contact endpoint is not configured." }, 503);
   }
@@ -277,6 +229,19 @@ export default {
 
     if (request.method !== "GET" && request.method !== "HEAD") {
       return new Response("Method not allowed", { status: 405 });
+    }
+
+    // One host: www.assureproof.com → assureproof.com, path and query kept.
+    if (url.hostname === "www.assureproof.com") {
+      const apex = new URL(url.toString());
+      apex.hostname = "assureproof.com";
+      return Response.redirect(apex.toString(), 301);
+    }
+
+    // The fuel-retail page moved to a neutral URL (all locales).
+    const fuel = url.pathname.match(/^(\/[a-z]{2})?\/use-cases\/fuel-retail\/?$/i);
+    if (fuel) {
+      return Response.redirect(new URL(`${fuel[1] || ""}/use-cases/bonus-reconciliation/`, url.origin).toString(), 301);
     }
 
     // Legacy and convenience redirects.

@@ -1,7 +1,21 @@
 (function () {
   "use strict";
 
-  var strings = window.__assureLandingStrings || {};
+  // Read strings from JSON script tag (no inline executable script)
+  var strings = {};
+  var stringsEl = document.getElementById("assure-strings");
+  if (stringsEl) {
+    try {
+      strings = JSON.parse(stringsEl.textContent || "{}");
+    } catch (e) {
+      console.warn("Failed to parse assure-strings:", e);
+      strings = {};
+    }
+  }
+  // Fallback to legacy global (for backward compatibility)
+  if (!Object.keys(strings).length && window.__assureLandingStrings) {
+    strings = window.__assureLandingStrings;
+  }
 
   function interpolate(s, vars) {
     if (!s || !vars) return s;
@@ -12,7 +26,9 @@
   }
 
   function t(key, fallback) {
-    return (strings && strings[key]) || fallback || key;
+    var value = strings && strings[key];
+    if (value) return value;
+    return fallback || "";
   }
 
   function applyI18n() {
@@ -34,9 +50,10 @@
     });
   }
 
+  // Locale paths and page suffix from page data (set by site-init.js)
   function localeHref(code) {
-    var paths = window.__ASSURE_LOCALE_PATHS;
-    var suffix = window.__ASSURE_PAGE_SUFFIX || "";
+    var paths = (window.__ASSURE_PAGE_DATA && window.__ASSURE_PAGE_DATA.localePaths) || window.__ASSURE_LOCALE_PATHS || {};
+    var suffix = (window.__ASSURE_PAGE_DATA && window.__ASSURE_PAGE_DATA.pageSuffix) || window.__ASSURE_PAGE_SUFFIX || "";
     if (paths && Object.prototype.hasOwnProperty.call(paths, code)) {
       var base = paths[code] || "/";
       if (code === "en") {
@@ -50,13 +67,16 @@
   }
 
   function initLocale() {
-    var select = document.getElementById("landing-lang");
-    if (!select) return;
-    select.addEventListener("change", function () {
-      window.location.href = localeHref(select.value);
+    ["landing-lang", "landing-lang-mobile"].forEach(function (id) {
+      var select = document.getElementById(id);
+      if (!select) return;
+      select.addEventListener("change", function () {
+        window.location.href = localeHref(select.value);
+      });
     });
   }
 
+  // Legacy nav menu toggle (for pages that still use nav-menu-toggle class)
   function initNavMenu() {
     var toggle = document.getElementById("nav-menu-toggle");
     var links = document.querySelector(".nav-links");

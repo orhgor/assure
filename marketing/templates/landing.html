@@ -1,464 +1,270 @@
-<!DOCTYPE html>
-<html lang="{{ locale|default('en') }}"{% if locale|default('en') == 'ar' %} dir="rtl"{% endif %}>
-<head>
-    {% include 'includes/gtag.html' %}
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ page_title }}</title>
-    <meta name="description" content="{{ page_description }}">
-    <link rel="canonical" href="{{ page_url }}">
-    <meta property="og:type" content="website">
-    <meta property="og:url" content="{{ page_url }}">
-    <meta property="og:locale" content="{{ og_locale }}">
-    {% for code, path in locale_paths.items() %}
-    <link rel="alternate" hreflang="{{ code }}" href="https://assureproof.com{{ path }}{{ page_suffix|default('') }}">
-    {% endfor %}
-    <link rel="alternate" hreflang="x-default" href="{{ en_url }}">
-    <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="{{ page_title }}">
-    <meta name="twitter:description" content="{{ page_description }}">
-    <meta property="og:title" content="{{ page_title }}">
-    <meta property="og:description" content="{{ page_description }}">
-    <meta property="og:image" content="{{ og_image }}">
-    <meta property="og:image:width" content="1200">
-    <meta property="og:image:height" content="630">
-    <link rel="icon" href="{{ url_for('static', filename='assure-logo.png') }}" type="image/png">
-    <link rel="apple-touch-icon" href="{{ url_for('static', filename='assure-logo.png') }}">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-    {% if locale|default('en') == 'ar' %}
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
-    {% endif %}
-    {% for item in json_ld %}
-    <script type="application/ld+json">{{ item|tojson }}</script>
-    {% endfor %}
-    <link rel="stylesheet" href="{{ url_for('static', filename='landing.css') }}?v={{ landing_css_version|default('127') }}">
-    <script src="{{ url_for('static', filename='icons.js') }}"></script>
-    <script>
-      window.__assureLandingStrings = {{ strings|tojson }};
-    <script>window.__ASSURE_LOCALE_PATHS = {{ locale_paths|tojson }};</script>
-    </script>
-    <script>if(!matchMedia('(prefers-reduced-motion: reduce)').matches)document.documentElement.classList.add('fx')</script>
-</head>
-<body id="top" class="enterprise-landing home-landing">
+{% extends 'base.html' %}
+
+
+{% block body_attrs %} home-landing{% endblock %}
+
+{% block nav_current %}
     {% set nav_current = 'landing' %}
-    {% include 'includes/landing_header.html' %}
+{% endblock %}
 
-    <main id="main-content">
-        <!-- ==========================================================================
-             HERO SECTION
-             ========================================================================== -->
-        <section class="hero-section">
-            <div class="hero-inner">
-                <div class="hero-eyebrow" data-i18n="home.hero.eyebrow">{{ strings.get('home.hero.eyebrow', 'Deterministic Document Verification') }}</div>
-                <h1 class="hero-title" data-i18n-html="brand.hero_title_html">{{ strings.get('brand.hero_title_html', 'Catch every contradiction before a document leaves your desk.') }}</h1>
-                <p class="hero-sub" data-i18n="home.hero.sub">{{ strings.get('home.hero.sub', 'AssureProof cross-checks every number, clause, and citation across your entire document set—pinpointing exact conflicts to the page and line before you approve, pay, or publish.') }}</p>
+{% block content %}
+<main id="main-content">
+    <!-- ==========================================================================
+         HERO SECTION
+         ========================================================================== -->
+    <section class="hero-section">
+        <div class="hero-inner">
+            <div class="hero-eyebrow" data-i18n="home.hero.eyebrow">{{ strings.get('home.hero.eyebrow', 'Document checking platform for finance, claims and procurement teams') }}</div>
+            <h1 class="hero-title"><span class="hero-title-desktop" data-i18n="brand.hero_title_html">{{ strings.get('brand.hero_title_html', "Catch the figure that doesn't match before you pay or approve.") }}</span><span class="hero-title-mobile" data-i18n="home.hero.mobile_title">{{ strings.get('home.hero.mobile_title', "Catch the figure that doesn't match before you pay or approve.") }}</span></h1>
+            <p class="hero-sub"><span class="hero-sub-desktop" data-i18n="home.hero.sub">{{ strings.get('home.hero.sub', 'AssureProof reads your contracts, invoices, claims and bids, drafts with a source for every figure, and marks every mismatch with both pages. A person decides.') }}</span><span class="hero-sub-mobile" data-i18n="home.hero.mobile_sub">{{ strings.get('home.hero.mobile_sub', 'AssureProof reads your contracts, invoices, claims and bids, drafts with a source for every figure, and marks every mismatch with both pages. A person decides.') }}</span></p>
 
-                <!-- Hero Interactive Proof Card -->
-                <div class="proof-terminal" role="group" aria-label="{{ strings.get('proof.duo.aria', 'Source A — contract cap 120,000 EUR, compared with Source B — invoice 142,500 EUR') }}" id="hero-proof-card">
-                    <div class="proof-terminal-header">
-                        <span class="proof-badge" data-i18n="proof.verdict">{{ strings.get('proof.verdict', 'Z3 Conflict Detected') }}</span>
-                        <span class="proof-delta-badge" id="proof-delta-badge">+22,500 EUR</span>
-                    </div>
-                    <div class="proof-terminal-grid">
-                        <div class="proof-terminal-source">
-                            <div class="terminal-header" data-i18n="proof.a.kicker">{{ strings.get('proof.a.kicker', 'Source A') }}</div>
-                            <div class="terminal-body">
-                                <div class="terminal-line" data-i18n="proof.a.title">{{ strings.get('proof.a.title', 'Master Services Agreement (MSA) • Page 12 • Clause 4.2') }}</div>
-                                <div class="terminal-value">
-                                    <span class="proof-value" id="proof-source-a-value">120,000</span>
-                                    <span class="proof-currency" id="proof-source-a-currency">EUR</span>
-                                </div>
-                                <div class="terminal-line" data-i18n="proof.a.cap">{{ strings.get('proof.a.cap', 'Contract cap') }}</div>
-                            </div>
-                        </div>
-                        <div class="conflict-delta">
-                            <div class="delta-icon" aria-hidden="true" data-icon="alert-triangle" data-size="24" data-stroke-width="2"></div>
-                            <div class="delta-value" id="proof-delta-value">+22,500</div>
-                            <div class="delta-label" id="proof-delta-currency">EUR</div>
-                        </div>
-                        <div class="proof-terminal-source">
-                            <div class="terminal-header" data-i18n="proof.b.kicker">{{ strings.get('proof.b.kicker', 'Source B') }}</div>
-                            <div class="terminal-body">
-                                <div class="terminal-line" data-i18n="proof.b.title">{{ strings.get('proof.b.title', 'Vendor Invoice #884 • Page 3 • Line 8') }}</div>
-                                <div class="terminal-value">
-                                    <span class="proof-value" id="proof-source-b-value">142,500</span>
-                                    <span class="proof-currency" id="proof-source-b-currency">EUR</span>
-                                </div>
-                                <div class="terminal-line" data-i18n="proof.b.billed">{{ strings.get('proof.b.billed', 'Amount billed') }}</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <section class="conflict-z3-terminal" id="z3-result">
-                    <div class="terminal-header" data-i18n="proof.z3.title">{{ strings.get('proof.z3.title', 'Z3 Formal Verification') }}</div>
-                    <div class="terminal-body">
-                        <div class="terminal-line" id="z3-result-text" data-i18n="proof.z3.body">{{ strings.get('proof.z3.body', 'Export locked — the two sources cannot both be true. A person or an agent decides, and the file can still be downloaded.') }}</div>
-                    </div>
-                    <div class="z3-actions">
-                        <button type="button" class="btn-primary z3-recalculate" id="z3-recalculate-btn" data-i18n="proof.z3.recalculate">{{ strings.get('proof.z3.recalculate', 'View Conflict Details') }}</button>
-                    </div>
-                </section>
-                <div class="hero-cta-group">
-                    <button type="button" class="btn-primary" data-demo-open data-i18n="landing.hero.cta_primary">{{ strings.get('landing.hero.cta_primary', 'See the proof') }}</button>
-                    <a href="{{ locale_path }}poc/" class="btn-secondary" data-i18n="landing.hero.cta_secondary">{{ strings.get('landing.hero.cta_secondary', 'Run a pilot on your files →') }}</a>
-                </div>
-            </div>
-        </section>
-
-        <!-- ==========================================================================
-             HOW IT WORKS — 6-STEP PIPELINE
-             ========================================================================== -->
-        <section id="how" class="section" id="how">
-            <div class="container">
-                <h2 class="section-title" data-i18n="home.steps.title">{{ strings.get('home.steps.title', 'How it works') }}</h2>
-                <p class="section-sub" data-i18n="home.steps.sub">{{ strings.get('home.steps.sub', 'Standard AI guesses what your documents say. AssureProof proves whether your numbers and clauses actually agree.') }}</p>
-
-                <ol class="pipeline">
-                    <li class="pipeline-step" data-step="01">
-                        <span class="pipeline-step-number">01</span>
-                        <h3 data-i18n="pipeline.1.name">{{ strings.get('pipeline.1.name', 'Upload the document package') }}</h3>
-                        <p data-i18n="pipeline.1.line">{{ strings.get('pipeline.1.line', 'PDFs, scans and images up to 25 MB and 200 pages. Spreadsheets are read in code, without a model.') }}</p>
-                    </li>
-
-                    <li class="pipeline-step" data-step="02">
-                        <span class="pipeline-step-number">02</span>
-                        <h3 data-i18n="pipeline.2.name">{{ strings.get('pipeline.2.name', 'Read and draft') }}</h3>
-                        <p data-i18n="pipeline.2.line">{{ strings.get('pipeline.2.line', 'Every page is read, and each field is pinned to its source page. The draft is written with a citation for every claim.') }}</p>
-                    </li>
-
-                    <li class="pipeline-step" data-step="03">
-                        <span class="pipeline-step-number">03</span>
-                        <h3 data-i18n="pipeline.3.name">{{ strings.get('pipeline.3.name', 'Check and cross-check') }}</h3>
-                        <p data-i18n="pipeline.3.line">{{ strings.get('pipeline.3.line', 'Every figure and date is tested against your files. Each citation is verified against its source page. A second review lists weak claims.') }}</p>
-                    </li>
-
-                    <li class="pipeline-step" data-step="04">
-                        <span class="pipeline-step-number">04</span>
-                        <h3 data-i18n="pipeline.4.name">{{ strings.get('pipeline.4.name', 'A person decides') }}</h3>
-                        <p data-i18n="pipeline.4.line">{{ strings.get('pipeline.4.line', 'The review screen shows the contradiction and export is flagged. A person accepts or rejects each finding. The file stays downloadable.') }}</p>
-                    </li>
-                </ol>
-            </div>
-        </section>
-
-        <!-- ==========================================================================
-             WHERE IT RUNS + TRUST METRICS BAR (Combined)
-             ========================================================================== -->
-        <section id="runs" class="section" id="runs">
-            <div class="container runs-trust-container">
-                <div class="runs-content">
-                    <h2 class="section-title" data-i18n="home.runs.title">{{ strings.get('home.runs.title', 'Where it runs') }}</h2>
-                    <p class="section-sub" data-i18n="sovereign.body">{{ strings.get('sovereign.body', 'Runs in your own AWS account, on-premises, or private GPU environment. You choose where the models run. When the model is local, documents stay inside that boundary.') }}</p>
-                    <p class="home-more"><a href="{{ locale_path }}security/" data-i18n="home.trust.link">{{ strings.get('home.trust.link', 'Security and data') }}</a> <span aria-hidden="true">→</span></p>
-                </div>
-
-                <!-- Trust Metrics Bar -->
-                <div class="trust-metrics-bar-inline">
-                    <div class="trust-metric-item-inline">
-                        <div class="trust-metric-value-inline" data-i18n="landing.trust.metric.1.value">{{ strings.get('landing.trust.metric.1.value', '100%') }}</div>
-                        <p data-i18n="landing.trust.metric.1.desc">{{ strings.get('landing.trust.metric.1.desc', 'Page-and-line citation traceability on every extracted figure') }}</p>
-                    </div>
-                    <div class="trust-metric-item-inline">
-                        <div class="trust-metric-value-inline" data-i18n="landing.trust.metric.2.value">{{ strings.get('landing.trust.metric.2.value', '0 Bytes') }}</div>
-                        <p data-i18n="landing.trust.metric.2.desc">{{ strings.get('landing.trust.metric.2.desc', 'External data egress in air-gapped or private VPC deployments') }}</p>
-                    </div>
-                    <div class="trust-metric-item-inline">
-                        <span class="trust-metric-value-inline" data-i18n="landing.trust.metric.3.value">{{ strings.get('landing.trust.metric.3.value', 'Z3-Verified') }}</span>
-                        <p data-i18n="landing.trust.metric.3.desc">{{ strings.get('landing.trust.metric.3.desc', 'Formal mathematical proof on every cross-document check') }}</p>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- ==========================================================================
-             WHY NOT AN LLM SECTION
-             ========================================================================== -->
-        <section id="why-not-llm" class="why-not-llm">
-            <div class="container">
-                <div class="section-header">
-                    <span class="section-eyebrow" data-i18n="why-not-llm.eyebrow">{{ strings.get('why-not-llm.eyebrow', 'Probabilistic vs. Deterministic') }}</span>
-                    <h2 class="section-title" data-i18n="why-not-llm.title">{{ strings.get('why-not-llm.title', 'General-purpose AI predicts the next word. AssureProof proves the math.') }}</h2>
-                    <p class="section-sub" data-i18n="why-not-llm.sub">{{ strings.get('why-not-llm.sub', 'ChatGPT and Claude are built to sound plausible, not to guarantee mathematical consistency across a 300-page document stack. When a missed clause or billing overage costs thousands of dollars, probability is not enough.') }}</p>
-                </div>
-
-                <div class="comparison-table-container">
-                    <table class="comparison-table">
-                        <thead>
-                            <tr>
-                                <th scope="col" data-i18n="why-not-llm.table.criteria">{{ strings.get('why-not-llm.table.criteria', 'Evaluation Criteria') }}</th>
-                                <th scope="col" data-i18n="why-not-llm.table.llm">{{ strings.get('why-not-llm.table.llm', 'Standard LLMs (ChatGPT, Claude, Gemini)') }}</th>
-                                <th scope="col" data-i18n="why-not-llm.table.assure">{{ strings.get('why-not-llm.table.assure', 'AssureProof (Deterministic Verification)') }}</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <th scope="row" data-i18n="why-not-llm.row.core-engine">{{ strings.get('why-not-llm.row.core-engine', 'Core Engine') }}</th>
-                                <td data-i18n="why-not-llm.row.llm-engine">{{ strings.get('why-not-llm.row.llm-engine', 'Probabilistic — guesses the most likely text based on patterns.') }}</td>
-                                <td data-i18n="why-not-llm.row.assure-engine">{{ strings.get('why-not-llm.row.assure-engine', 'Deterministic — mathematically tests every figure and rule using a Z3 formal logic solver.') }}</td>
-                            </tr>
-                            <tr>
-                                <th scope="row" data-i18n="why-not-llm.row.math">{{ strings.get('why-not-llm.row.math', 'Cross-Document Math') }}</th>
-                                <td data-i18n="why-not-llm.row.llm-math">{{ strings.get('why-not-llm.row.llm-math', 'Often misses subtle discrepancies or loses accuracy as file length grows ("lost in the middle").') }}</td>
-                                <td data-i18n="why-not-llm.row.assure-math">{{ strings.get('why-not-llm.row.assure-math', 'Z3 checks whether every figure, clause, and citation can all be true at the same time. A contradiction stops export.') }}</td>
-                            </tr>
-                            <tr>
-                                <th scope="row" data-i18n="why-not-llm.row.traceability">{{ strings.get('why-not-llm.row.traceability', 'Source Traceability') }}</th>
-                                <td data-i18n="why-not-llm.row.llm-trace">{{ strings.get('why-not-llm.row.llm-trace', 'Citations can be vague, paraphrased, or fabricated.') }}</td>
-                                <td data-i18n="why-not-llm.row.assure-trace">{{ strings.get('why-not-llm.row.assure-trace', 'Every claim is pinned directly to the exact source document, page, and line.') }}</td>
-                            </tr>
-                            <tr>
-                                <th scope="row" data-i18n="why-not-llm.row.conflicts">{{ strings.get('why-not-llm.row.conflicts', 'Conflict Handling') }}</th>
-                                <td data-i18n="why-not-llm.row.llm-conflicts">{{ strings.get('why-not-llm.row.llm-conflicts', 'Quietly smooths over contradictions to give you a polite, confident answer.') }}</td>
-                                <td data-i18n="why-not-llm.row.assure-conflicts">{{ strings.get('why-not-llm.row.assure-conflicts', 'Automatically locks export upon disagreement, forcing a human decision.') }}</td>
-                            </tr>
-                            <tr>
-                                <th scope="row" data-i18n="why-not-llm.row.audit">{{ strings.get('why-not-llm.row.audit', 'Audit & Compliance') }}</th>
-                                <td data-i18n="why-not-llm.row.llm-audit">{{ strings.get('why-not-llm.row.llm-audit', 'No built-in approval gates or cryptographic audit log of who overrode a discrepancy.') }}</td>
-                                <td data-i18n="why-not-llm.row.assure-audit">{{ strings.get('why-not-llm.row.assure-audit', 'Full governance trail recording every flagged conflict, reviewer sign-off, and override.') }}</td>
-                            </tr>
-                            <tr>
-                                <th scope="row" data-i18n="why-not-llm.row.residency">{{ strings.get('why-not-llm.row.residency', 'Data Residency') }}</th>
-                                <td data-i18n="why-not-llm.row.llm-residency">{{ strings.get('why-not-llm.row.llm-residency', 'Prompts and files typically pass through third-party cloud APIs.') }}</td>
-                                <td data-i18n="why-not-llm.row.assure-residency">{{ strings.get('why-not-llm.row.assure-residency', 'Runs 100% inside your AWS account, private GPU, or air-gapped on-prem server.') }}</td>
-                            </tr>
-                        </tbody>
-                    </table>
-
-                    <div class="comparison-cta-wrapper">
-                        <p class="comparison-cta-text" data-i18n="why-not-llm.cta.text">{{ strings.get('why-not-llm.cta.text', 'Use LLMs to brainstorm. Use AssureProof before you sign, pay, or file.') }}</p>
-                        <a href="{{ locale_path }}poc/" class="btn-primary" data-i18n="why-not-llm.cta">{{ strings.get('why-not-llm.cta', 'See the proof') }}</a>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- ==========================================================================
-             USE CASES
-             ========================================================================== -->
-        <section id="use-cases" class="use-cases-section">
-            <div class="container">
-                <div class="section-header">
-                    <span class="section-eyebrow" data-i18n="use-cases.eyebrow">{{ strings.get('use-cases.eyebrow', 'Built for High-Stakes Workflows') }}</span>
-                    <h2 class="section-title" data-i18n="use-cases.title">{{ strings.get('use-cases.title', 'Where a single missed number creates legal or financial exposure.') }}</h2>
-                    <p class="section-sub" data-i18n="use-cases.sub">{{ strings.get('use-cases.sub', 'AssureProof cross-checks complex multi-document packets to flag discrepancies before funds or approvals go out the door.') }}</p>
-                </div>
-
-                <div class="use-cases-grid">
-                    <!-- Card 1: Government -->
-                    <div class="use-case-card">
-                        <div class="use-case-icon" style="background: #dbeafe; color: #1d4ed8;" data-icon="building" data-size="24" data-stroke-width="2"></div>
-                        <h3 data-i18n="use-cases.gov.title">{{ strings.get('use-cases.gov.title', 'Government Document Checks') }}</h3>
-                        <p data-i18n="use-cases.gov.desc">{{ strings.get('use-cases.gov.desc', 'Verify procurement bids and regulatory packets before sign-off.') }}</p>
-
-                        <div class="use-case-conflict">
-                            <div class="conflict-row"><span data-i18n="use-cases.gov.conflict.label">{{ strings.get('use-cases.gov.conflict.label', 'Live Conflict Example') }}</span><span class="conflict-badge" data-i18n="use-cases.gov.conflict.badge">{{ strings.get('use-cases.gov.conflict.badge', '+9.5% Over Cap') }}</span></div>
-                            <div><span data-i18n="use-cases.gov.conflict.source-a-label">{{ strings.get('use-cases.gov.conflict.source-a.label', 'Source A (RFP Schedule B, p. 4):') }}</span><span data-i18n="use-cases.gov.conflict.source-a">{{ strings.get('use-cases.gov.conflict.source-a', 'Max Subcontractor Cap: 15%') }}</span></div>
-                            <div><span data-i18n="use-cases.gov.conflict.source-b.label">{{ strings.get('use-cases.gov.conflict.source-b.label', 'Source B (Vendor Proposal, p. 19):') }}</span><span data-i18n="use-cases.gov.conflict.source-b">{{ strings.get('use-cases.gov.conflict.source-b', 'Subcontractor Allocation: 24.5% ($367,500)') }}</span></div>
-                            <div class="conflict-result"><strong data-i18n="use-cases.gov.conflict.result.label">{{ strings.get('use-cases.gov.conflict.result.label', 'Result:') }}</strong><span data-i18n="use-cases.gov.conflict.result">{{ strings.get('use-cases.gov.conflict.result', 'Export Locked — Exceeds statutory threshold by 9.5%.') }}</span></div>
-                        </div>
-                        <button type="button" class="btn-primary use-case-cta" data-demo-open data-workflow="government" data-i18n="use-cases.gov.cta">{{ strings.get('use-cases.gov.cta', 'Test a procurement or compliance packet') }}</button>
-                    </div>
-
-                    <!-- Card 2: Insurance Claims -->
-                    <div class="use-case-card">
-                        <div class="use-case-icon" style="background: #fef2f2; color: #dc2626;" data-icon="file-text" data-size="24" data-stroke-width="2"></div>
-                        <h3 data-i18n="use-cases.insurance.title">{{ strings.get('use-cases.insurance.title', 'Insurance Claims Review') }}</h3>
-                        <p data-i18n="use-cases.insurance.desc">{{ strings.get('use-cases.insurance.desc', 'Audit complex claims against policy limits, endorsements, and medical bills.') }}</p>
-
-                        <div class="use-case-conflict">
-                            <div class="conflict-row"><span data-i18n="use-cases.insurance.conflict.label">{{ strings.get('use-cases.insurance.conflict.label', 'Live Conflict Example') }}</span><span class="conflict-badge" data-i18n="use-cases.insurance.conflict.badge">{{ strings.get('use-cases.insurance.conflict.badge', '+$18,400 Over') }}</span></div>
-                            <div><span data-i18n="use-cases.insurance.conflict.source-a.label">{{ strings.get('use-cases.insurance.conflict.source-a.label', 'Source A (Policy #409-B, Endorsement 3):') }}</span><span data-i18n="use-cases.insurance.conflict.source-a">{{ strings.get('use-cases.insurance.conflict.source-a', 'Water Damage Sub-Limit: $50,000') }}</span></div>
-                            <div><span data-i18n="use-cases.insurance.conflict.source-b.label">{{ strings.get('use-cases.insurance.conflict.source-b.label', 'Source B (Adjuster Summary, p. 6):') }}</span><span data-i18n="use-cases.insurance.conflict.source-b">{{ strings.get('use-cases.insurance.conflict.source-b', 'Approved Remediation Payout: $68,400') }}</span></div>
-                            <div class="conflict-result"><strong data-i18n="use-cases.insurance.conflict.result.label">{{ strings.get('use-cases.insurance.conflict.result.label', 'Result:') }}</strong><span data-i18n="use-cases.insurance.conflict.result">{{ strings.get('use-cases.insurance.conflict.result', 'Export Locked — Exceeds endorsement cap by $18,400.') }}</span></div>
-                        </div>
-                        <button type="button" class="btn-primary use-case-cta" data-demo-open data-workflow="insurance" data-i18n="use-cases.insurance.cta">{{ strings.get('use-cases.insurance.cta', 'Test a claims file') }}</button>
-                    </div>
-
-                    <!-- Card 3: Bonus Reconciliation -->
-                    <div class="use-case-card">
-                        <div class="use-case-icon" style="background: #fef3c7; color: #d97706;" data-icon="dollar-sign" data-size="24" data-stroke-width="2"></div>
-                        <h3 data-i18n="use-cases.fuel.title">{{ strings.get('use-cases.fuel.title', 'Bonus & Commission Reconciliation') }}</h3>
-
-                        <div class="use-case-conflict">
-                            <div class="conflict-row"><span data-i18n="use-cases.fuel.conflict.label">{{ strings.get('use-cases.fuel.conflict.label', 'Live Conflict Example') }}</span><span class="conflict-badge" data-i18n="use-cases.fuel.conflict.badge">{{ strings.get('use-cases.fuel.conflict.badge', '+$31,200 Over') }}</span></div>
-                            <div><span data-i18n="use-cases.fuel.conflict.source-a.label">{{ strings.get('use-cases.fuel.conflict.source-a.label', 'Source A (FY26 Comp Plan, Sec. 3.1):') }}</span><span data-i18n="use-cases.fuel.conflict.source-a">{{ strings.get('use-cases.fuel.conflict.source-a', 'Accelerator Rate (100%+ Quota): 1.5x') }}</span></div>
-                            <div><span data-i18n="use-cases.fuel.conflict.source-b.label">{{ strings.get('use-cases.fuel.conflict.source-b.label', 'Source B (Q4 Payroll Sheet, Row 42):') }}</span><span data-i18n="use-cases.fuel.conflict.source-b">{{ strings.get('use-cases.fuel.conflict.source-b', 'Applied Multiplier: 2.0x (+$31,200)') }}</span></div>
-                            <div class="conflict-result"><strong data-i18n="use-cases.fuel.conflict.result.label">{{ strings.get('use-cases.fuel.conflict.result.label', 'Result:') }}</strong><span data-i18n="use-cases.fuel.conflict.result">{{ strings.get('use-cases.fuel.conflict.result', 'Export Locked — Multiplier conflicts with signed plan terms.') }}</span></div>
-                        </div>
-                        <button type="button" class="btn-primary use-case-cta" data-demo-open data-workflow="bonus" data-i18n="use-cases.fuel.cta">{{ strings.get('use-cases.fuel.cta', 'Test a compensation batch') }}</button>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- ==========================================================================
-             SECURITY & DEPLOYMENT
-             ========================================================================== -->
-        <section id="security" class="security-section">
-            <div class="container">
-                <div class="section-header">
-                    <span class="section-eyebrow" data-i18n="security.eyebrow">{{ strings.get('security.eyebrow', 'Enterprise Security & Deployment') }}</span>
-                    <h2 class="section-title" data-i18n="security.title">{{ strings.get('security.title', 'Zero data leakage. Built for sovereign and air-gapped environments.') }}</h2>
-                    <p class="section-sub" data-i18n="security.sub">{{ strings.get('security.sub', 'Your most sensitive contracts, claims, and regulatory filings never have to touch a third-party cloud. AssureProof deploys directly inside your perimeter so your security team retains 100% custody of both documents and models.') }}</p>
-                </div>
-
-                <div class="security-pillars">
-                    <div class="security-pillar">
-                        <div class="pillar-icon">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5.25 14.25h13.5m-13.5 0a3 3 0 01-3-3m3 3a3 3 0 01-3-3m3 3a3 3 0 010 6h13.5a3 3 0 100-6m-16.5-3a3 3 0 013-3h13.5a3 3 0 013 3m-19.5 0a4.5 4.5 0 01.9-2.7L5.737 5.1a3.375 3.375 0 012.7-1.35h7.126c1.062 0 2.062.5 2.7 1.35l2.587 3.45a4.5 4.5 0 01.9 2.7"/></svg>
-                        </div>
-                        <h3 data-i18n="security.pillar1.title">{{ strings.get('security.pillar1.title', 'Self-Hosted & Air-Gapped Ready') }}</h3>
-                        <p data-i18n="security.pillar1.desc">{{ strings.get('security.pillar1.desc', 'Deploy inside your own AWS VPC, private GPU cluster, or on-premises data center. When running local models, zero bytes ever leave your network boundary.') }}</p>
-                    </div>
-
-                    <div class="security-pillar">
-                        <div class="pillar-icon">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z"/></svg>
-                        </div>
-                        <h3 data-i18n="security.pillar2.title">{{ strings.get('security.pillar2.title', 'Zero Model Training or Retention') }}</h3>
-                        <p data-i18n="security.pillar2.desc">{{ strings.get('security.pillar2.desc', 'Your documents are never logged, pooled, or used to train external foundation models. Every session executes in an isolated environment under your existing IAM and encryption keys (BYOK).') }}</p>
-                    </div>
-
-                    <div class="security-pillar">
-                        <div class="pillar-icon">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.745 3.745 0 01-3.296-1.043A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 011.043-3.296 3.745 3.745 0 013.296-1.043A3.745 3.745 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12z"/></svg>
-                        </div>
-                        <h3 data-i18n="security.pillar3.title">{{ strings.get('security.pillar3.title', 'Immutable Governance & Audit Logs') }}</h3>
-                        <p data-i18n="security.pillar3.desc">{{ strings.get('security.pillar3.desc', 'Every extracted figure, flagged contradiction, reviewer sign-off, and manual override is cryptographically timestamped—giving internal auditors and regulators a complete chain of custody.') }}</p>
-                    </div>
-                </div>
-
-                <!-- Security section trust metrics bar (reuses same keys) -->
-                <div class="trust-metrics-bar-inline">
-                    <div class="trust-metric-item-inline">
-                        <div class="trust-metric-value-inline" data-i18n="landing.trust.metric.1.value">{{ strings.get('landing.trust.metric.1.value', '100%') }}</div>
-                        <p data-i18n="landing.trust.metric.1.desc">{{ strings.get('landing.trust.metric.1.desc', 'Page-and-line citation traceability on every extracted figure') }}</p>
-                    </div>
-                    <div class="trust-metric-item-inline">
-                        <div class="trust-metric-value-inline" data-i18n="landing.trust.metric.2.value">{{ strings.get('landing.trust.metric.2.value', '0 Bytes') }}</div>
-                        <p data-i18n="landing.trust.metric.2.desc">{{ strings.get('landing.trust.metric.2.desc', 'External data egress in air-gapped or private VPC deployments') }}</p>
-                    </div>
-                    <div class="trust-metric-item-inline">
-                        <span class="trust-metric-value-inline" data-i18n="landing.trust.metric.3.value">{{ strings.get('landing.trust.metric.3.value', 'Z3-Verified') }}</span>
-                        <p data-i18n="landing.trust.metric.3.desc">{{ strings.get('landing.trust.metric.3.desc', 'Formal mathematical proof on every cross-document check') }}</p>
-                    </div>
-                </div>
-
-                <div class="security-whitepaper-link">
-                    <a href="{{ locale_path }}poc/" class="btn-secondary" data-demo-open>{{ strings.get('security.whitepaper', 'Request the Security & Architecture Whitepaper →') }}</a>
-                </div>
-            </div>
-        </section>
-
-        <!-- ==========================================================================
-             FAQ
-             ========================================================================== -->
-        <section id="faq" class="section">
-            <div class="container">
-                <h2 class="section-title" data-i18n="faq.title">{{ strings.get('faq.title', 'Frequently Asked Questions') }}</h2>
-                <div class="faq-grid">
-                    <details class="faq-item">
-                        <summary data-i18n="faq.q1">{{ strings.get('faq.q1', 'What is AssureProof?') }}</summary>
-                        <p data-i18n="faq.a1">{{ strings.get('faq.a1', 'AssureProof reads your contracts, invoices, claims and bids together and marks every figure that does not match across them, with both source pages open. A person reviews each flag and decides. It runs in your own AWS account or on your own servers, including air-gapped networks.') }}</p>
-                    </details>
-                    <details class="faq-item">
-                        <summary data-i18n="faq.q2">{{ strings.get('faq.q2', 'What is Z3?') }}</summary>
-                        <p data-i18n="faq.a2">{{ strings.get('faq.a2', 'Z3 is a formal logic solver (SMT solver) that mathematically proves whether a set of figures and constraints can all be true at the same time. It gives a deterministic yes/no answer — no probability, no hallucination.') }}</p>
-                    </details>
-                    <details class="faq-item">
-                        <summary data-i18n="faq.q3">{{ strings.get('faq.q3', 'What does &ldquo;deterministic&rdquo; mean here?') }}</summary>
-                        <p data-i18n="faq.a3">{{ strings.get('faq.a3', 'The same inputs always produce the same output. There is no randomness, no temperature setting, and no model drift. If the figures conflict today, they will conflict tomorrow.') }}</p>
-                    </details>
-                    <details class="faq-item">
-                        <summary data-i18n="faq.q4">{{ strings.get('faq.q4', 'What is Red-Hat review?') }}</summary>
-                        <p data-i18n="faq.a4">{{ strings.get('faq.a4', 'An optional, separate adversarial pass where a language model tries to find flaws in the draft — missing citations, overstated claims, or numbers that do not trace back to a source page. It runs only when requested.') }}</p>
-                    </details>
-                    <details class="faq-item">
-                        <summary data-i18n="faq.q5">{{ strings.get('faq.q5', 'Does a contradiction block export?') }}</summary>
-                        <p data-i18n="faq.a5">{{ strings.get('faq.a5', 'Yes. Export is automatically locked while any contradiction is unresolved. A person (or an authorized agent) must accept or reject each finding before the file can be downloaded. The file stays downloadable the entire time — you just cannot export a conflicted version.') }}</p>
-                    </details>
-                    <details class="faq-item">
-                        <summary data-i18n="faq.q6">{{ strings.get('faq.q6', 'Where does AssureProof run?') }}</summary>
-                        <p data-i18n="faq.a6">{{ strings.get('faq.a6', 'In your own AWS account (using Amazon Bedrock), on a private GPU, or on your own on-premises servers — including air-gapped networks. You choose the deployment model; documents never leave your boundary unless you connect an external endpoint yourself.') }}</p>
-                    </details>
-                </div>
-            </div>
-        </section>
-
-        <!-- ==========================================================================
-             BOTTOM FINAL CTA
-             ========================================================================== -->
-        <section class="closing-section">
-            <div class="container center">
-                <h2 class="section-title" data-i18n="home.start.title">{{ strings.get('home.start.title', 'Test AssureProof on your hardest document packet.') }}</h2>
-                <p class="section-sub" data-i18n="home.start.body">{{ strings.get('home.start.body', 'Bring a live document set. We run it with your team and walk you through the findings.') }}</p>
-                <button type="button" class="btn-primary" data-demo-open data-i18n="landing.closing.cta">{{ strings.get('landing.closing.cta', 'See the proof') }}</p>
-            </div>
-        </section>
-    </main>
-
-    <!-- Demo Modal -->
-    <div id="download-modal" class="demo-modal" hidden role="dialog" aria-modal="true" aria-labelledby="demo-title">
-        <div class="modal-backdrop" data-demo-close></div>
-        <div class="modal-panel">
-            <button type="button" class="modal-close" data-demo-close data-i18n-aria="landing.modal.close" aria-label="{{ strings.get('landing.modal.close', 'Close') }}">&times;</button>
-
-            <div id="pilot-form-wrap">
-                <h2 id="demo-title" data-i18n="landing.pilot.title">{{ strings.get('landing.pilot.title', 'See the proof') }}</h2>
-                <p class="text-small" data-i18n="landing.pilot.lead">{{ strings.get('landing.pilot.lead', 'Book a 20-minute technical walkthrough. Bring a sample document set—or test with our pre-loaded conflict packets—to see Z3 verification catch discrepancies live.') }}</p>
-                <form id="demo-form" method="post" action="#">
-                    <label for="demo-email" data-i18n="landing.pilot.email">{{ strings.get('landing.pilot.email', 'Work email') }}</label>
-                    <input id="demo-email" class="demo-input" name="email" type="email" autocomplete="email" required>
-                    <label for="demo-name" data-i18n="landing.pilot.company">{{ strings.get('landing.pilot.company', 'Company name') }}</label>
-                    <input id="demo-name" class="demo-input" name="company" type="text" autocomplete="organization" required>
-                    <label for="demo-workflow" data-i18n="landing.pilot.workflow">{{ strings.get('landing.pilot.workflow', 'Primary document workflow') }}</label>
-                    <select id="demo-workflow" class="demo-input" name="workflow">
-                        <option value="" disabled selected data-i18n="landing.pilot.workflow.select">{{ strings.get('landing.pilot.workflow.select', 'Select a workflow') }}</option>
-                        <option value="Government document checks">{{ strings.get('landing.pilot.workflow.gov', 'Government document checks') }}</option>
-                        <option value="Insurance claims review">{{ strings.get('landing.pilot.workflow.ins', 'Insurance claims review') }}</option>
-                        <option value="Bonus reconciliation">{{ strings.get('landing.pilot.workflow.fuel', 'Bonus reconciliation') }}</option>
-                        <option value="Other">{{ strings.get('landing.pilot.workflow.other', 'Other') }}</option>
-                    </select>
-                    <button type="submit" class="demo-submit" data-i18n="landing.pilot.submit">{{ strings.get('landing.pilot.submit', 'Request Live Proof Walkthrough →') }}</button>
-                    <p class="demo-error" id="demo-error" data-error-text="{{ strings.get('landing.pilot.error', 'Could not send your request. Please try again.') }}" hidden></p>
-                    <p class="text-small text-center" style="margin-top: 0.5rem; color: var(--muted);">{{ strings.get('landing.pilot.privacy', 'No file upload required today • Mutual NDA provided prior to sharing sample documents • Zero data retention') }}</p>
-                </form>
-            </div>
-            <div id="demo-done" class="pilot-sandbox" hidden>
-                <span class="demo-success-icon" aria-hidden="true">✓</span>
-                <p class="role-badge" data-i18n="landing.pilot.ready_badge">{{ strings.get('landing.pilot.ready_badge', 'Request received') }}</p>
-                <h2 data-i18n="landing.pilot.ready_title">{{ strings.get('landing.pilot.ready_title', 'Thank you') }}</h2>
-                <p data-i18n="landing.pilot.ready_body">{{ strings.get('landing.pilot.ready_body', 'Our team will contact you at your work email to schedule the demo.') }}</p>
+            <div class="hero-cta-group">
+                <a href="{{ locale_path }}poc/" class="btn-primary" data-i18n="landing.hero.cta_primary">{{ strings.get('landing.hero.cta_primary', 'Try it on your own files') }}</a>
+                <a href="{{ locale_path }}#how" class="btn-text" data-i18n="landing.hero.cta_secondary">{{ strings.get('landing.hero.cta_secondary', 'See how it works') }}</a>
             </div>
         </div>
-    </div>
+    </section>
 
-    {% include 'includes/landing_footer.html' %}
-    <script src="{{ url_for('static', filename='landing-pilot.js') }}?v={{ landing_js_version|default('47') }}"></script>
-    <script src="{{ url_for('static', filename='landing-i18n.js') }}"></script>
-    <script>
-        // Mobile nav toggle
-        document.addEventListener('DOMContentLoaded', () => {
-            const mobileBtn = document.getElementById('mobile-menu-btn');
-            const mobileMenu = document.getElementById('mobile-menu');
+    <!-- ==========================================================================
+         HOW IT WORKS — 4-STEP PIPELINE
+         ========================================================================== -->
+    {% set flow_id = 'how' %}{% include 'includes/flow.html' %}
 
-            mobileBtn?.addEventListener('click', () => {
-                const isExpanded = mobileBtn.getAttribute('aria-expanded') === 'true';
-                mobileBtn.setAttribute('aria-expanded', String(!isExpanded));
-                mobileMenu?.hidden = !isExpanded;
-            });
+    <!-- ==========================================================================
+         WHAT IT DOES — 4 ITEM ROW
+         ========================================================================== -->
+    <section id="what-it-does" class="section what-it-does-section" aria-labelledby="what-it-does-title">
+        <div class="container">
+            <h2 class="section-title" id="what-it-does-title" data-i18n="home.whatitdoes.title">{{ strings.get('home.whatitdoes.title', 'What it does') }}</h2>
+            <div class="what-it-does-grid">
+                <article class="differs-card differs-card--check">
+                    <div class="what-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></div>
+                    <h3 data-i18n="home.whatitdoes.check.title">{{ strings.get('home.whatitdoes.check.title', 'Check') }}</h3>
+                    <p data-i18n="home.whatitdoes.check.desc">{{ strings.get('home.whatitdoes.check.desc', 'Figures and statements tested against your files.') }}</p>
+                </article>
+                <article class="differs-card">
+                    <div class="what-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg></div>
+                    <h3 data-i18n="home.whatitdoes.read.title">{{ strings.get('home.whatitdoes.read.title', 'Read') }}</h3>
+                    <p data-i18n="home.whatitdoes.read.desc">{{ strings.get('home.whatitdoes.read.desc', 'PDFs, scans and images, every field kept with its page.') }}</p>
+                </article>
+                <article class="differs-card">
+                    <div class="what-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></div>
+                    <h3 data-i18n="home.whatitdoes.draft.title">{{ strings.get('home.whatitdoes.draft.title', 'Draft') }}</h3>
+                    <p data-i18n="home.whatitdoes.draft.desc">{{ strings.get('home.whatitdoes.draft.desc', 'Reports and summaries with a source for each claim.') }}</p>
+                </article>
+                <article class="differs-card">
+                    <div class="what-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5"/><path d="M8 21H3v-5"/><path d="M21 3 14 10"/><path d="M3 21l7-7"/></svg></div>
+                    <h3 data-i18n="home.whatitdoes.crosscheck.title">{{ strings.get('home.whatitdoes.crosscheck.title', 'Cross-check') }}</h3>
+                    <p data-i18n="home.whatitdoes.crosscheck.desc">{{ strings.get('home.whatitdoes.crosscheck.desc', 'Spreadsheets and packets compared against each other.') }}</p>
+                </article>
+            </div>
+        </div>
+    </section>
 
-            // Close mobile menu on link/button click
-            mobileMenu?.querySelectorAll('a, button').forEach((item) => {
-                item.addEventListener('click', () => {
-                    mobileMenu.hidden = true;
-                    mobileBtn?.setAttribute('aria-expanded', 'false');
-                });
-            });
-        });
-    </script>
-    <script src="{{ url_for('static', filename='landing-i18n.js') }}?v={{ landing_js_version|default('47') }}"></script>
-</body>
-</html>
+    <!-- ==========================================================================
+         EXAMPLE CARD — What a check looks like
+         ========================================================================== -->
+    <section id="example" class="section">
+        <div class="container">
+            <h2 class="section-title" data-i18n="home.example.title">{{ strings.get('home.example.title', 'What a check looks like') }}</h2>
+
+            <!-- Hero Interactive Proof Card -->
+            <div class="proof-terminal" role="group" aria-label="{{ strings.get('proof.duo.aria', 'Source A — contract cap 120,000 EUR, compared with Source B — invoice 142,500 EUR') }}" id="hero-proof-card">
+                <div class="proof-terminal-header">
+                    <span class="proof-badge" data-i18n="proof.verdict">{{ strings.get('proof.verdict', 'Z3 Conflict Detected') }}</span>
+                    <span class="proof-delta-badge" id="proof-delta-badge">+22,500 EUR</span>
+                </div>
+                <div class="proof-terminal-grid">
+                    <div class="proof-terminal-source">
+                        <div class="terminal-header" data-i18n="proof.a.kicker">{{ strings.get('proof.a.kicker', 'Source A') }}</div>
+                        <div class="terminal-body">
+                            <div class="terminal-line" data-i18n="proof.a.title">{{ strings.get('proof.a.title', 'Master Services Agreement (MSA) • Page 12 • Clause 4.2') }}</div>
+                            <div class="terminal-value">
+                                <span class="proof-value" id="proof-source-a-value">120,000</span>
+                                <span class="proof-currency" id="proof-source-a-currency">EUR</span>
+                            </div>
+                            <div class="terminal-line" data-i18n="proof.a.cap">{{ strings.get('proof.a.cap', 'Contract cap') }}</div>
+                        </div>
+                    </div>
+                    <div class="conflict-delta">
+                        <div class="delta-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></div>
+                        <div class="delta-value" id="proof-delta-value">+22,500</div>
+                        <div class="delta-label" id="proof-delta-currency">EUR</div>
+                    </div>
+                    <div class="proof-terminal-source">
+                        <div class="terminal-header" data-i18n="proof.b.kicker">{{ strings.get('proof.b.kicker', 'Source B') }}</div>
+                        <div class="terminal-body">
+                            <div class="terminal-line" data-i18n="proof.b.title">{{ strings.get('proof.b.title', 'Vendor Invoice #884 • Page 3 • Line 8') }}</div>
+                            <div class="terminal-value">
+                                <span class="proof-value" id="proof-source-b-value">142,500</span>
+                                <span class="proof-currency" id="proof-source-b-currency">EUR</span>
+                            </div>
+                            <div class="terminal-line" data-i18n="proof.b.billed">{{ strings.get('proof.b.billed', 'Amount billed') }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <p class="proof-label" data-i18n="proof.label">{{ strings.get('proof.label', 'Illustrative example, simulated data, not a customer result') }}</p>
+            <section class="conflict-z3-terminal" id="z3-result">
+                <div class="terminal-header" data-i18n="proof.z3.title">{{ strings.get('proof.z3.title', 'Conflict check') }}</div>
+                <div class="terminal-body">
+                    <div class="terminal-line" id="z3-result-text" data-i18n="proof.z3.body">{{ strings.get('proof.z3.body', 'Mismatch marked: the invoice is 22,500 EUR over the contract cap. A person reviews and decides.') }}</div>
+                </div>
+                <div class="z3-actions">
+                    <button type="button" class="btn-primary z3-recalculate" id="z3-recalculate-btn" data-i18n="proof.z3.recalculate">{{ strings.get('proof.z3.recalculate', 'Replay example') }}</button>
+                </div>
+            </section>
+        </div>
+    </section>
+
+
+    <!-- ==========================================================================
+         WHY NOT AN LLM SECTION
+         ========================================================================== -->
+    <section id="how-it-differs" class="section differs-section" aria-labelledby="differs-title">
+        <div class="container">
+            <div class="section-header">
+                <h2 class="section-title" id="differs-title" data-i18n="differs.title">{{ strings.get('differs.title', 'How AssureProof differs from extraction tools and RAG tools') }}</h2>
+            </div>
+            <div class="differs-grid">
+                <article class="differs-card">
+                    <h3 data-i18n="differs.extract.name">{{ strings.get('differs.extract.name', 'Extraction tools') }}</h3>
+                    <p data-i18n="differs.extract.line">{{ strings.get('differs.extract.line', 'They return fields. They don\'t tell you if your draft or your documents disagree.') }}</p>
+                </article>
+                <article class="differs-card">
+                    <h3 data-i18n="differs.rag.name">{{ strings.get('differs.rag.name', 'RAG tools') }}</h3>
+                    <p data-i18n="differs.rag.line">{{ strings.get('differs.rag.line', 'They answer what you ask. They don\'t tell you when two documents conflict.') }}</p>
+                </article>
+                <article class="differs-card differs-card--assure">
+                    <h3 data-i18n="differs.assure.name">{{ strings.get('differs.assure.name', 'AssureProof') }}</h3>
+                    <p data-i18n="differs.assure.line">{{ strings.get('differs.assure.line', 'Others match fields. AssureProof shows the conflict across your whole packet, with both pages, inside your own cloud.') }}</p>
+                </article>
+            </div>
+        </div>
+    </section>
+
+    <!-- ==========================================================================
+         USE CASES
+         ========================================================================== -->
+    <section id="use-cases" class="use-cases-section">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-eyebrow" data-i18n="use-cases.eyebrow">{{ strings.get('use-cases.eyebrow', 'Built for High-Stakes Workflows') }}</span>
+                <h2 class="section-title" data-i18n="use-cases.title">{{ strings.get('use-cases.title', 'Where a single missed number creates legal or financial exposure.') }}</h2>
+                <p class="section-sub" data-i18n="use-cases.sub">{{ strings.get('use-cases.sub', 'AssureProof cross-checks complex multi-document packets to flag discrepancies before funds or approvals go out the door.') }}</p>
+            </div>
+
+            <div class="use-cases-grid">
+                <!-- Card 1: Government -->
+                <div class="use-case-card">
+                    <div class="use-case-icon use-case-icon--gov" aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect width="16" height="20" x="4" y="2" rx="2" ry="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M12 6h.01"/><path d="M16 6h.01"/><path d="M8 10h.01"/><path d="M12 10h.01"/><path d="M16 10h.01"/><path d="M8 14h.01"/><path d="M12 14h.01"/><path d="M16 14h.01"/></svg></div>
+                    <h3 data-i18n="use-cases.gov.title">{{ strings.get('use-cases.gov.title', 'Government Document Checks') }}</h3>
+                    <p data-i18n="use-cases.gov.desc">{{ strings.get('use-cases.gov.desc', 'Verify procurement bids and regulatory packets before sign-off.') }}</p>
+
+                    <div class="use-case-conflict">
+                        <div class="conflict-row"><span data-i18n="use-cases.gov.conflict.label">{{ strings.get('use-cases.gov.conflict.label', 'Live Conflict Example') }}</span><span class="conflict-badge" data-i18n="use-cases.gov.conflict.badge">{{ strings.get('use-cases.gov.conflict.badge', '+9.5% Over Cap') }}</span></div>
+                        <div><span data-i18n="use-cases.gov.conflict.source-a.label">{{ strings.get('use-cases.gov.conflict.source-a.label', 'Source A (RFP Schedule B, p. 4):') }}</span><span data-i18n="use-cases.gov.conflict.source-a">{{ strings.get('use-cases.gov.conflict.source-a', 'Max Subcontractor Cap: 15%') }}</span></div>
+                        <div><span data-i18n="use-cases.gov.conflict.source-b.label">{{ strings.get('use-cases.gov.conflict.source-b.label', 'Source B (Vendor Proposal, p. 19):') }}</span><span data-i18n="use-cases.gov.conflict.source-b">{{ strings.get('use-cases.gov.conflict.source-b', 'Subcontractor Allocation: 24.5% ($367,500)') }}</span></div>
+                        <div class="conflict-result"><strong data-i18n="use-cases.gov.conflict.result.label">{{ strings.get('use-cases.gov.conflict.result.label', 'Result:') }}</strong><span data-i18n="use-cases.gov.conflict.result">{{ strings.get('use-cases.gov.conflict.result', 'Export Locked — Exceeds statutory threshold by 9.5%.') }}</span></div>
+                    </div>
+                    <a href="{{ locale_path }}contact-us/" class="btn-primary use-case-cta" data-i18n="use-cases.gov.cta">{{ strings.get('use-cases.gov.cta', 'Test a procurement or compliance packet') }}</a>
+                </div>
+
+                <!-- Card 2: Insurance Claims -->
+                <div class="use-case-card">
+                    <div class="use-case-icon use-case-icon--ins" aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg></div>
+                    <h3 data-i18n="use-cases.insurance.title">{{ strings.get('use-cases.insurance.title', 'Insurance Claims Review') }}</h3>
+                    <p data-i18n="use-cases.insurance.desc">{{ strings.get('use-cases.insurance.desc', 'Audit complex claims against policy limits, endorsements, and medical bills.') }}</p>
+
+                    <div class="use-case-conflict">
+                        <div class="conflict-row"><span data-i18n="use-cases.insurance.conflict.label">{{ strings.get('use-cases.insurance.conflict.label', 'Live Conflict Example') }}</span><span class="conflict-badge" data-i18n="use-cases.insurance.conflict.badge">{{ strings.get('use-cases.insurance.conflict.badge', '+$18,400 Over') }}</span></div>
+                        <div><span data-i18n="use-cases.insurance.conflict.source-a.label">{{ strings.get('use-cases.insurance.conflict.source-a.label', 'Source A (Policy #409-B, Endorsement 3):') }}</span><span data-i18n="use-cases.insurance.conflict.source-a">{{ strings.get('use-cases.insurance.conflict.source-a', 'Water Damage Sub-Limit: $50,000') }}</span></div>
+                        <div><span data-i18n="use-cases.insurance.conflict.source-b.label">{{ strings.get('use-cases.insurance.conflict.source-b.label', 'Source B (Adjuster Summary, p. 6):') }}</span><span data-i18n="use-cases.insurance.conflict.source-b">{{ strings.get('use-cases.insurance.conflict.source-b', 'Approved Remediation Payout: $68,400') }}</span></div>
+                        <div class="conflict-result"><strong data-i18n="use-cases.insurance.conflict.result.label">{{ strings.get('use-cases.insurance.conflict.result.label', 'Result:') }}</strong><span data-i18n="use-cases.insurance.conflict.result">{{ strings.get('use-cases.insurance.conflict.result', 'Export Locked — Exceeds endorsement cap by $18,400.') }}</span></div>
+                    </div>
+                    <a href="{{ locale_path }}contact-us/" class="btn-primary use-case-cta" data-i18n="use-cases.insurance.cta">{{ strings.get('use-cases.insurance.cta', 'Test a claims file') }}</a>
+                </div>
+
+                <!-- Card 3: Bonus Reconciliation -->
+                <div class="use-case-card">
+                    <div class="use-case-icon use-case-icon--bonus" aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 2v20"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
+                    <h3 data-i18n="use-cases.fuel.title">{{ strings.get('use-cases.fuel.title', 'Bonus & Commission Reconciliation') }}</h3>
+
+                    <div class="use-case-conflict">
+                        <div class="conflict-row"><span data-i18n="use-cases.fuel.conflict.label">{{ strings.get('use-cases.fuel.conflict.label', 'Live Conflict Example') }}</span><span class="conflict-badge" data-i18n="use-cases.fuel.conflict.badge">{{ strings.get('use-cases.fuel.conflict.badge', '+$31,200 Over') }}</span></div>
+                        <div><span data-i18n="use-cases.fuel.conflict.source-a.label">{{ strings.get('use-cases.fuel.conflict.source-a.label', 'Source A (FY26 Comp Plan, Sec. 3.1):') }}</span><span data-i18n="use-cases.fuel.conflict.source-a">{{ strings.get('use-cases.fuel.conflict.source-a', 'Accelerator Rate (100%+ Quota): 1.5x') }}</span></div>
+                        <div><span data-i18n="use-cases.fuel.conflict.source-b.label">{{ strings.get('use-cases.fuel.conflict.source-b.label', 'Source B (Q4 Payroll Sheet, Row 42):') }}</span><span data-i18n="use-cases.fuel.conflict.source-b">{{ strings.get('use-cases.fuel.conflict.source-b', 'Applied Multiplier: 2.0x (+$31,200)') }}</span></div>
+                        <div class="conflict-result"><strong data-i18n="use-cases.fuel.conflict.result.label">{{ strings.get('use-cases.fuel.conflict.result.label', 'Result:') }}</strong><span data-i18n="use-cases.fuel.conflict.result">{{ strings.get('use-cases.fuel.conflict.result', 'Export Locked — Multiplier conflicts with signed plan terms.') }}</span></div>
+                    </div>
+                    <a href="{{ locale_path }}contact-us/" class="btn-primary use-case-cta" data-i18n="use-cases.fuel.cta">{{ strings.get('use-cases.fuel.cta', 'Test a compensation batch') }}</a>
+                </div>
+            </div>
+        </div>
+    </section>
+    <!-- ==========================================================================
+         SECURITY & DEPLOYMENT
+         ========================================================================== -->
+    <section id="security" class="security-section">
+        <div class="container">
+            <div class="section-header">
+                <h2 class="section-title" data-i18n="home.security.title">{{ strings.get('home.security.title', 'You choose where your documents and models run.') }}</h2>
+                <p class="section-sub" data-i18n="sovereign.body">{{ strings.get('sovereign.body', 'Runs in your own AWS account, on-premises, or private GPU environment. You choose where the models run. When the model is local, documents stay inside that boundary.') }}</p>
+            </div>
+
+            <div class="security-pillars">
+                <div class="security-pillar">
+                    <div class="pillar-icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5.25 14.25h13.5m-13.5 0a3 3 0 01-3-3m3 3a3 3 0 01-3-3m3 3a3 3 0 010 6h13.5a3 3 0 100-6m-16.5-3a3 3 0 013-3h13.5a3 3 0 013 3m-19.5 0a4.5 4.5 0 01.9-2.7L5.737 5.1a3.375 3.375 0 012.7-1.35h7.126c1.062 0 2.062.5 2.7 1.35l2.587 3.45a4.5 4.5 0 01.9 2.7"/></svg>
+                    </div>
+                    <h3 data-i18n="security.pillar1.title">{{ strings.get('security.pillar1.title', 'Your cloud or air-gapped') }}</h3>
+                    <p data-i18n="security.pillar1.desc">{{ strings.get('security.pillar1.desc', 'Deploy in your AWS VPC, on a private GPU cluster, or on-premises data center. When running local models, zero bytes ever leave your network boundary.') }}</p>
+                </div>
+
+                <div class="security-pillar">
+                    <div class="pillar-icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z"/></svg>
+                    </div>
+                    <h3 data-i18n="security.pillar2.title">{{ strings.get('security.pillar2.title', 'Your keys (BYOK)') }}</h3>
+                    <p data-i18n="security.pillar2.desc">{{ strings.get('security.pillar2.desc', 'Bring your own encryption keys. Data encrypted in transit with TLS 1.3 and at rest with AES-256.') }}</p>
+                </div>
+
+                <div class="security-pillar">
+                    <div class="pillar-icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.745 3.745 0 01-3.296-1.043A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 01-3.296-1.043A3.745 3.745 0 0112 3c1.268 0-2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12z"/></svg>
+                    </div>
+                    <h3 data-i18n="security.pillar3.title">{{ strings.get('security.pillar3.title', 'No training on your data') }}</h3>
+                    <p data-i18n="security.pillar3.desc">{{ strings.get('security.pillar3.desc', 'Your documents are never logged, pooled, or used to train external foundation models.') }}</p>
+                </div>
+
+                <div class="security-pillar">
+                    <div class="pillar-icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M9 12h6"/><path d="M9 16h4"/></svg>
+                    </div>
+                    <h3 data-i18n="security.pillar4.title">{{ strings.get('security.pillar4.title', 'Every decision logged') }}</h3>
+                    <p data-i18n="security.pillar4.desc">{{ strings.get('security.pillar4.desc', 'Every accept, correction, dispute and override is logged with who, when and why.') }}</p>
+                </div>
+            </div>
+
+            <div class="security-cta-row">
+                <a href="{{ locale_path }}security/" class="btn-ghost" data-i18n="home.trust.link">{{ strings.get('home.trust.link', 'Security and data') }}</a> <span aria-hidden="true">→</span>
+                <a href="{{ locale_path }}contact-us/" class="btn-primary" data-i18n="home.security.cta">{{ strings.get('home.security.cta', 'Talk to us about your security review') }}</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- ==========================================================================
+         FAQ
+         ========================================================================== -->
+    {% include 'includes/faq.html' %}
+
+    <!-- ==========================================================================
+         BOTTOM FINAL CTA
+         ========================================================================== -->
+    <section class="closing-section">
+        <div class="container center">
+            <h2 class="section-title" data-i18n-html="home.start.title">{{ strings.get('home.start.title', "Bring a real packet.<br>See what doesn't match.") | safe }}</h2>
+            <a href="{{ locale_path }}poc/" class="btn-primary" data-i18n="landing.pilot.cta_primary">{{ strings.get('landing.pilot.cta_primary', 'Try it on your own files') }}</a>
+        </div>
+    </section>
+</main>
+{% endblock %}

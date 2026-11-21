@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+
+{% block body_attrs %} uc-landing{% endblock %}
+
+{% block nav_current %}
+    {% set nav_current = 'use-cases' %}
+{% endblock %}
+
+{% block content %}
+<main id="main-content" class="page">
+  {% set uc_key = 'fin' %}
+  {% set flow_compact = true %}
+  {% include 'includes/use_case_detail.html' %}
+  {% include 'includes/flow.html' %}
+
+  <section class="demo-cta">
+    <div class="container center">
+      <a href="{{ locale_path }}poc/" class="btn-primary" data-i18n="landing.pilot.cta_primary">{{ strings.get('landing.pilot.cta_primary', 'Try it on your own files') }}</a>
+    </div>
+  </section>
+</main>
+{% endblock %}
