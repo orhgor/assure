@@ -26,7 +26,9 @@
   }
 
   function t(key, fallback) {
-    return (strings && strings[key]) || fallback || key;
+    var value = strings && strings[key];
+    if (value) return value;
+    return fallback || "";
   }
 
   function applyI18n() {

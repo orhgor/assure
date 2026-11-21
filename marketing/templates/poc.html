@@ -6,33 +6,34 @@
 
 {% block content %}
 <main id="main-content" class="page">
-  <section class="page-hero">
+  <section class="page-hero uc-hero">
     <div class="container">
-      <h1 data-i18n="poc.title">{{ strings.get('poc.title', 'Try AssureProof on your own documents') }}</h1>
-      <p class="lede" data-i18n="poc.lead">{{ strings.get('poc.lead', 'Pick one workflow and share a few sample cases. We check them in your environment and walk you through what we find. The assessment starts once you\'ve given a written "Yes, proceed".') }}</p>
-    </div>
-  </section>
-
-  <section class="section">
-    <div class="container">
-      <div class="section-header">
-        <span class="section-eyebrow" data-i18n="poc.offer.title">{{ strings.get('poc.offer.title', 'What a proof of concept includes') }}</span>
-        <h2 class="section-title" data-i18n="poc.offer.title">{{ strings.get('poc.offer.title', 'What a proof of concept includes') }}</h2>
+      <div class="uc-hero-grid">
+        <div class="uc-hero-copy">
+          <h1 data-i18n="poc.title">{{ strings.get('poc.title', 'Try AssureProof on your own documents') }}</h1>
+          <p class="lede" data-i18n="poc.lead">{{ strings.get('poc.lead', 'Pick one workflow and share a few sample cases. We check them in your environment and walk you through what we find. The assessment starts once you\'ve given a written "Yes, proceed".') }}</p>
+        </div>
+        <aside class="uc-summary">
+          <p class="uc-summary-label" data-i18n="poc.offer.title">{{ strings.get('poc.offer.title', 'What a proof of concept includes') }}</p>
+          <ul class="uc-summary-list">
+            <li data-i18n="poc.assessment.1">{{ strings.get('poc.assessment.1', 'One workflow') }}</li>
+            <li data-i18n="poc.assessment.2">{{ strings.get('poc.assessment.2', 'A small set of sample cases') }}</li>
+            <li data-i18n="poc.assessment.3">{{ strings.get('poc.assessment.3', 'Your written "Yes, proceed"') }}</li>
+          </ul>
+          <p class="uc-summary-note" data-i18n="poc.offer.body">{{ strings.get('poc.offer.body', 'One workflow and 5-10 sample cases (up to 50 files), run in your environment with a scope agreed in writing, followed by a findings review with your team.') }}</p>
+        </aside>
       </div>
-      <p data-i18n="poc.offer.body">{{ strings.get('poc.offer.body', 'One workflow and 5-10 sample cases (up to 50 files), run in your environment with a scope agreed in writing, followed by a findings review with your team.') }}</p>
-      <ul class="privacy-list" style="list-style: none; padding: 0; margin: var(--space-6) 0; display: grid; gap: var(--space-3);">
-        <li data-i18n="poc.assessment.1">{{ strings.get('poc.assessment.1', 'One workflow') }}</li>
-        <li data-i18n="poc.assessment.2">{{ strings.get('poc.assessment.2', 'A small set of sample cases') }}</li>
-        <li data-i18n="poc.assessment.3">{{ strings.get('poc.assessment.3', 'Your written "Yes, proceed"') }}</li>
-      </ul>
-      <h3 style="margin-top: var(--space-6); margin-bottom: var(--space-3);" data-i18n="poc.scope.title">{{ strings.get('poc.scope.title', 'Your scope note (starts with a written "Yes, proceed")') }}</h3>
     </div>
   </section>
 
+  {% set flow_compact = true %}
   {% include 'includes/flow.html' %}
 
   <section class="section">
     <div class="container">
+      <div class="section-header">
+        <h2 class="section-title" data-i18n="poc.scope.title">{{ strings.get('poc.scope.title', 'Your scope note (starts with a written "Yes, proceed")') }}</h2>
+      </div>
       <div class="price-grid price-grid--duo">
         <section class="card">
           <h2 data-i18n="proof.a.kicker">{{ strings.get('proof.a.kicker', 'Source A') }}</h2>
