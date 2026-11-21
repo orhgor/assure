@@ -1077,8 +1077,10 @@ a:hover { color: var(--accent-blue-hover); }
    Closing Section (Final CTA)
    ========================================================================== */
 .closing-section {
-  background: var(--surface);
-  border-top: 1px solid var(--border);
+  background: var(--black);
+  color: var(--bg);
+  text-align: center;
+  border-top: 0;
 }
 
 .closing-section .container {
@@ -1086,19 +1088,24 @@ a:hover { color: var(--accent-blue-hover); }
 }
 
 .closing-section .section-title {
+  color: var(--bg);
   margin-bottom: var(--space-4);
 }
 
 .closing-section .section-sub {
+  color: rgba(255, 255, 255, 0.7);
   margin-bottom: var(--space-6);
 }
 
 .closing-section .btn-primary {
-  min-width: 280px;
+  background: var(--bg);
+  color: var(--black);
+  min-width: 200px;
 }
 
 .closing-section .btn-primary:hover {
   background: #f5f5f5;
+  color: var(--black);
 }
 
 /* ==========================================================================
@@ -2322,16 +2329,29 @@ button.btn-primary:hover {
 }
 
 .closing-section {
-  padding-block: clamp(96px, 12vw, 168px);
-  background: var(--bg);
+  padding-block: clamp(96px, 12vw, 140px);
+  background: var(--black);
+  color: var(--bg);
+  text-align: center;
 }
 
 .closing-section .section-title {
+  color: var(--bg);
   margin: 0 auto 32px;
   max-width: 16em;
 }
 
-.closing-section .btn-primary:hover { background: #1a1a1a; }
+.closing-section a.btn-primary,
+.closing-section .btn-primary {
+  background: var(--bg);
+  color: var(--black);
+}
+
+.closing-section a.btn-primary:hover,
+.closing-section .btn-primary:hover {
+  background: #f0f0f0;
+  color: var(--black);
+}
 
 .proof-badge {
   color: var(--terminal-text-muted);
@@ -2358,31 +2378,21 @@ button.btn-primary:hover {
 
 @media (min-width: 1025px) {
   .footer-grid {
-    grid-template-columns: minmax(120px, 0.9fr) repeat(3, max-content);
-    column-gap: 16px;
+    grid-template-columns: minmax(180px, 1.4fr) repeat(3, minmax(0, 1fr));
+    column-gap: clamp(24px, 3vw, 48px);
     align-items: start;
   }
   .footer-links-col a {
-    white-space: nowrap;
-    font-size: 12.5px;
-    letter-spacing: -0.011em;
+    white-space: normal;
+    font-size: 15px;
+    letter-spacing: 0;
   }
-  .site-footer .container {
-    max-width: none;
-    padding-left: 16px;
-    padding-right: 16px;
-  }
-  .footer-tagline { max-width: 20ch; }
-}
-
-@media (min-width: 1440px) {
-  .footer-grid { column-gap: 28px; }
-  .footer-links-col a { font-size: 15px; letter-spacing: 0; }
   .site-footer .container {
     max-width: var(--container-max);
     padding-left: var(--container-padding);
     padding-right: var(--container-padding);
   }
+  .footer-tagline { max-width: 28ch; }
 }
 
 @media (max-width: 1100px) {
