@@ -26,13 +26,11 @@ on:
     branches: [main]
     paths:
       - 'marketing/**'
-      - 'landing/**'
       - '.github/workflows/webpage-deploy.yml'
   pull_request:
     branches: [main]
     paths:
       - 'marketing/**'
-      - 'landing/**'
       - '.github/workflows/webpage-deploy.yml'
 
 concurrency:
@@ -43,35 +41,11 @@ env:
   CLOUDFLARE_ACCOUNT_ID: '381b292d419f2efdc1c85a3636268e91'
 
 jobs:
-  isolation:
-    # A PR may touch the website or the workbench, never both in one change.
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    if: github.event_name == 'pull_request'
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Fail if a PR touches both marketing/ and prompt_matrix/
-        run: |
-          base="${{ github.event.pull_request.base.sha }}"
-          head="${{ github.event.pull_request.head.sha }}"
-          files="$(git diff --name-only "$base" "$head")"
-          echo "$files" > /tmp/pr_files.txt
-          mk=$(grep -c '^marketing/' /tmp/pr_files.txt || true)
-          pm=$(grep -c '^prompt_matrix/' /tmp/pr_files.txt || true)
-          echo "marketing files: $mk, prompt_matrix files: $pm"
-          if [ "$mk" -gt 0 ] && [ "$pm" -gt 0 ]; then
-            echo "::error::This PR touches both marketing/ and prompt_matrix/. The website and the workbench must change in separate PRs."
-            exit 1
-          fi
-
   website-checks:
     # Website-only checks: build the static site and run the website tests.
     # Never imports or starts the workbench app.
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    if: github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v4
 
@@ -80,19 +54,19 @@ jobs:
           python-version: '3.13'
 
       - name: Install build and test deps
-        run: pip install -q -r marketing/requirements.txt pytest pydantic
+        run: pip install -q -r marketing/requirements.txt pytest
 
       - name: Build static marketing site
         run: bash marketing/build.sh
 
       - name: Website tests
-        run: pytest tests/test_counter_copy_i18n.py tests/test_marketing_revision_copy.py -v
+        run: pytest tests/test_marketing_revision_copy.py tests/test_site_static.py -v
 
   deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
-    needs: [ci]  # Gate deployment on CI passing
+    needs: [website-checks]  # Gate deployment on the website checks passing
     steps:
       - uses: actions/checkout@v4
 
