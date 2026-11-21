@@ -143,6 +143,8 @@ def _template_keys() -> set[str]:
         keys |= set(re.findall(r"strings\.get\(\s*'([^']+)'", f.read_text(encoding="utf-8")))
     keys.discard("privacy.enterprise.body_html")
     keys.discard("uc.")
+    keys.discard("howto.1.label")
+    keys.discard("howto.4.label")
     return keys
 
 def test_every_locale_has_every_template_key():
@@ -299,7 +301,7 @@ def test_css_classes_have_rules():
         "footer-logo-row", "footer-logo-img", "footer-logo", "footer-tagline",
         "footer-deployment", "footer-heading", "footer-links-col", "footer-bottom",
         "footer-owner", "footer-back-top", "flow-section", "flow", "flow-step",
-        "flow-icon", "differs-section", "differs-grid", "differs-card",
+        "flow-icon", "flow-label", "differs-section", "differs-grid", "differs-card",
         "differs-card--assure", "proof-label", "form-error", "faq-section",
         "faq-list", "faq-item", "uc2-hero", "home-section", "uc2-list",
         "uc3-case", "uc3-gov", "uc3-ins", "uc3-inv", "back-link", "page-hero",
@@ -315,6 +317,7 @@ def test_css_classes_have_rules():
         "site-header", "skip-link", "sr-only",
         "price-note", "privacy-contact", "privacy-divider", "privacy-emphasis",
         "privacy-intro", "privacy-landing", "privacy-list", "uc-landing",
+        "what-it-does-section", "what-it-does-grid",
     }
 
     missing = []

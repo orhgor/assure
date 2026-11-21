@@ -8,29 +8,40 @@
                     <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M15 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V7Z"/><path d="M14 2v4a2 2 0 002 2h4"/></svg>
                 </div>
                 <h3 data-i18n="howto.1.name">{{ strings.get('howto.1.name', 'Upload the document package') }}</h3>
-                <p data-i18n="howto.1.text">{{ strings.get('howto.1.text', 'PDFs, including scans, and PNG, JPEG, TIFF and BMP images, up to 25 MB and 200 pages per file by default. Spreadsheets go to CrossSure.') }}</p>
+                {% if strings.get('howto.1.label', '') %}
+                <p class="flow-label">{{ strings.get('howto.1.label', '') }}</p>
+                {% endif %}
+                <p data-i18n="howto.1.text">{{ strings.get('howto.1.text', 'PDFs, scans and images up to 25 MB and 200 pages. Spreadsheets go to CrossSure.') }}</p>
             </li>
             <li class="flow-step">
                 <div class="flow-icon">
                     <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
                 </div>
-                <h3 data-i18n="howto.2.name">{{ strings.get('howto.2.name', 'AssureProof reads the files; you ask for a draft') }}</h3>
-                <p data-i18n="howto.2.text">{{ strings.get('howto.2.text', 'ParSure reads each page and keeps the page for each field it extracts. When you ask, DraftSure writes the draft and cites the source, page and field for each claim.') }}</p>
+                <h3 data-i18n="howto.2.name">{{ strings.get('howto.2.name', 'Read and draft') }}</h3>
+                {% if strings.get('howto.2.label', '') %}
+                <p class="flow-label" data-i18n="howto.2.label">{{ strings.get('howto.2.label', 'ParSure · DraftSure') }}</p>
+                {% endif %}
+                <p data-i18n="howto.2.text">{{ strings.get('howto.2.text', 'ParSure reads every page and pins each field to its source. DraftSure writes the draft with a citation for every claim.') }}</p>
             </li>
             <li class="flow-step">
                 <div class="flow-icon">
                     <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 3 2 21h20L12 3Z"/><path d="M12 10v4"/><path d="M12 17.5v.01"/></svg>
                 </div>
-                <h3 data-i18n="howto.3.name">{{ strings.get('howto.3.name', "It flags figures and statements that don't match the source") }}</h3>
-                <p data-i18n="howto.3.text">{{ strings.get('howto.3.text', "Z3 checks the draft's figures and dates against what AssureProof read from your files. A support check judges whether the cited source backs each statement. Red-Hat review, a second language-model pass that looks for weak claims, runs on every draft.") }}</p>
+                <h3 data-i18n="howto.3.name">{{ strings.get('howto.3.name', 'Check and cross-check') }}</h3>
+                {% if strings.get('howto.3.label', '') %}
+                <p class="flow-label" data-i18n="howto.3.label">{{ strings.get('howto.3.label', 'Z3 · Support check · Red-Hat review') }}</p>
+                {% endif %}
+                <p data-i18n="howto.3.text">{{ strings.get('howto.3.text', 'Z3 tests every figure and date against your files. A support check verifies each citation. Red-Hat review lists weak claims.') }}</p>
             </li>
             <li class="flow-step">
                 <div class="flow-icon">
                     <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="9" cy="8" r="4"/><path d="M2 21a7 7 0 0 1 14 0"/><path d="m16 11 2 2 4-4"/></svg>
                 </div>
-                <h3 data-i18n="howto.4.name">{{ strings.get('howto.4.name', 'A person reviews and decides') }}</h3>
-                <p data-i18n="howto.4.text">{{ strings.get('howto.4.text', 'The reviewer accepts, corrects or disputes each flag. Each decision is logged with who made it and when.') }}</p>
-            </li>
+                <h3 data-i18n="howto.4.name">{{ strings.get('howto.4.name', 'A person decides') }}</h3>
+                {% if strings.get('howto.4.label', '') %}
+                <p class="flow-label">{{ strings.get('howto.4.label', '') }}</p>
+                {% endif %}
+                <p data-i18n="howto.4.text">{{ strings.get('howto.4.text', 'The reviewer accepts, corrects or disputes each flag. Every decision is logged with who and when.') }}</p>
         </ol>
     </div>
 </section>

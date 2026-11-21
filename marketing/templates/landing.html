@@ -31,6 +31,33 @@
     {% set flow_id = 'how' %}{% include 'includes/flow.html' %}
 
     <!-- ==========================================================================
+         WHAT IT DOES — 4 ITEM ROW
+         ========================================================================== -->
+    <section id="what-it-does" class="section what-it-does-section" aria-labelledby="what-it-does-title">
+        <div class="container">
+            <h2 class="section-title" id="what-it-does-title" data-i18n="home.whatitdoes.title">{{ strings.get('home.whatitdoes.title', 'What it does') }}</h2>
+            <div class="what-it-does-grid">
+                <article class="differs-card">
+                    <h3 data-i18n="home.whatitdoes.read.title">{{ strings.get('home.whatitdoes.read.title', 'Read') }}</h3>
+                    <p data-i18n="home.whatitdoes.read.desc">{{ strings.get('home.whatitdoes.read.desc', 'PDFs, scans and images, every field kept with its page.') }}</p>
+                </article>
+                <article class="differs-card">
+                    <h3 data-i18n="home.whatitdoes.draft.title">{{ strings.get('home.whatitdoes.draft.title', 'Draft') }}</h3>
+                    <p data-i18n="home.whatitdoes.draft.desc">{{ strings.get('home.whatitdoes.draft.desc', 'Reports and summaries with a source for each claim.') }}</p>
+                </article>
+                <article class="differs-card">
+                    <h3 data-i18n="home.whatitdoes.check.title">{{ strings.get('home.whatitdoes.check.title', 'Check') }}</h3>
+                    <p data-i18n="home.whatitdoes.check.desc">{{ strings.get('home.whatitdoes.check.desc', 'Figures and statements tested against your files.') }}</p>
+                </article>
+                <article class="differs-card differs-card--assure">
+                    <h3 data-i18n="home.whatitdoes.crosscheck.title">{{ strings.get('home.whatitdoes.crosscheck.title', 'Cross-check') }}</h3>
+                    <p data-i18n="home.whatitdoes.crosscheck.desc">{{ strings.get('home.whatitdoes.crosscheck.desc', 'Spreadsheets and packets compared against each other.') }}</p>
+                </article>
+            </div>
+        </div>
+    </section>
+
+    <!-- ==========================================================================
          EXAMPLE CARD — What a check looks like
          ========================================================================== -->
     <section id="example" class="section">
@@ -85,6 +112,7 @@
             </section>
         </div>
     </section>
+
 
     <!-- ==========================================================================
          WHY NOT AN LLM SECTION

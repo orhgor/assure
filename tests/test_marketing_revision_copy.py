@@ -154,8 +154,8 @@ def test_software_application_schema_has_category_and_operating_system():
         assert "offers" not in app, locale
         assert "aggregateRating" not in app, locale
 
-STEPS = ["Upload the document package", "AssureProof reads the files; you ask for a draft",
-         "It flags figures and statements that don't match the source", "A person reviews and decides"]
+STEPS = ["Upload the document package", "Read and draft",
+         "Check and cross-check", "A person decides"]
 EN_COPY_PAGES = ["index.html", "about/index.html", "architecture/index.html", "solutions/index.html",
                  "poc/index.html", "pricing/index.html", "security/index.html", "contact-us/index.html",
                  "use-cases/index.html", "use-cases/insurance/index.html", "use-cases/government/index.html"]
@@ -171,8 +171,7 @@ def _dist_text(rel: str) -> tuple[str, str]:
 
 def test_home_copy_matches_the_code():
     html, t = _dist_text("index.html")
-    for token in ("Upload the files. Get a draft with the mismatches marked.", "Try it on your own files", "See how it works", "runs on every draft",
-                  "How AssureProof differs from extraction tools and RAG tools",
+    for token in ("Catch the figure that doesn't match before you pay or approve.", "See the proof", "Run a pilot on your files →", "How AssureProof differs from extraction tools and RAG tools",
                   "Illustrative example, simulated data, not a customer result"):
         assert token in t, token
     assert '<meta property="og:image" content="https://assureproof.com/static/og-image.png">' in html
@@ -217,7 +216,7 @@ def test_locale_poc_pages_have_full_head():
         assert f'<html lang="{locale}"' in html, locale
 def test_home_order_and_faq_schema():
     html, t = _dist_text("index.html")
-    order = ["Upload the document package", "What a check looks like",
+    order = ["Upload the document package", "What it does", "What a check looks like",
              "How AssureProof differs from extraction tools and RAG tools",
              "Catch the mismatch before the money or the approval goes out.",
              "You choose where your documents and models run.", "Questions", "Try it on your own files."]
