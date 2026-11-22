@@ -216,10 +216,12 @@ def test_locale_poc_pages_have_full_head():
         assert f'<html lang="{locale}"' in html, locale
 def test_home_order_and_faq_schema():
     html, t = _dist_text("index.html")
-    order = ["Upload the document package", "What it does", "What a check looks like",
+    order = ["Catch the figure that doesn't match before you pay or approve.",
+             "How it works", "What it does", "What a check looks like",
              "How AssureProof differs from extraction tools and RAG tools",
              "Catch the mismatch before the money or the approval goes out.",
-             "You choose where your documents and models run.", "Questions", "Try it on your own files"]
+             "You choose where your documents and models run.", "Questions",
+             "Bring a real packet. See what doesn't match.", "Try it on your own files"]
     at = 0
     for token in order:
         nxt = t.find(token, at)
@@ -227,7 +229,7 @@ def test_home_order_and_faq_schema():
         at = nxt
     blocks = [json.loads(unescape(b)) for b in re.findall(r'<script type="application/ld\+json">(.*?)</script>', html, re.S)]
     faq = [b for b in blocks if b.get("@type") == "FAQPage"]
-    assert len(faq) == 1 and len(faq[0]["mainEntity"]) == 10
+    assert len(faq) == 1 and len(faq[0]["mainEntity"]) == 6
     for q in faq[0]["mainEntity"]:
         assert q["name"] in t and q["acceptedAnswer"]["text"] in t, q["name"]
 def test_home_icons_are_inline_svg():

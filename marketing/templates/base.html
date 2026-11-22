@@ -50,10 +50,10 @@
     {% block content %}{% endblock %}
 
     {% include 'includes/landing_footer.html' %}
-    <script src="{{ url_for('static', filename='site-init.js') }}?v={{ landing_js_version }}"></script>
-    <script src="{{ url_for('static', filename='gtag-init.js') }}?v={{ landing_js_version }}"></script>
-    <script src="{{ url_for('static', filename='landing-pilot.js') }}?v={{ landing_js_version }}"></script>
-    <script src="{{ url_for('static', filename='landing-i18n.js') }}?v={{ landing_js_version }}"></script>
+    <script src="{{ url_for('static', filename='site-init.js') }}?v={{ landing_js_version }}" defer></script>
+    <script src="{{ url_for('static', filename='gtag-init.js') }}?v={{ landing_js_version }}" defer></script>
+    <script src="{{ url_for('static', filename='landing-pilot.js') }}?v={{ landing_js_version }}" defer></script>
+    <script src="{{ url_for('static', filename='landing-i18n.js') }}?v={{ landing_js_version }}" defer></script>
     {% block scripts %}{% endblock %}
 </body>
 </html>
