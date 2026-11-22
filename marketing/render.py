@@ -160,6 +160,8 @@ TEMPLATE_TO_META = {
     "architecture.html": "architecture",
     "solutions.html": "solutions",
     "poc.html": "poc",
+    "use_case_finance.html": "use_case_finance",
+    "use_case_procurement.html": "use_case_procurement",
 }
 
 LOCALE_TO_OG = {
