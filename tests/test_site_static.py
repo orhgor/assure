@@ -271,8 +271,7 @@ def test_css_classes_have_rules():
     # Allowlist: JS hooks
     allowlist_prefixes = ("js-", "is-", "no-js")
     allowlist_exact = {
-        "sr-only", "skip-link", "hero-title-desktop", "hero-title-mobile",
-        "hero-sub-desktop", "hero-sub-mobile",
+        "sr-only", "skip-link",
         # Layout/utility classes used in HTML but not directly styled in CSS
         "arch-hero", "arch-steps", "brand-mark", "center",
         "contact-alt", "contact-card", "contact-email", "contact-error",

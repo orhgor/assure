@@ -402,8 +402,8 @@ def _render_page(app, page: dict, locale: str) -> str:
                             {
                                 "@type": "HowToStep",
                                 "position": index,
-                                "name": full.get(f"howto.{index}.name", ""),
-                                "text": full.get(f"howto.{index}.text", ""),
+                                "name": full.get(f"flow.{index}.name", ""),
+                                "text": full.get(f"flow.{index}.text", ""),
                             }
                             for index in range(1, 5)
                         ],
@@ -417,13 +417,13 @@ def _render_page(app, page: dict, locale: str) -> str:
                         "mainEntity": [
                             {
                                 "@type": "Question",
-                                "name": full.get(f"faq.{i}.q", ""),
+                                "name": full.get(f"faq.q{i}", ""),
                                 "acceptedAnswer": {
                                     "@type": "Answer",
-                                    "text": full.get(f"faq.{i}.a", "")
+                                    "text": full.get(f"faq.a{i}", "")
                                 },
                             }
-                            for i in range(1, 11)
+                            for i in range(1, 7)
                         ],
                     }
                 )
