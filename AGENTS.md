@@ -15,3 +15,14 @@ entirely in `marketing/` (see `marketing/README.md`).
 - Never commit secrets, tokens or passwords.
 - Content rules: brand is "Assure", never "Assure AI"; a person decides, never
   the product; no banned claims (pilot/beta/trial/free/guaranteed/...).
+- Locale files (`marketing/locales/*.json`) are hand-curated translations,
+  not generated output. Edit only the keys whose source copy changed, in the
+  same change; never regenerate, reformat or re-serialize a whole locale
+  file. A locale diff must match the intended copy change key for key.
+- Never overwrite a translation with English text, and never drop a valid
+  translation for a key you did not intend to touch. If a translation is
+  missing, flag it — do not paper over it. This cost 146 values across 7
+  locales once (2026-11-22); see `docs/omp-port-postmortem.md`.
+- Never force-push; git history is the only recovery mechanism.
+- Keep the repo single-line: default branch is `main`, work lands via PR,
+  and no backup or stale branches are left behind.
