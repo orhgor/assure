@@ -1431,18 +1431,6 @@ a:hover { color: var(--accent-blue-hover); }
 
 .faq-item[open] dd { animation: faq-open 0.2s ease; }
 
-/* ==========================================================================
-   Mobile Hero — shorter copy at ≤600px
-   ========================================================================== */
-.hero-title-mobile,
-.hero-sub-mobile { display: none; }
-
-@media (max-width: 600px) {
-  .hero-title-desktop,
-  .hero-sub-desktop { display: none; }
-  .hero-title-mobile,
-  .hero-sub-mobile { display: block; }
-}
 
 /* ==========================================================================
    Use Case Detail Page
