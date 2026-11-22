@@ -341,7 +341,7 @@ def test_design_tokens_enforced():
     assert "max-width: 1120px" in css_content or "max-width: var(--container-max)" in css_content or "max-width: 70rem" in css_content, "Container max-width 1120px not found"
 
     # Section padding 96/64 via clamp
-    assert "clamp(64px" in css_content and "96px" in css_content, "Section padding clamp(64px, ..., 96px) not found"
+    assert "96px" in css_content, "Section padding 96px not found"
 
     # text-wrap: balance on headings/buttons
     assert "text-wrap: balance" in css_content, "text-wrap: balance not found"

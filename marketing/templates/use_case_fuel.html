@@ -8,15 +8,8 @@
 
 {% block content %}
 <main id="main-content" class="page">
-  <section class="hero-section gov-hero page-hero">
-    <div class="container">
-      <a href="{{ locale_path }}use-cases/" class="back-link" data-i18n="uc.back">{{ strings.get('uc.back', '← All use cases') }}</a>
-      <h1 class="hero-title" data-i18n="uc.fuel.title">{{ strings.get('uc.fuel.title', 'Bonus and commission checks') }}</h1>
-      <p class="hero-sub" data-i18n="uc.fuel.sub">{{ strings.get('uc.fuel.sub', "Catch a bonus or rebate payout that doesn't match the agreements and sales records behind it before it's paid. Figures keep their source pages, and mismatches show up on the review screen. A person reviews and decides.") }}</p>
-    </div>
-  </section>
-
   {% set uc_key = 'fuel' %}
+  {% set flow_compact = true %}
   {% include 'includes/use_case_detail.html' %}
   {% include 'includes/flow.html' %}
 

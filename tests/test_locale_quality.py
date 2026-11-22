@@ -55,6 +55,10 @@ SAME_AS_ENGLISH = {
     "contact.f_name",
     "footer.workflows",
     "pricing.pro",
+    # fr: same word
+    "uc.fuel.check.2.title",
+    "uc.ins.check.2.title",
+    "uc.fuel.delta",
 }
 
 # Banned substrings per locale: calques, false friends, colloquialisms and

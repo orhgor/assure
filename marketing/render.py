@@ -392,13 +392,13 @@ def _render_page(app, page: dict, locale: str) -> str:
                         "mainEntity": [
                             {
                                 "@type": "Question",
-                                "name": full.get(f"faq.{i}.q", ""),
+                                "name": full.get(f"faq.q{i}.q", ""),
                                 "acceptedAnswer": {
                                     "@type": "Answer",
-                                    "text": full.get(f"faq.{i}.a", "")
+                                    "text": full.get(f"faq.q{i}.a", "")
                                 },
                             }
-                            for i in range(1, 11)
+                            for i in range(1, 7)
                         ],
                     }
                 )

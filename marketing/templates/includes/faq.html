@@ -1,47 +1,31 @@
-{# FAQ section with 10 questions, used on landing page #}
+{# FAQ section with 6 questions, used on landing page #}
 <section id="faq" class="faq-section">
     <div class="container">
         <h2 class="section-title" data-i18n="faq.title">{{ strings.get('faq.title', 'Questions') }}</h2>
         <div class="faq-list">
             <details class="faq-item">
-                <summary data-i18n="faq.1.q">{{ strings.get('faq.1.q', 'What is AssureProof?') }}</summary>
-                <p data-i18n="faq.1.a">{{ strings.get('faq.1.a', 'AssureProof reads your PDFs and scans. When you ask for a draft, it writes one from those files, checks the draft against what it read from your files, and shows the figures and statements that don\'t match what the files say. A person reviews each flag and decides. It runs in your own AWS account or on your own servers.') }}</p>
+                <summary data-i18n="faq.q1">{{ strings.get('faq.q1', 'What is AssureProof?') }}</summary>
+                <p data-i18n="faq.a1">{{ strings.get('faq.a1', 'AssureProof reads your contracts, invoices, claims and bids together and marks every figure that does not match across them, with both source pages open. A person reviews each flag and decides. It runs in your own AWS account or on your own servers, including air-gapped networks.') }}</p>
             </details>
             <details class="faq-item">
-                <summary data-i18n="faq.2.q">{{ strings.get('faq.2.q', 'How is AssureProof different from extraction tools and RAG tools?') }}</summary>
-                <p data-i18n="faq.2.a">{{ strings.get('faq.2.a', 'Extraction tools read data out of a file and return fields. RAG tools answer questions and cite sources. AssureProof writes a draft from your files and then shows where that draft conflicts with them, so a reviewer sees the mismatches before the draft is approved, paid or sent.') }}</p>
+                <summary data-i18n="faq.q2">{{ strings.get('faq.q2', 'What is Z3?') }}</summary>
+                <p data-i18n="faq.a2">{{ strings.get('faq.a2', 'Z3 is a formal logic solver (SMT solver) that mathematically proves whether a set of figures and constraints can all be true at the same time. It gives a deterministic yes/no answer — no probability, no hallucination.') }}</p>
             </details>
             <details class="faq-item">
-                <summary data-i18n="faq.3.q">{{ strings.get('faq.3.q', 'What is Z3?') }}</summary>
-                <p data-i18n="faq.3.a">{{ strings.get('faq.3.a', 'Z3 is software that decides whether a set of figures can all be true at the same time. AssureProof uses it on the figures and dates in a draft. A language model writes the relation, such as "the invoice total is at most the contract cap", and Z3 checks it against the values read from your files. Each check reports pass, fail, skipped, timeout or error.') }}</p>
+                <summary data-i18n="faq.q3">{{ strings.get('faq.q3', 'What does &ldquo;deterministic&rdquo; mean here?') }}</summary>
+                <p data-i18n="faq.a3">{{ strings.get('faq.a3', 'The same inputs always produce the same output. There is no randomness, no temperature setting, and no model drift. If the figures conflict today, they will conflict tomorrow.') }}</p>
             </details>
             <details class="faq-item">
-                <summary data-i18n="faq.4.q">{{ strings.get('faq.4.q', 'What does "deterministic" mean here?') }}</summary>
-                <p data-i18n="faq.4.a">{{ strings.get('faq.4.a', 'It means the figure check gives the same answer each time for the same figures and the same relation. Reading the files and writing the draft are done by language models, and a model writes the relation that is checked, so those steps can vary. That is why a person reviews each flag before anything is approved.') }}</p>
+                <summary data-i18n="faq.q4">{{ strings.get('faq.q4', 'What is Red-Hat review?') }}</summary>
+                <p data-i18n="faq.a4">{{ strings.get('faq.a4', 'An optional, separate adversarial pass where a language model tries to find flaws in the draft — missing citations, overstated claims, or numbers that do not trace back to a source page. It runs only when requested.') }}</p>
             </details>
             <details class="faq-item">
-                <summary data-i18n="faq.5.q">{{ strings.get('faq.5.q', 'Does AssureProof check every statement in the draft?') }}</summary>
-                <p data-i18n="faq.5.a">{{ strings.get('faq.5.a', 'No. Z3 checks figures and dates where a relation can be written. Statements are judged by a language-model support check against the cited source. Each draft claim must cite a source, page and field, or a quote, and a citation that does not resolve fails the claim. A skipped or errored check is never reported as a pass.') }}</p>
+                <summary data-i18n="faq.q5">{{ strings.get('faq.q5', 'Does a contradiction block export?') }}</summary>
+                <p data-i18n="faq.a5">{{ strings.get('faq.a5', 'Yes. Export is automatically locked while any contradiction is unresolved. A person (or an authorized agent) must accept or reject each finding before the file can be downloaded. The file stays downloadable the entire time — you just cannot export a conflicted version.') }}</p>
             </details>
             <details class="faq-item">
-                <summary data-i18n="faq.6.q">{{ strings.get('faq.6.q', 'What is Red-Hat review?') }}</summary>
-                <p data-i18n="faq.6.a">{{ strings.get('faq.6.a', 'Red-Hat review is a second language-model pass that runs on every draft and on each document\'s fields. It looks for weak claims, such as an overstatement or a figure that needs a citation, and lists them with reasons. It does not block anything. A person decides what to do with each one.') }}</p>
-            </details>
-            <details class="faq-item">
-                <summary data-i18n="faq.7.q">{{ strings.get('faq.7.q', 'Does a contradiction block export?') }}</summary>
-                <p data-i18n="faq.7.a">{{ strings.get('faq.7.a', 'No. AssureProof marks the contradiction and a person decides. A reviewer can accept a value over a Z3 or Red-Hat review objection, and that decision is recorded with who made it and when. You can export fields as CSV or JSON, with the JSON signed so it can be verified, and drafts as JSON or PDF.') }}</p>
-            </details>
-            <details class="faq-item">
-                <summary data-i18n="faq.8.q">{{ strings.get('faq.8.q', 'What files can AssureProof read?') }}</summary>
-                <p data-i18n="faq.8.a">{{ strings.get('faq.8.a', 'ParSure reads PDFs, including scans, and PNG, JPEG, TIFF and BMP images, up to 25 MB and 200 pages per file by default. Handwritten and illegible values are flagged, and illegible values are not guessed. CrossSure reads spreadsheets in XLSX, XLSM, XLS, CSV and TXT formats without a model.') }}</p>
-            </details>
-            <details class="faq-item">
-                <summary data-i18n="faq.9.q">{{ strings.get('faq.9.q', 'Where does AssureProof run?') }}</summary>
-                <p data-i18n="faq.9.a">{{ strings.get('faq.9.a', 'Runs in your own AWS account or on your own servers, including air-gapped networks; model calls go to your Amazon Bedrock account (or a self-hosted model on a GPU). Files are stored on your own disk or in your S3 bucket. With a self-hosted model, document text stays inside your environment. Data is encrypted in transit and at rest.') }}</p>
-            </details>
-            <details class="faq-item">
-                <summary data-i18n="faq.10.q">{{ strings.get('faq.10.q', 'Can I try it on my own files?') }}</summary>
-                <p data-i18n="faq.10.a">{{ strings.get('faq.10.a', 'Yes. Bring a real document set for one workflow. We agree a fixed scope in writing, run it with your team and walk you through the findings. Use the contact form or write to sales@assureproof.com.') }}</p>
+                <summary data-i18n="faq.q6">{{ strings.get('faq.q6', 'Where does AssureProof run?') }}</summary>
+                <p data-i18n="faq.a6">{{ strings.get('faq.a6', 'In your own AWS account (using Amazon Bedrock), on a private GPU, or on your own on-premises servers — including air-gapped networks. You choose the deployment model; documents never leave your boundary unless you connect an external endpoint yourself.') }}</p>
             </details>
         </div>
     </div>

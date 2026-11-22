@@ -31,8 +31,8 @@
       <p class="hero-sub" data-i18n="home.hero.proof.line">{{ strings.get('home.hero.proof.line', 'The mismatch is marked, and a person reviews and decides.') }}</p>
       <p class="hero-icp" data-i18n="home.hero.icp">{{ strings.get('home.hero.icp', 'For finance, claims and procurement teams. AssureProof checks the documents behind a payment or approval and shows you where they disagree, with both source pages open.') }}</p>
       <div class="hero-cta-group">
-        <a href="{{ locale_path }}contact-us/" class="btn-primary" data-i18n="landing.hero.cta_primary">{{ strings.get('landing.hero.cta_primary', 'Try it on your own files') }}</a>
-        <a href="{{ locale_path }}poc/" class="btn-secondary" data-i18n="landing.hero.cta_secondary">{{ strings.get('landing.hero.cta_secondary', 'See how it works') }}</a>
+        <a href="{{ locale_path }}poc/" class="btn-primary" data-i18n="landing.hero.cta_primary">{{ strings.get('landing.hero.cta_primary', 'Try it on your own files') }}</a>
+        <a href="{{ locale_path }}architecture/" class="btn-text" data-i18n="landing.hero.cta_secondary">{{ strings.get('landing.hero.cta_secondary', 'See how it works') }}</a>
       </div>
     </div>
   </section>
@@ -65,9 +65,9 @@
             <div><span data-i18n="use-cases.gov.conflict.source-b.label">{{ strings.get('use-cases.gov.conflict.source-b.label', 'Source B (Vendor Proposal, p. 19):') }}</span><span data-i18n="use-cases.gov.conflict.source-b">{{ strings.get('use-cases.gov.conflict.source-b', 'Subcontractor Allocation: 24.5% ($367,500)') }}</span></div>
             <div class="conflict-result"><strong data-i18n="use-cases.gov.conflict.result.label">{{ strings.get('use-cases.gov.conflict.result.label', 'Result:') }}</strong><span data-i18n="use-cases.gov.conflict.result">{{ strings.get('use-cases.gov.conflict.result', 'Mismatch marked: subcontracting is 9.5 points over the tender\'s 15% cap.') }}</span></div>
           </div>
-          <div style="display: flex; gap: var(--space-3); margin-top: var(--space-4);">
-            <a href="{{ locale_path }}use-cases/government/" class="btn-primary" style="flex: 1;" data-i18n="uc.gov.more">{{ strings.get('uc.gov.more', 'See a government check') }}</a>
-            <a href="{{ locale_path }}contact-us/" class="btn-secondary" style="flex: 1;" data-i18n="use-cases.gov.cta">{{ strings.get('use-cases.gov.cta', 'Check a procurement packet with us') }}</a>
+          <div class="use-case-actions">
+            <a href="{{ locale_path }}use-cases/government/" class="btn-primary" data-i18n="uc.gov.more">{{ strings.get('uc.gov.more', 'See a government check') }}</a>
+            <a href="{{ locale_path }}contact-us/" class="btn-secondary" data-i18n="use-cases.gov.cta">{{ strings.get('use-cases.gov.cta', 'Check a procurement packet with us') }}</a>
           </div>
         </article>
 
@@ -83,9 +83,9 @@
             <div><span data-i18n="use-cases.insurance.conflict.source-b.label">{{ strings.get('use-cases.insurance.conflict.source-b.label', 'Source B (Adjuster Summary, p. 6):') }}</span><span data-i18n="use-cases.insurance.conflict.source-b">{{ strings.get('use-cases.insurance.conflict.source-b', 'Approved Remediation Payout: $68,400') }}</span></div>
             <div class="conflict-result"><strong data-i18n="use-cases.insurance.conflict.result.label">{{ strings.get('use-cases.insurance.conflict.result.label', 'Result:') }}</strong><span data-i18n="use-cases.insurance.conflict.result">{{ strings.get('use-cases.insurance.conflict.result', 'Mismatch marked: payout is $18,400 over the endorsement sub-limit.') }}</span></div>
           </div>
-          <div style="display: flex; gap: var(--space-3); margin-top: var(--space-4);">
-            <a href="{{ locale_path }}use-cases/insurance/" class="btn-primary" style="flex: 1;" data-i18n="uc.ins.more">{{ strings.get('uc.ins.more', 'See a claims check') }}</a>
-            <a href="{{ locale_path }}contact-us/" class="btn-secondary" style="flex: 1;" data-i18n="use-cases.insurance.cta">{{ strings.get('use-cases.insurance.cta', 'Check a claims file with us') }}</a>
+          <div class="use-case-actions">
+            <a href="{{ locale_path }}use-cases/insurance/" class="btn-primary" data-i18n="uc.ins.more">{{ strings.get('uc.ins.more', 'See a claims check') }}</a>
+            <a href="{{ locale_path }}contact-us/" class="btn-secondary" data-i18n="use-cases.insurance.cta">{{ strings.get('use-cases.insurance.cta', 'Check a claims file with us') }}</a>
           </div>
         </article>
 
@@ -101,9 +101,9 @@
             <div><span data-i18n="use-cases.fin.conflict.source-b.label">{{ strings.get('use-cases.fin.conflict.source-b.label', 'Source B (Invoice #9872, line 1) & Receipt #3310:') }}</span><span data-i18n="use-cases.fin.conflict.source-b">{{ strings.get('use-cases.fin.conflict.source-b', 'Invoice: 500 units × $125 = $62,500; Receipt: 480 units') }}</span></div>
             <div class="conflict-result"><strong data-i18n="use-cases.fin.conflict.result.label">{{ strings.get('use-cases.fin.conflict.result.label', 'Result:') }}</strong><span data-i18n="use-cases.fin.conflict.result">{{ strings.get('use-cases.fin.conflict.result', 'Mismatch marked: invoice bills 500 units at $125; PO authorizes 500 at $120; receipt shows 480 received.') }}</span></div>
           </div>
-          <div style="display: flex; gap: var(--space-3); margin-top: var(--space-4);">
-            <a href="{{ locale_path }}use-cases/finance/" class="btn-primary" style="flex: 1;" data-i18n="uc.fin.more">{{ strings.get('uc.fin.more', 'See a finance check') }}</a>
-            <a href="{{ locale_path }}contact-us/" class="btn-secondary" style="flex: 1;" data-i18n="use-cases.fin.cta">{{ strings.get('use-cases.fin.cta', 'Check an AP batch with us') }}</a>
+          <div class="use-case-actions">
+            <a href="{{ locale_path }}use-cases/finance/" class="btn-primary" data-i18n="uc.fin.more">{{ strings.get('uc.fin.more', 'See a finance check') }}</a>
+            <a href="{{ locale_path }}contact-us/" class="btn-secondary" data-i18n="use-cases.fin.cta">{{ strings.get('use-cases.fin.cta', 'Check an AP batch with us') }}</a>
           </div>
         </article>
 
@@ -119,9 +119,9 @@
             <div><span data-i18n="use-cases.proc.conflict.source-b.label">{{ strings.get('use-cases.proc.conflict.source-b.label', 'Source B (Invoice #7341, line 3):') }}</span><span data-i18n="use-cases.proc.conflict.source-b">{{ strings.get('use-cases.proc.conflict.source-b', 'Invoice Unit Price: $46.20') }}</span></div>
             <div class="conflict-result"><strong data-i18n="use-cases.proc.conflict.result.label">{{ strings.get('use-cases.proc.conflict.result.label', 'Result:') }}</strong><span data-i18n="use-cases.proc.conflict.result">{{ strings.get('use-cases.proc.conflict.result', 'Mismatch marked: invoice unit price is $4.20 over the contract cap.') }}</span></div>
           </div>
-          <div style="display: flex; gap: var(--space-3); margin-top: var(--space-4);">
-            <a href="{{ locale_path }}use-cases/procurement/" class="btn-primary" style="flex: 1;" data-i18n="uc.proc.more">{{ strings.get('uc.proc.more', 'See a procurement check') }}</a>
-            <a href="{{ locale_path }}contact-us/" class="btn-secondary" style="flex: 1;" data-i18n="use-cases.proc.cta">{{ strings.get('use-cases.proc.cta', 'Check a procurement packet with us') }}</a>
+          <div class="use-case-actions">
+            <a href="{{ locale_path }}use-cases/procurement/" class="btn-primary" data-i18n="uc.proc.more">{{ strings.get('uc.proc.more', 'See a procurement check') }}</a>
+            <a href="{{ locale_path }}contact-us/" class="btn-secondary" data-i18n="use-cases.proc.cta">{{ strings.get('use-cases.proc.cta', 'Check a procurement packet with us') }}</a>
           </div>
         </article>
       </div>
