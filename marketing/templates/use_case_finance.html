@@ -8,8 +8,15 @@
 
 {% block content %}
 <main id="main-content" class="page">
+  <section class="hero-section gov-hero page-hero">
+    <div class="container">
+      <a href="{{ locale_path }}use-cases/" class="back-link" data-i18n="uc.back">{{ strings.get('uc.back', '← All use cases') }}</a>
+      <h1 class="hero-title" data-i18n="uc.fin.title">{{ strings.get('uc.fin.title', 'Finance / Accounts Payable checks') }}</h1>
+      <p class="hero-sub" data-i18n="uc.fin.sub">{{ strings.get('uc.fin.sub', 'Catch an invoice that does not match the purchase order or the goods receipt before the three-way match is approved. Figures keep their source pages, and mismatches show up on the review screen. A person reviews and decides.') }}</p>
+    </div>
+  </section>
+
   {% set uc_key = 'fin' %}
-  {% set flow_compact = true %}
   {% include 'includes/use_case_detail.html' %}
   {% include 'includes/flow.html' %}
 

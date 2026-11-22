@@ -12,17 +12,17 @@
         <h1 data-i18n="terms.title">{{ strings.get('terms.title', 'Terms of use') }}</h1>
         <hr class="divider-center" />
         <p class="lede" data-i18n="terms.lead">{{ strings.get('terms.lead', 'How AssureProof works, what you are responsible for, and what we do not promise.') }}</p>
-        <p class="hint" data-i18n="terms.updated">{{ strings.get('terms.updated', 'Updated 21 November 2026.') }}</p>
+        <p class="hint" data-i18n="terms.updated">{{ strings.get('terms.updated', 'Updated 6 September 2026.') }}</p>
     </div>
     <section class="card">
         <h2 data-i18n="terms.accuracy.h">{{ strings.get('terms.accuracy.h', 'Accuracy') }}</h2>
-        <p data-i18n="terms.accuracy">{{ strings.get('terms.accuracy', 'Reading and drafting use language models, so extracted text and drafted wording can occasionally be wrong. The figure check itself is deterministic: the same figures and rules give the same answer every time. Verification is a filter, not a promise of accuracy. We do not promise that output is flawless, complete, or free from errors. Independently verify critical information.') }}</p>
+        <p data-i18n="terms.accuracy">{{ strings.get('terms.accuracy', 'AI systems are probabilistic and can hallucinate. Verification is a filter, not a promise of accuracy. We do not promise that output is flawless, complete, or free from errors. Independently verify critical information.') }}</p>
         <hr class="divider-center" />
         <h2 data-i18n="terms.advice.h">{{ strings.get('terms.advice.h', 'Not professional advice') }}</h2>
         <p data-i18n="terms.advice">{{ strings.get('terms.advice', 'Assure performs document analysis, verification, and compilation. It does not give legal, financial, or professional advice. Consult qualified professionals before you act on any output.') }}</p>
         <hr class="divider-center" />
         <h2 data-i18n="terms.answers.h">{{ strings.get('terms.answers.h', 'Answers can be wrong') }}</h2>
-        <p data-i18n="terms.answers">{{ strings.get('terms.answers', 'Output can be wrong. Every figure keeps its source page so you can check it yourself, and neither a flagged nor an unflagged figure is a substitute for your own review. You check the result before you use it in a client, a paper, or a decision.') }}</p>
+        <p data-i18n="terms.answers">{{ strings.get('terms.answers', 'Assure rewrites your question, can send it to models you connect, and can drop claims that were not in your files. That is a filter, not a promise of accuracy. You check the result before you use it with a client, a paper, or a decision.') }}</p>
         <hr class="divider-center" />
         <h2 data-i18n="terms.as_is.h">{{ strings.get('terms.as_is.h', 'No warranty') }}</h2>
         <p data-i18n="terms.as_is">{{ strings.get('terms.as_is', 'The software is provided "as is", without warranties. We are not liable for damages or other consequences of your use. We do not promise uptime, accuracy, or fitness for a particular job. Any service levels are set only in your signed enterprise agreement.') }}</p>
@@ -49,8 +49,11 @@
             <li data-i18n="terms.prohibit.violence">{{ strings.get('terms.prohibit.violence', 'Violence, threats, or harassment') }}</li>
         </ul>
         <hr class="divider-center" />
-        <h2 data-i18n="terms.where.h">{{ strings.get('terms.where.h', 'Where it runs') }}</h2>
-        <p data-i18n="terms.where">{{ strings.get("terms.where", "AssureProof runs in your own AWS account, on a private GPU, or on your own servers, including air-gapped networks. Model calls go to Amazon Bedrock in your account or to a self-hosted model; with a self-hosted model, document text does not leave your network. If you choose to connect an external service beyond these options, that connection is subject to that provider's terms and is your responsibility to configure.") }}</p>
+        <h2 data-i18n="terms.providers.h">{{ strings.get('terms.providers.h', 'Provider policies') }}</h2>
+        <p data-i18n="terms.providers">{{ strings.get('terms.providers', 'You must also follow the terms of the AI provider you connect. A Send to a connected provider is subject to that provider\'s rules. Assure does not replace them.') }}</p>
+        <hr class="divider-center" />
+        <h2 data-i18n="terms.send.h">{{ strings.get('terms.send.h', 'Copy and Send') }}</h2>
+        <p data-i18n="terms.send">{{ strings.get('terms.send', 'Assure keeps the source page with every figure and shows the contradiction before you pay. A person decides. The file can still be downloaded. Runs in your own AWS account, on-premises, or private GPU environment. You choose where the models run.') }}</p>
         <hr class="divider-center" />
         <h2 data-i18n="terms.third.h">{{ strings.get('terms.third.h', 'Third parties') }}</h2>
         <p data-i18n="terms.third">{{ strings.get('terms.third', 'We are not liable for decisions made by third parties who rely on the output. Do not share output with others without your own verification.') }}</p>
@@ -58,7 +61,7 @@
         <h2 data-i18n="terms.use.h">{{ strings.get('terms.use.h', 'What this is for') }}</h2>
         <p data-i18n="terms.use">{{ strings.get('terms.use', 'Assure is designed for document compilation, verification, and compliance review. It is not a substitute for binding legal, financial, or regulatory decisions. If you rely on the output as your sole verification, that responsibility stays with you.') }}</p>
         <hr class="divider-center" />
-        <h2 data-i18n="terms.updated">{{ strings.get('terms.updated', 'Updated 21 November 2026.') }}</h2>
+        <h2 data-i18n="terms.updated">{{ strings.get('terms.updated', 'Updated 6 September 2026.') }}</h2>
     </section>
 </div>
 </main>

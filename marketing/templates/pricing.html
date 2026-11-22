@@ -16,6 +16,7 @@
   <section class="section">
     <div class="container">
       <div class="section-header">
+        <span class="section-eyebrow" data-i18n="pricing.pro">{{ strings.get('pricing.pro', 'Enterprise') }}</span>
         <h2 class="section-title" data-i18n="pricing.pro">{{ strings.get('pricing.pro', 'Enterprise') }}</h2>
       </div>
 
@@ -36,31 +37,35 @@
   <section class="section">
     <div class="container">
       <div class="section-header">
+        <span class="section-eyebrow" data-i18n="pricing.poc.title">{{ strings.get('pricing.poc.title', 'How a proof of concept starts') }}</span>
         <h2 class="section-title" data-i18n="pricing.poc.title">{{ strings.get('pricing.poc.title', 'How a proof of concept starts') }}</h2>
       </div>
-      <p class="section-sub" data-i18n="pricing.poc.body">{{ strings.get('pricing.poc.body', 'Start with one workflow and a small set of sample cases. Once you give a written "Yes, proceed", we run the check on your documents in your environment, with a scope agreed up front and a written review at the end.') }}</p>
+      <p class="section-sub" style="max-width: 68ch; margin: 0 auto;" data-i18n="pricing.poc.body">{{ strings.get('pricing.poc.body', 'Start with one workflow and a small set of sample cases. Once you give a written "Yes, proceed", we run the check on your documents in your environment, with a scope agreed up front and a written review at the end.') }}</p>
     </div>
   </section>
 
   <section class="section">
     <div class="container">
       <div class="section-header">
+        <span class="section-eyebrow" data-i18n="pricing.faq.title">{{ strings.get('pricing.faq.title', 'Questions') }}</span>
         <h2 class="section-title" data-i18n="pricing.faq.title">{{ strings.get('pricing.faq.title', 'Questions') }}</h2>
       </div>
 
-      <div class="faq-list">
+      <div class="faq-section" style="max-width: 68ch; margin: 0 auto;">
+        <div class="faq-list" style="border-top: 1px solid var(--border);">
           <details class="faq-item">
             <summary data-i18n="pricing.faq.1.q">{{ strings.get('pricing.faq.1.q', 'What is a workflow?') }}</summary>
-            <p data-i18n="pricing.faq.1.a">{{ strings.get('pricing.faq.1.a', 'A workflow is one kind of document check your team repeats, such as invoices against contracts or claims against policies. Pricing depends on the number of workflows and teams, and on where AssureProof runs.') }}</p>
+            <div data-i18n="pricing.faq.1.a">{{ strings.get('pricing.faq.1.a', 'A workflow is one kind of document check your team repeats, such as invoices against contracts or claims against policies. Pricing depends on the number of workflows and teams, and on where AssureProof runs.') }}</div>
           </details>
           <details class="faq-item">
             <summary data-i18n="pricing.faq.2.q">{{ strings.get('pricing.faq.2.q', 'How does a proof of concept start?') }}</summary>
-            <p data-i18n="pricing.faq.2.a">{{ strings.get('pricing.faq.2.a', 'You pick one workflow and share a few sample cases. We agree a scope in writing. The check runs in your environment after your written "Yes, proceed", and we walk your team through the findings.') }}</p>
+            <div data-i18n="pricing.faq.2.a">{{ strings.get('pricing.faq.2.a', 'You pick one workflow and share a few sample cases. We agree a scope in writing. The check runs in your environment after your written "Yes, proceed", and we walk your team through the findings.') }}</div>
           </details>
           <details class="faq-item">
             <summary data-i18n="pricing.faq.3.q">{{ strings.get('pricing.faq.3.q', 'Where does it run?') }}</summary>
-            <p data-i18n="pricing.faq.3.a">{{ strings.get('pricing.faq.3.a', 'In your own AWS account, on a private GPU, or on your own servers, including air-gapped networks. You choose where the models run. Details are on the Security page.') }}</p>
+            <div data-i18n="pricing.faq.3.a">{{ strings.get('pricing.faq.3.a', 'In your own AWS account, on a private GPU, or on your own servers, including air-gapped networks. You choose where the models run. Details are on the Security page.') }}</div>
           </details>
+        </div>
       </div>
     </div>
   </section>

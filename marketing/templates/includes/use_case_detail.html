@@ -1,111 +1,41 @@
-{# use_case_detail.html — hero, compared documents, checks, example, questions.
-   Expects uc_key: proc, fin, gov, ins, or fuel. #}
-<section class="page-hero uc-hero">
+{# use_case_detail.html — included by use_case_*.html after hero, before flow #}
+{# Expects uc_key to be set to 'ins', 'gov', or 'fuel' #}
+<section class="uc-detail-section" aria-labelledby="uc-docs-title">
   <div class="container">
-    <a href="{{ locale_path }}use-cases/" class="back-link" data-i18n="uc.back">{{ strings.get('uc.back', '← All use cases') }}</a>
-    <div class="uc-hero-grid">
-      <div class="uc-hero-copy">
-        <h1 class="hero-title" data-i18n="uc.{{ uc_key }}.title">{{ strings.get('uc.' ~ uc_key ~ '.title', '') }}</h1>
-        <p class="hero-sub" data-i18n="uc.{{ uc_key }}.sub">{{ strings.get('uc.' ~ uc_key ~ '.sub', '') }}</p>
-      </div>
-      <aside class="uc-summary" aria-label="{{ strings.get('uc.summary.docs', 'Documents compared') }}">
-        <p class="uc-summary-label" data-i18n="uc.summary.docs">{{ strings.get('uc.summary.docs', 'Documents compared') }}</p>
-        <ol class="uc-summary-list">
-          <li data-i18n="uc.{{ uc_key }}.doc.1">{{ strings.get('uc.' ~ uc_key ~ '.doc.1', '') }}</li>
-          <li data-i18n="uc.{{ uc_key }}.doc.2">{{ strings.get('uc.' ~ uc_key ~ '.doc.2', '') }}</li>
-          <li data-i18n="uc.{{ uc_key }}.doc.3">{{ strings.get('uc.' ~ uc_key ~ '.doc.3', '') }}</li>
-        </ol>
-        <p class="uc-summary-label" data-i18n="uc.summary.flags">{{ strings.get('uc.summary.flags', 'What gets flagged') }}</p>
-        <ul class="uc-summary-list">
-          <li data-i18n="uc.{{ uc_key }}.check.1">{{ strings.get('uc.' ~ uc_key ~ '.check.1', '') }}</li>
-          <li data-i18n="uc.{{ uc_key }}.check.2">{{ strings.get('uc.' ~ uc_key ~ '.check.2', '') }}</li>
-          <li data-i18n="uc.{{ uc_key }}.check.3">{{ strings.get('uc.' ~ uc_key ~ '.check.3', '') }}</li>
-        </ul>
-      </aside>
-    </div>
-  </div>
-</section>
+    <h2 id="uc-docs-title" data-i18n="uc.h.docs">{{ strings.get('uc.h.docs', 'Documents in') }} {{ strings.get('uc.' ~ uc_key ~ '.title', '') }}</h2>
+    <ul style="list-style: none; padding: 0; margin: 0 0 var(--space-6); display: grid; gap: var(--space-3);">
+      <li><strong data-i18n="uc.{{ uc_key }}.doc.1">{{ strings.get('uc.' ~ uc_key ~ '.doc.1', '') }}</strong></li>
+      <li><strong data-i18n="uc.{{ uc_key }}.doc.2">{{ strings.get('uc.' ~ uc_key ~ '.doc.2', '') }}</strong></li>
+      <li><strong data-i18n="uc.{{ uc_key }}.doc.3">{{ strings.get('uc.' ~ uc_key ~ '.doc.3', '') }}</strong></li>
+    </ul>
 
-<section class="section uc-block" aria-labelledby="uc-docs-title">
-  <div class="container">
-    <div class="section-header">
-      <h2 id="uc-docs-title" class="section-title" data-i18n="uc.h.docs">{{ strings.get('uc.h.docs', 'Documents') }}</h2>
-    </div>
-    <div class="uc-mini-grid">
-      <article class="uc-mini">
-        <div class="what-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h5"/></svg></div>
-        <h3 data-i18n="uc.{{ uc_key }}.doc.1">{{ strings.get('uc.' ~ uc_key ~ '.doc.1', '') }}</h3>
-        <p data-i18n="uc.{{ uc_key }}.doc.1.line">{{ strings.get('uc.' ~ uc_key ~ '.doc.1.line', '') }}</p>
-      </article>
-      <article class="uc-mini">
-        <div class="what-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h5"/></svg></div>
-        <h3 data-i18n="uc.{{ uc_key }}.doc.2">{{ strings.get('uc.' ~ uc_key ~ '.doc.2', '') }}</h3>
-        <p data-i18n="uc.{{ uc_key }}.doc.2.line">{{ strings.get('uc.' ~ uc_key ~ '.doc.2.line', '') }}</p>
-      </article>
-      <article class="uc-mini">
-        <div class="what-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h5"/></svg></div>
-        <h3 data-i18n="uc.{{ uc_key }}.doc.3">{{ strings.get('uc.' ~ uc_key ~ '.doc.3', '') }}</h3>
-        <p data-i18n="uc.{{ uc_key }}.doc.3.line">{{ strings.get('uc.' ~ uc_key ~ '.doc.3.line', '') }}</p>
-      </article>
-    </div>
+    <h2 id="uc-checks-title" data-i18n="uc.h.checks">{{ strings.get('uc.h.checks', 'What AssureProof checks') }}</h2>
+    <ul style="list-style: none; padding: 0; margin: 0 0 var(--space-6); display: grid; gap: var(--space-3);">
+      <li data-i18n="uc.{{ uc_key }}.check.1">{{ strings.get('uc.' ~ uc_key ~ '.check.1', '') }}</li>
+      <li data-i18n="uc.{{ uc_key }}.check.2">{{ strings.get('uc.' ~ uc_key ~ '.check.2', '') }}</li>
+      <li data-i18n="uc.{{ uc_key }}.check.3">{{ strings.get('uc.' ~ uc_key ~ '.check.3', '') }}</li>
+    </ul>
 
-    <div class="section-header uc-block-next">
-      <h2 id="uc-checks-title" class="section-title" data-i18n="uc.h.checks">{{ strings.get('uc.h.checks', 'What AssureProof checks') }}</h2>
-    </div>
-    <div class="uc-mini-grid">
-      <article class="uc-mini">
-        <div class="what-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><path d="M4 22v-7"/></svg></div>
-        <h3 data-i18n="uc.{{ uc_key }}.check.1.title">{{ strings.get('uc.' ~ uc_key ~ '.check.1.title', '') }}</h3>
-        <p data-i18n="uc.{{ uc_key }}.check.1">{{ strings.get('uc.' ~ uc_key ~ '.check.1', '') }}</p>
-      </article>
-      <article class="uc-mini">
-        <div class="what-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><path d="M4 22v-7"/></svg></div>
-        <h3 data-i18n="uc.{{ uc_key }}.check.2.title">{{ strings.get('uc.' ~ uc_key ~ '.check.2.title', '') }}</h3>
-        <p data-i18n="uc.{{ uc_key }}.check.2">{{ strings.get('uc.' ~ uc_key ~ '.check.2', '') }}</p>
-      </article>
-      <article class="uc-mini">
-        <div class="what-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><path d="M4 22v-7"/></svg></div>
-        <h3 data-i18n="uc.{{ uc_key }}.check.3.title">{{ strings.get('uc.' ~ uc_key ~ '.check.3.title', '') }}</h3>
-        <p data-i18n="uc.{{ uc_key }}.check.3">{{ strings.get('uc.' ~ uc_key ~ '.check.3', '') }}</p>
-      </article>
-    </div>
-  </div>
-</section>
-
-<section class="section uc-block" aria-labelledby="uc-example-title">
-  <div class="container">
-    <div class="section-header">
-      <h2 id="uc-example-title" class="section-title" data-i18n="uc.h.example">{{ strings.get('uc.h.example', 'Illustrative example') }}</h2>
-    </div>
-    <article class="uc-example">
+    <h2 id="uc-example-title" data-i18n="uc.h.example">{{ strings.get('uc.h.example', 'Illustrative example') }}</h2>
+    <div class="uc-example">
       <p class="proof-label" data-i18n="uc.example.label">{{ strings.get('uc.example.label', 'Illustrative example, simulated data, not a customer result') }}</p>
-      <p class="uc-delta"><span class="mismatch" data-i18n="uc.{{ uc_key }}.delta">{{ strings.get('uc.' ~ uc_key ~ '.delta', '') }}</span></p>
-      <p class="uc-delta-label" data-i18n="uc.delta.label">{{ strings.get('uc.delta.label', 'Mismatch') }}</p>
       <p data-i18n="uc.{{ uc_key }}.example">{{ strings.get('uc.' ~ uc_key ~ '.example', '') }}</p>
-    </article>
-  </div>
-</section>
+    </div>
 
-<section class="section uc-block" aria-labelledby="uc-faq-title">
-  <div class="container">
-    <div class="uc-faq-wrap">
-      <div class="section-header">
-        <h2 id="uc-faq-title" class="section-title" data-i18n="uc.h.faq">{{ strings.get('uc.h.faq', 'Questions') }}</h2>
-      </div>
-      <div class="faq-list uc-faq">
-        <details class="faq-item">
-          <summary data-i18n="uc.{{ uc_key }}.faq.1.q">{{ strings.get('uc.' ~ uc_key ~ '.faq.1.q', '') }}</summary>
-          <p data-i18n="uc.{{ uc_key }}.faq.1.a">{{ strings.get('uc.' ~ uc_key ~ '.faq.1.a', '') }}</p>
-        </details>
-        <details class="faq-item">
-          <summary data-i18n="uc.{{ uc_key }}.faq.2.q">{{ strings.get('uc.' ~ uc_key ~ '.faq.2.q', '') }}</summary>
-          <p data-i18n="uc.{{ uc_key }}.faq.2.a">{{ strings.get('uc.' ~ uc_key ~ '.faq.2.a', '') }}</p>
-        </details>
-        <details class="faq-item">
-          <summary data-i18n="uc.{{ uc_key }}.faq.3.q">{{ strings.get('uc.' ~ uc_key ~ '.faq.3.q', '') }}</summary>
-          <p data-i18n="uc.{{ uc_key }}.faq.3.a">{{ strings.get('uc.' ~ uc_key ~ '.faq.3.a', '') }}</p>
-        </details>
-      </div>
+    <h2 id="uc-faq-title" data-i18n="uc.h.faq">{{ strings.get('uc.h.faq', 'Questions') }}</h2>
+    <div class="uc-faq">
+      <details>
+        <summary data-i18n="uc.{{ uc_key }}.faq.1.q">{{ strings.get('uc.' ~ uc_key ~ '.faq.1.q', '') }}</summary>
+        <div data-i18n="uc.{{ uc_key }}.faq.1.a">{{ strings.get('uc.' ~ uc_key ~ '.faq.1.a', '') }}</div>
+      </details>
+      <details>
+        <summary data-i18n="uc.{{ uc_key }}.faq.2.q">{{ strings.get('uc.' ~ uc_key ~ '.faq.2.q', '') }}</summary>
+        <div data-i18n="uc.{{ uc_key }}.faq.2.a">{{ strings.get('uc.' ~ uc_key ~ '.faq.2.a', '') }}</div>
+      </details>
+      <details>
+        <summary data-i18n="uc.{{ uc_key }}.faq.3.q">{{ strings.get('uc.' ~ uc_key ~ '.faq.3.q', '') }}</summary>
+        <div data-i18n="uc.{{ uc_key }}.faq.3.a">{{ strings.get('uc.' ~ uc_key ~ '.faq.3.a', '') }}</div>
+      </details>
     </div>
   </div>
 </section>

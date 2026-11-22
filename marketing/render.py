@@ -140,10 +140,7 @@ PAGES: list[dict] = [
 
 
 _I18N_ATTR_RE = re.compile(r'data-i18n(?:-html|-placeholder|-aria|-label)?="([^"]+)"')
-_GET_KEY_RE = re.compile(r"strings\.get\(\s*['\"]([a-zA-Z0-9_.-]+)['\"]")
-_UC_SET_RE = re.compile(r"uc_key\s*=\s*['\"]([a-z]+)['\"]")
-_UC_ATTR_RE = re.compile(r"uc\.\{\{\s*uc_key\s*\}\}\.([a-z0-9.]+)")
-_UC_GET_RE = re.compile(r"uc\.'\s*~\s*uc_key\s*~\s*'\.([a-z0-9.]+)")
+_GET_KEY_RE = re.compile(r"strings\.get\(\s*['\"]([a-zA-Z0-9_.]+)['\"]")
 _INCLUDE_RE = re.compile(r"{%-?\s*include\s+['\"]([^']+?)['\"]\s*%-?\}")
 _EXTENDS_RE = re.compile(r"{%-?\s*extends\s+['\"]([^']+?)['\"]\s*%-?\}")
 TEMPLATES_DIR = ROOT / "marketing" / "templates"
@@ -153,8 +150,6 @@ TEMPLATE_TO_META = {
     "use_cases_index.html": "use_cases_index",
     "use_case_government.html": "use_case_government",
     "use_case_insurance.html": "use_case_insurance",
-    "use_case_finance.html": "use_case_finance",
-    "use_case_procurement.html": "use_case_procurement",
     "use_case_fuel.html": "use_case_fuel",
     "landing_privacy.html": "landing_privacy",
     "contact.html": "contact",
@@ -275,47 +270,25 @@ def _postprocess(
     return html
 
 
-def _expand_i18n_key(raw: str, uc_keys: set[str]) -> set[str]:
-    """Turn a template attribute into catalog keys.
-
-    use_case_detail.html writes data-i18n="uc.{{ uc_key }}.doc.1". The page
-    only ships strings whose keys were found literally, so the browser fell
-    through to the attribute and painted uc.proc.doc.1.
-    """
-    match = _UC_ATTR_RE.fullmatch(raw)
-    if match:
-        return {f"uc.{uk}.{match.group(1)}" for uk in uc_keys}
-    if "{{" in raw or "{%" in raw:
-        return set()
-    if re.fullmatch(r"[a-zA-Z0-9_.-]+", raw):
-        return {raw}
-    return set()
-
-
-def _used_string_keys(app, template_name: str, seen: set | None = None, uc_keys: set[str] | None = None) -> set[str]:
+def _used_string_keys(app, template_name: str, seen: set | None = None) -> set[str]:
     """Collect i18n keys a template (and its includes) actually reference."""
     seen = seen if seen is not None else set()
     if template_name in seen:
         return set()
     seen.add(template_name)
     keys: set[str] = set()
-    uc_keys = set(uc_keys or ())
     try:
         source = (TEMPLATES_DIR / template_name).read_text(encoding="utf-8")
     except Exception:
         return keys
-    uc_keys |= set(_UC_SET_RE.findall(source))
     for match in _I18N_ATTR_RE.finditer(source):
-        keys |= _expand_i18n_key(match.group(1), uc_keys)
+        keys.add(match.group(1))
     for match in _GET_KEY_RE.finditer(source):
         keys.add(match.group(1))
-    for match in _UC_GET_RE.finditer(source):
-        suffix = match.group(1)
-        keys |= {f"uc.{uk}.{suffix}" for uk in uc_keys}
     for match in _INCLUDE_RE.finditer(source):
-        keys |= _used_string_keys(app, match.group(1), seen, uc_keys)
+        keys |= _used_string_keys(app, match.group(1), seen)
     for match in _EXTENDS_RE.finditer(source):
-        keys |= _used_string_keys(app, match.group(1), seen, uc_keys)
+        keys |= _used_string_keys(app, match.group(1), seen)
     return keys
 
 
@@ -402,8 +375,8 @@ def _render_page(app, page: dict, locale: str) -> str:
                             {
                                 "@type": "HowToStep",
                                 "position": index,
-                                "name": full.get(f"flow.{index}.name", ""),
-                                "text": full.get(f"flow.{index}.text", ""),
+                                "name": full.get(f"howto.{index}.name", ""),
+                                "text": full.get(f"howto.{index}.text", ""),
                             }
                             for index in range(1, 5)
                         ],
@@ -417,13 +390,13 @@ def _render_page(app, page: dict, locale: str) -> str:
                         "mainEntity": [
                             {
                                 "@type": "Question",
-                                "name": full.get(f"faq.q{i}", ""),
+                                "name": full.get(f"faq.{i}.q", ""),
                                 "acceptedAnswer": {
                                     "@type": "Answer",
-                                    "text": full.get(f"faq.a{i}", "")
+                                    "text": full.get(f"faq.{i}.a", "")
                                 },
                             }
-                            for i in range(1, 7)
+                            for i in range(1, 11)
                         ],
                     }
                 )

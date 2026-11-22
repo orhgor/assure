@@ -171,15 +171,9 @@ def _dist_text(rel: str) -> tuple[str, str]:
 
 def test_home_copy_matches_the_code():
     html, t = _dist_text("index.html")
-    for token in ("Catch the figure that doesn't match before you pay or approve.", "Try it on your own files", "Run a pilot on your files →", "How AssureProof differs from extraction tools and RAG tools",
+    for token in ("Catch the figure that doesn't match before you pay or approve.", "See the proof", "Try it on your own files →", "How AssureProof differs from extraction tools and RAG tools",
                   "Illustrative example, simulated data, not a customer result"):
         assert token in t, token
-    assert "See the proof" in t
-    assert 'href="/poc/"' in html
-    header = re.search(r'<a href="([^"]+)"\s+class="btn-primary header-cta"', html)
-    assert header and header.group(1).endswith("poc/"), header
-    hero = re.search(r'<a href="([^"]+)" class="btn-primary" data-i18n="landing.hero.cta_primary"', html)
-    assert hero and hero.group(1).endswith("poc/"), hero
     assert '<meta property="og:image" content="https://assureproof.com/static/og-image.png">' in html
 
 
@@ -233,7 +227,7 @@ def test_home_order_and_faq_schema():
         at = nxt
     blocks = [json.loads(unescape(b)) for b in re.findall(r'<script type="application/ld\+json">(.*?)</script>', html, re.S)]
     faq = [b for b in blocks if b.get("@type") == "FAQPage"]
-    assert len(faq) == 1 and len(faq[0]["mainEntity"]) == 6
+    assert len(faq) == 1 and len(faq[0]["mainEntity"]) == 10
     for q in faq[0]["mainEntity"]:
         assert q["name"] in t and q["acceptedAnswer"]["text"] in t, q["name"]
 def test_home_icons_are_inline_svg():

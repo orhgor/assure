@@ -14,13 +14,13 @@
          ========================================================================== -->
     <section class="hero-section">
         <div class="hero-inner">
-            <div class="hero-eyebrow" data-i18n="home.hero.eyebrow">{{ strings.get('home.hero.eyebrow', 'Deterministic Document Verification') }}</div>
-            <h1 class="hero-title" data-i18n-html="brand.hero_title_html">{{ strings.get('brand.hero_title_html', 'Catch the figure that doesn\'t match before you pay or approve.') }}</h1>
-            <p class="hero-sub" data-i18n="home.hero.sub">{{ strings.get('home.hero.sub', 'AssureProof reads your contracts, invoices, claims and bids together and marks every figure that does not match across them, with both source pages open. A person reviews each flag and decides. It runs in your own AWS account or on your own servers, including air-gapped networks.') }}</p>
+            <div class="hero-eyebrow" data-i18n="home.hero.eyebrow">{{ strings.get('home.hero.eyebrow', 'Document checking platform for finance, claims and procurement teams') }}</div>
+            <h1 class="hero-title"><span class="hero-title-desktop" data-i18n="brand.hero_title_html">{{ strings.get('brand.hero_title_html', "Catch the figure that doesn't match before you pay or approve.") }}</span><span class="hero-title-mobile" data-i18n="home.hero.mobile_title">{{ strings.get('home.hero.mobile_title', "Catch the figure that doesn't match before you pay or approve.") }}</span></h1>
+            <p class="hero-sub"><span class="hero-sub-desktop" data-i18n="home.hero.sub">{{ strings.get('home.hero.sub', 'AssureProof reads your contracts, invoices, claims and bids, drafts with a source for every figure, and marks every mismatch with both pages. A person decides.') }}</span><span class="hero-sub-mobile" data-i18n="home.hero.mobile_sub">{{ strings.get('home.hero.mobile_sub', 'AssureProof reads your contracts, invoices, claims and bids, drafts with a source for every figure, and marks every mismatch with both pages. A person decides.') }}</span></p>
 
             <div class="hero-cta-group">
-                <a href="{{ locale_path }}poc/" class="btn-primary" data-i18n="landing.hero.cta_primary">{{ strings.get('landing.hero.cta_primary', 'Try it on your own files') }}</a>
-                <a href="{{ locale_path }}#how" class="btn-text" data-i18n="landing.hero.cta_secondary">{{ strings.get('landing.hero.cta_secondary', 'See how it works') }}</a>
+                <a href="{{ locale_path }}contact-us/" class="btn-primary" data-i18n="landing.hero.cta_primary">{{ strings.get('landing.hero.cta_primary', 'See the proof') }}</a>
+                <a href="{{ locale_path }}poc/" class="btn-secondary" data-i18n="landing.pilot.cta_primary">{{ strings.get('landing.pilot.cta_primary', 'Try it on your own files →') }}</a>
             </div>
         </div>
     </section>
@@ -38,22 +38,18 @@
             <h2 class="section-title" id="what-it-does-title" data-i18n="home.whatitdoes.title">{{ strings.get('home.whatitdoes.title', 'What it does') }}</h2>
             <div class="what-it-does-grid">
                 <article class="differs-card differs-card--check">
-                    <div class="what-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></div>
                     <h3 data-i18n="home.whatitdoes.check.title">{{ strings.get('home.whatitdoes.check.title', 'Check') }}</h3>
                     <p data-i18n="home.whatitdoes.check.desc">{{ strings.get('home.whatitdoes.check.desc', 'Figures and statements tested against your files.') }}</p>
                 </article>
                 <article class="differs-card">
-                    <div class="what-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg></div>
                     <h3 data-i18n="home.whatitdoes.read.title">{{ strings.get('home.whatitdoes.read.title', 'Read') }}</h3>
                     <p data-i18n="home.whatitdoes.read.desc">{{ strings.get('home.whatitdoes.read.desc', 'PDFs, scans and images, every field kept with its page.') }}</p>
                 </article>
                 <article class="differs-card">
-                    <div class="what-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></div>
                     <h3 data-i18n="home.whatitdoes.draft.title">{{ strings.get('home.whatitdoes.draft.title', 'Draft') }}</h3>
                     <p data-i18n="home.whatitdoes.draft.desc">{{ strings.get('home.whatitdoes.draft.desc', 'Reports and summaries with a source for each claim.') }}</p>
                 </article>
                 <article class="differs-card">
-                    <div class="what-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5"/><path d="M8 21H3v-5"/><path d="M21 3 14 10"/><path d="M3 21l7-7"/></svg></div>
                     <h3 data-i18n="home.whatitdoes.crosscheck.title">{{ strings.get('home.whatitdoes.crosscheck.title', 'Cross-check') }}</h3>
                     <p data-i18n="home.whatitdoes.crosscheck.desc">{{ strings.get('home.whatitdoes.crosscheck.desc', 'Spreadsheets and packets compared against each other.') }}</p>
                 </article>
@@ -238,10 +234,10 @@
 
                 <div class="security-pillar">
                     <div class="pillar-icon">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M9 12h6"/><path d="M9 16h4"/></svg>
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.745 3.745 0 01-3.296-1.043A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 01-3.296-1.043A3.745 3.745 0 0112 3c1.268 0-2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12z"/></svg>
                     </div>
                     <h3 data-i18n="security.pillar4.title">{{ strings.get('security.pillar4.title', 'Every decision logged') }}</h3>
-                    <p data-i18n="security.pillar4.desc">{{ strings.get('security.pillar4.desc', 'Every accept, correction, dispute and override is logged with who, when and why.') }}</p>
+                    <p data-i18n="security.pillar4.desc">{{ strings.get('security.pillar4.desc', 'Every extracted figure, flagged contradiction, reviewer sign-off, and manual override is cryptographically timestamped.') }}</p>
                 </div>
             </div>
 
@@ -262,7 +258,7 @@
          ========================================================================== -->
     <section class="closing-section">
         <div class="container center">
-            <h2 class="section-title" data-i18n-html="home.start.title">{{ strings.get('home.start.title', "Bring a real packet.<br>See what doesn't match.") | safe }}</h2>
+            <h2 class="section-title" data-i18n="home.start.title">{{ strings.get('home.start.title', "Bring a real packet. See what doesn't match.") }}</h2>
             <a href="{{ locale_path }}poc/" class="btn-primary" data-i18n="landing.pilot.cta_primary">{{ strings.get('landing.pilot.cta_primary', 'Try it on your own files') }}</a>
         </div>
     </section>

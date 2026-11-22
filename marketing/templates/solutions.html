@@ -13,29 +13,41 @@
     </div>
   </section>
 
-  {% set flow_compact = true %}
   {% include 'includes/flow.html' %}
 
   <section class="section">
     <div class="container">
-      <div class="solutions-grid">
-        <article class="uc-mini">
-          <h3 data-i18n="solutions.cards.1.name">{{ strings.get('solutions.cards.1.name', 'Invoice vs contract') }}</h3>
-          <p data-i18n="solutions.cards.1.finding">{{ strings.get('solutions.cards.1.finding', 'The invoice total is 142,500 EUR. The contract cap is 120,000 EUR. Both source pages stay open.') }}</p>
-        </article>
-        <article class="uc-mini">
-          <h3 data-i18n="solutions.cards.2.name">{{ strings.get('solutions.cards.2.name', 'Claims') }}</h3>
-          <p data-i18n="solutions.cards.2.finding">{{ strings.get('solutions.cards.2.finding', 'The invoice total is different from the amount on the claim form.') }}</p>
-        </article>
-        <article class="uc-mini">
-          <h3 data-i18n="solutions.cards.3.name">{{ strings.get('solutions.cards.3.name', 'Evidence pack') }}</h3>
-          <p data-i18n="solutions.cards.3.finding">{{ strings.get('solutions.cards.3.finding', 'The certificate number on the form does not match the certificate.') }}</p>
-        </article>
-        <article class="uc-mini">
-          <h3 data-i18n="solutions.cards.4.name">{{ strings.get('solutions.cards.4.name', 'Internal report') }}</h3>
-          <p data-i18n="solutions.cards.4.finding">{{ strings.get('solutions.cards.4.finding', 'The volume on the report is different from the sales records.') }}</p>
-        </article>
+      <div class="section-header">
+        <h2 class="section-title" data-i18n="solutions.cards.1.name">{{ strings.get('solutions.cards.1.name', 'Invoice vs contract') }}</h2>
       </div>
+      <p data-i18n="solutions.cards.1.finding">{{ strings.get('solutions.cards.1.finding', 'The invoice total is 142,500 EUR. The contract cap is 120,000 EUR. Both source pages stay open.') }}</p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <div class="section-header">
+        <h2 class="section-title" data-i18n="solutions.cards.2.name">{{ strings.get('solutions.cards.2.name', 'Claims') }}</h2>
+      </div>
+      <p data-i18n="solutions.cards.2.finding">{{ strings.get('solutions.cards.2.finding', 'The invoice total is different from the amount on the claim form.') }}</p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <div class="section-header">
+        <h2 class="section-title" data-i18n="solutions.cards.3.name">{{ strings.get('solutions.cards.3.name', 'Compliance pack') }}</h2>
+      </div>
+      <p data-i18n="solutions.cards.3.finding">{{ strings.get('solutions.cards.3.finding', 'The certificate number on the form does not match the certificate.') }}</p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <div class="section-header">
+        <h2 class="section-title" data-i18n="solutions.cards.4.name">{{ strings.get('solutions.cards.4.name', 'Internal report') }}</h2>
+      </div>
+      <p data-i18n="solutions.cards.4.finding">{{ strings.get('solutions.cards.4.finding', 'The volume on the report is different from the sales records.') }}</p>
     </div>
   </section>
 
