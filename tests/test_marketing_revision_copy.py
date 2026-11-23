@@ -20,7 +20,7 @@ PAGES = {
     "/": DIST / "index.html",
     "/about": DIST / "about" / "index.html",
     "/architecture": DIST / "architecture" / "index.html",
-    "/security": DIST / "security" / "index.html",
+    "/trust": DIST / "trust" / "index.html",
     "/privacy": DIST / "privacy" / "index.html",
     "/terms": DIST / "terms" / "index.html",
     "/solutions": DIST / "solutions" / "index.html",
@@ -72,7 +72,7 @@ def _visible(html: str) -> str:
 
 
 def test_v3_security_trust_faq():
-    for rel in ["security/index.html", "index.html"]:
+    for rel in ["trust/index.html", "index.html"]:
         p = DIST / rel
         if not p.is_file():
             pytest.skip("marketing dist is not built: " + rel)
@@ -163,7 +163,7 @@ ARCH_STEPS = ["Upload the document package", "ParSure reads every page",
               "DraftSure writes the draft", "CrossSure and Z3 check the figures",
               "Red-Hat review", "A person decides", "The decision is recorded"]
 EN_COPY_PAGES = ["index.html", "about/index.html", "architecture/index.html", "solutions/index.html",
-                 "poc/index.html", "pricing/index.html", "security/index.html", "contact-us/index.html",
+                 "pricing/index.html", "trust/index.html", "contact-us/index.html",
                  "use-cases/index.html", "use-cases/insurance/index.html", "use-cases/government/index.html"]
 
 
@@ -184,7 +184,7 @@ def test_home_copy_matches_the_code():
 
 
 def test_four_steps_in_order_on_core_pages():
-    for rel in ["index.html", "solutions/index.html", "poc/index.html"]:
+    for rel in ["index.html", "solutions/index.html"]:
         _, t = _dist_text(rel)
         at = t.find(STEPS[0])
         assert at >= 0, (rel, STEPS[0])
@@ -204,7 +204,7 @@ def test_architecture_pipeline_in_order():
         at = nxt
     for token in ("Glossary", "Integrations and capabilities", "Product limits"):
         assert token in t, token
-    assert 'href="/security/"' in html
+    assert 'href="/trust/"' in html
 
 
 def test_hero_ctas_point_to_evidence_and_poc():

@@ -1,0 +1,26 @@
+WP4+WP7 final close-out: /trust/ trust center, dedup, generated llms.txt
+
+- Rename /security/ -> /trust/ (template, render route, Worker 301 with
+  locale prefix, _redirects, all internal links) and extend the page with
+  a shared-facts grid (reuses security.*/arch.* keys), subprocessors
+  (Cloudflare, Resend, GA4, Bedrock - code-verifiable), vulnerability
+  disclosure pointing at security.txt, and the shared DPA/questionnaire
+  route. No invented facts; [CONFIRM] items (entity/emails, compliance
+  table, statuses) stay out.
+- /trust/ + llms.txt + /architecture/ now share one source: build.sh
+  generates llms.txt from marketing/llms.txt prose + en.json facts and a
+  full key-pages list (trust/evidence/finance/procurement included).
+- Structural fixes: privacy 'On this page' rendered once; terms date
+  heading once; /about/ links to /architecture/ + /trust/ instead of
+  duplicating the flow (meta.about.title updated in 8 locales); /poc/
+  flow include replaced by an architecture link + scope line; contact
+  page carries the DPA line.
+- Locales: 18 line-scoped key additions per locale (crumb.trust,
+  trust.*, poc.scope, about.trust.link, meta.trust.* copied from
+  meta.security.*), privacy/terms dates -> 23 November 2026.
+- Tests: new tests/test_closeout_gates.py (trust route+worker 301,
+  per-locale shared-facts parity, privacy/terms/about dedup regressions,
+  generated-llms parity, no stale /security/); updated revision-copy
+  tests for the rename and the deduped about/poc pages; CI gains live
+  /trust/ 200 + /security/ and /de/security/ 301 checks.
+- LANDING_CSS bumped to 165 for the trust-facts styles.

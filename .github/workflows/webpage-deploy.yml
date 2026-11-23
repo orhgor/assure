@@ -60,7 +60,7 @@ jobs:
         run: bash marketing/build.sh
 
       - name: Website tests
-        run: pytest tests/test_marketing_revision_copy.py tests/test_site_static.py tests/test_security_headers.py tests/test_locale_quality.py tests/test_cloudflare_policy.py -v
+        run: pytest tests/test_marketing_revision_copy.py tests/test_site_static.py tests/test_security_headers.py tests/test_locale_quality.py tests/test_cloudflare_policy.py tests/test_closeout_gates.py -v
 
   deploy:
     runs-on: ubuntu-latest
@@ -164,6 +164,13 @@ jobs:
           # Discovery files.
           grep -q 'Sitemap: https://assureproof.com/sitemap.xml' <(body 'https://assureproof.com/robots.txt') || { echo "::error::robots.txt sitemap missing"; exit 1; }
           body 'https://assureproof.com/llms.txt' | grep -q 'configured per customer deployment' || { echo "::error::llms.txt stale"; exit 1; }
+          # WP4: trust center route + /security/ legacy 301.
+          r=$(code 'https://assureproof.com/trust/')
+          echo "/trust/ -> $r"; [[ "$r" == 200* ]] || { echo "::error::/trust/ not live"; exit 1; }
+          r=$(code 'https://assureproof.com/security/')
+          echo "/security/ -> $r"; [[ "$r" == 301*\ /trust/* ]] || { echo "::error::/security/ legacy redirect broken"; exit 1; }
+          r=$(code 'https://assureproof.com/de/security/')
+          echo "/de/security/ -> $r"; [[ "$r" == 301*\ /de/trust/* ]] || { echo "::error::locale /security/ redirect broken"; exit 1; }
           st=$(body 'https://assureproof.com/.well-known/security.txt')
           echo "$st" | grep -q '^Contact: mailto:' || { echo "::error::security.txt Contact missing"; exit 1; }
           echo "$st" | grep -q '^Expires:' || { echo "::error::security.txt Expires missing"; exit 1; }

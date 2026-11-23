@@ -38,28 +38,6 @@
   <section class="section">
     <div class="container">
       <div class="section-header">
-        <h2 class="section-title" data-i18n="about.checks.title">{{ strings.get('about.checks.title', 'How a check works') }}</h2>
-      </div>
-      <div style="max-width: 68ch; margin: 0 auto; display: grid; gap: var(--space-6);">
-        <div>
-          <p data-i18n="about.checks.1">{{ strings.get('about.checks.1', 'You upload the files. AssureProof reads each one and keeps every figure tied to its source page. It writes a draft from those files and marks the figures and statements that don\'t match.') }}</p>
-        </div>
-        <div>
-          <p data-i18n="about.checks.2">{{ strings.get('about.checks.2', 'A person on your team accepts, corrects or disputes each flag, and the decision is recorded.') }}</p>
-        </div>
-      </div>
-
-      <!-- Example check -->
-      <div style="margin-top: var(--space-8);">
-        <p data-i18n="about.proof">{{ strings.get('about.proof', 'Here\'s what a check looks like: a 142,500 EUR invoice against a 120,000 EUR contract cap. Both source pages stay open, the 22,500 EUR difference is marked, and a person decides before payment. Illustrative example, simulated data, not a customer result.') }}</p>
-        <p style="margin-top: var(--space-3);"><a href="{{ locale_path }}use-cases/" class="btn-secondary" data-i18n="about.proof.link">{{ strings.get('about.proof.link', 'See the example check') }}</a></p>
-      </div>
-    </div>
-  </section>
-
-  <section class="section">
-    <div class="container">
-      <div class="section-header">
         <h2 class="section-title" data-i18n="about.principles.title">{{ strings.get('about.principles.title', 'How we work') }}</h2>
       </div>
       <div class="use-cases-grid" style="margin-top: var(--space-8);">
@@ -73,12 +51,12 @@
           <h3 data-i18n="about.p.2.name">{{ strings.get('about.p.2.name', 'A person decides') }}</h3>
           <p data-i18n="about.p.2.text">{{ strings.get('about.p.2.text', 'AssureProof marks mismatches. Your reviewer accepts, corrects or disputes them, and each decision is recorded.') }}</p>
         </article>
-        <article class="use-case-card">
-          <div class="use-case-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5.25 14.25h13.5m-13.5 0a3 3 0 01-3-3m3 3a3 3 0 01-3-3m3 3a3 3 0 010 6h13.5a3 3 0 100-6m-16.5-3a3 3 0 013-3h13.5a3 3 0 013 3m-19.5 0a4.5 4.5 0 01.9-2.7L5.737 5.1a3.375 3.375 0 012.7-1.35h7.126c1.062 0 2.062.5 2.7 1.35l2.587 3.45a4.5 4.5 0 01.9 2.7"/></svg></div>
-          <h3 data-i18n="about.p.3.name">{{ strings.get('about.p.3.name', 'Runs where you choose') }}</h3>
-          <p data-i18n="about.p.3.text">{{ strings.get('about.p.3.text', 'Your AWS account, a private GPU or your own servers, including air-gapped networks.') }}</p>
-        </article>
       </div>
+      <p class="text-small" style="margin-top: var(--space-6); text-align: center;">
+        <a href="{{ locale_path }}architecture/" data-i18n="footer.architecture">{{ strings.get('footer.architecture', 'How it works in detail') }}</a>
+        &middot;
+        <a href="{{ locale_path }}trust/" data-i18n="about.trust.link">{{ strings.get('about.trust.link', 'Trust center: facts, subprocessors and disclosure') }}</a>
+      </p>
     </div>
   </section>
 

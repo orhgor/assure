@@ -97,10 +97,58 @@ lines.append("</urlset>")
 (root / "sitemap.xml").write_text("\\n".join(lines) + "\\n", encoding="utf-8")
 print(f"→ Sitemap: {len(locs)} URLs")
 PY
-# /llms.txt is authored in marketing/.
-if [ -f "$ROOT/marketing/llms.txt" ]; then
-  cp "$ROOT/marketing/llms.txt" "$DIST_DIR/llms.txt"
-fi
+# /llms.txt is GENERATED: prose from marketing/llms.txt, deployment facts and
+# key pages from the shared en.json catalog so /trust/, /architecture/ and
+# llms.txt can never drift apart.
+"$PYTHON" - <<PY
+import json
+import re
+from pathlib import Path
+
+root = Path("$DIST_DIR")
+src = Path("$ROOT/marketing/llms.txt").read_text(encoding="utf-8")
+en = json.loads(Path("$ROOT/marketing/locales/en.json").read_text(encoding="utf-8"))
+
+prose = src.split("## Key pages")[0].rstrip()
+facts_keys = (
+    "security.pillar1.desc",
+    "security.pillar2.desc",
+    "security.pillar3.desc",
+    "security.pillar4.desc",
+    "security.diagram.model",
+    "security.diagram.store",
+    "arch.pipe.5.text",
+    "arch.lim.files",
+)
+pages = (
+    ("Home", "/"),
+    ("Solutions", "/solutions/"),
+    ("Architecture", "/architecture/"),
+    ("Use cases", "/use-cases/"),
+    ("Government use case", "/use-cases/government/"),
+    ("Insurance use case", "/use-cases/insurance/"),
+    ("Finance use case", "/use-cases/finance/"),
+    ("Procurement use case", "/use-cases/procurement/"),
+    ("Bonus and rebate reconciliation", "/use-cases/bonus-reconciliation/"),
+    ("About", "/about/"),
+    ("Evidence and method", "/evidence/"),
+    ("Trust center", "/trust/"),
+    ("Pricing", "/pricing/"),
+    ("Proof of concept", "/poc/"),
+    ("Contact", "/contact-us/"),
+    ("Privacy", "/privacy/"),
+    ("Terms", "/terms/"),
+)
+out = [prose, "", "## Deployment facts", ""]
+for key in facts_keys:
+    out.append(f"- {en[key]}")
+out += ["", "## Key pages", ""]
+for name, path in pages:
+    out.append(f"- {name}: https://assureproof.com{path}")
+out.append("")
+(root / "llms.txt").write_text("\n".join(out), encoding="utf-8")
+print("-> llms.txt generated from marketing/llms.txt + en.json")
+PY
 
 # Google Search Console ownership verification file (domain root).
 if [ -f "$ROOT/marketing/googledd970fc4996a6661.html" ]; then

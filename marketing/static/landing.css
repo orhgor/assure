@@ -2672,3 +2672,38 @@ button.btn-primary:hover {
 @media (max-width: 760px) {
   .uc-arch-link { margin-top: 20px; }
 }
+
+/* Trust center facts grid + subprocessor list (final close-out). */
+.trust-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-5);
+  margin: var(--space-6) 0 0;
+}
+.trust-fact {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md, 12px);
+  padding: var(--space-5);
+  background: var(--surface);
+}
+.trust-fact dt {
+  font-weight: 600;
+  font-size: 0.9375rem;
+  margin-bottom: var(--space-2);
+}
+.trust-fact dd {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.9375rem;
+}
+.trust-subs {
+  max-width: 68ch;
+  margin: var(--space-6) auto 0;
+  padding-left: 1.25rem;
+  display: grid;
+  gap: var(--space-3);
+  color: var(--text-secondary);
+}
+@media (max-width: 760px) {
+  .trust-facts { grid-template-columns: 1fr; }
+}
