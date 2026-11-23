@@ -183,6 +183,19 @@ def test_security_txt_published_with_required_fields():
     assert timedelta(0) < exp - now < timedelta(days=366), "Expires must be < 1 year out"
 
 
+def test_security_txt_contact_matches_the_worker_inbox():
+    """The published security.txt contact must be the same mailbox the contact
+    form delivers to - one contact route, not two addresses that drift."""
+    inbox = re.search(r'const SALES_INBOX = "([^"]+)"', _worker())
+    assert inbox, "worker SALES_INBOX not found"
+    src_txt = (ROOT / "marketing" / "security.txt").read_text(encoding="utf-8")
+    contact = re.search(r"^Contact:\s*mailto:(\S+)", src_txt, re.M)
+    assert contact, "security.txt Contact missing"
+    assert contact.group(1) == inbox.group(1), (
+        "security.txt Contact and the worker SALES_INBOX must be the same mailbox"
+    )
+
+
 def test_robots_txt_allows_search_and_points_at_sitemap():
     page = DIST / "robots.txt"
     if not page.is_file():

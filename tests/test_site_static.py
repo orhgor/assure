@@ -27,7 +27,9 @@ BANNED_CLAIMS = re.compile(
     r"or an agent|person or agent|optional adversarial|stress-test|live conflict example|"
     r"chatgpt|claude|gemini|zero bytes|0 bytes|100% custody|zero data leakage|any format|300-page|"
     r"soc ?2|iso 27001|trusted by|free pilot|free poc|dec 10|dec 20|zero it setup|me \+ title|"
-    r"assureproof ai|getassureai",
+    # 'getassureai' is banned as a brand/URL leak, but the owner-sanctioned
+    # public contact mailbox (sales@getassureai.com) is exempt via lookbehind.
+    r"assureproof ai|(?<!sales@)getassureai",
     re.I,
 )
 
@@ -171,17 +173,24 @@ def test_terms_fraud_clause_in_all_locales():
 def test_worker_email_uses_the_verified_resend_domain():
     """The contact pipeline sends through Resend, and Resend only accepts a
     from-address on a VERIFIED domain. The verified domain is getassureai.com
-    (owner-confirmed); assureproof.com is not verified there - a live probe
-    returned 502 'The assureproof.com domain is not verified', so submissions
-    were being rejected since the R2->Workers cutover. The inbox and the
-    from-address must stay on getassureai.com. The legacy domain must still
-    never leak onto the built pages - email backend addresses are
-    infrastructure, not site copy."""
+    (owner-confirmed); assureproof.com is intentionally NOT a sending domain
+    (owner: keeps the primary domain secure), so do not 'fix' deliverability
+    by verifying assureproof.com. The published contact address is the working
+    getassureai.com inbox; no other legacy-domain address may appear on the
+    built pages."""
     src = WORKER.read_text(encoding="utf-8")
     assert 'const SALES_INBOX = "sales@getassureai.com";' in src
     assert 'const EMAIL_FROM = "AssureProof Website <website@getassureai.com>";' in src
-    bad = [_rel(p) for p in _pages() if re.search(r"[\w.+-]+@getassureai\.com", p.read_text(encoding="utf-8"))]
-    assert not bad, bad
+    bad = []
+    for p in _pages():
+        # Scan page copy, not the embedded strings payload: the payload
+        # escapes non-ASCII as \uXXXX and those literal escapes glue onto
+        # the address (e.g. "\u3001sales@...").
+        html = re.sub(r"<script[^>]*>.*?</script>", " ", p.read_text(encoding="utf-8"), flags=re.S)
+        for addr in re.findall(r"[\w.+-]+@getassureai\.com", html):
+            if addr != "sales@getassureai.com":
+                bad.append((_rel(p), addr))
+    assert not bad, bad[:10]
 
 
 def test_no_fuel_retail_page_or_link():

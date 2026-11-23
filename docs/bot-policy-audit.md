@@ -37,12 +37,15 @@ getassureai.com domain in the same PR;
 `test_worker_email_uses_the_verified_resend_domain` now fails the build if
 the addresses drift off the verified domain again.
 
-**Still [CONFIRM]:** the *public-facing* contact address shown on
-`/contact-us/`, in the PoC error copy, and in `security.txt` (`Contact:
-mailto:sales@assureproof.com`). Showing the working `sales@getassureai.com`
-inbox publicly is a branding decision for the owner — until then, visitors
-emailing `sales@assureproof.com` depend on that mailbox existing outside
-Resend.
+**Public contact address (owner decision, 2026-11-23):** the working inbox
+`sales@getassureai.com` is also the published contact address — it appears
+on `/contact-us/` ("Prefer email?"), in the contact/PoC error copy, in the
+PoC FAQ (`faq.10.a`) and in `security.txt` (`Contact:
+mailto:sales@getassureai.com`). `assureproof.com` is intentionally **not** a
+sending domain — the owner keeps the primary domain out of send
+authorization for security (tighter SPF/DMARC posture) — so do not "fix"
+deliverability by verifying assureproof.com in Resend; sending stays on the
+verified getassureai.com domain.
 | Security headers | CSP (`frame-ancestors 'none'`, no `unsafe-inline` in script-src), HSTS, X-Frame-Options DENY, nosniff, Referrer-Policy, Permissions-Policy on every response | header checks pass post-deploy |
 
 ## Discovery files (verified)
