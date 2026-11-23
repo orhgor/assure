@@ -110,8 +110,8 @@ function tooManyRequests(retryAfter, origin) {
 // Locale folders in dist/ (mirrors marketing/locales; en lives at the root).
 const LOCALES = ["de", "es", "fr", "tr", "ja", "zh", "ar"];
 
-const SALES_INBOX = "sales@assureproof.com";
-const EMAIL_FROM = "AssureProof Website <website@assureproof.com>";
+const SALES_INBOX = "sales@getassureai.com";
+const EMAIL_FROM = "AssureProof Website <website@getassureai.com>";
 
 function json(data, status) {
   return new Response(JSON.stringify(data), {

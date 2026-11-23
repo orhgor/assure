@@ -168,10 +168,18 @@ def test_terms_fraud_clause_in_all_locales():
             assert unescape(value) in unescape(page.read_text(encoding="utf-8")), loc
 
 
-def test_site_email_addresses_use_assureproof_com():
+def test_worker_email_uses_the_verified_resend_domain():
+    """The contact pipeline sends through Resend, and Resend only accepts a
+    from-address on a VERIFIED domain. The verified domain is getassureai.com
+    (owner-confirmed); assureproof.com is not verified there - a live probe
+    returned 502 'The assureproof.com domain is not verified', so submissions
+    were being rejected since the R2->Workers cutover. The inbox and the
+    from-address must stay on getassureai.com. The legacy domain must still
+    never leak onto the built pages - email backend addresses are
+    infrastructure, not site copy."""
     src = WORKER.read_text(encoding="utf-8")
-    assert 'const SALES_INBOX = "sales@assureproof.com";' in src
-    assert "website@assureproof.com" in src
+    assert 'const SALES_INBOX = "sales@getassureai.com";' in src
+    assert 'const EMAIL_FROM = "AssureProof Website <website@getassureai.com>";' in src
     bad = [_rel(p) for p in _pages() if re.search(r"[\w.+-]+@getassureai\.com", p.read_text(encoding="utf-8"))]
     assert not bad, bad
 
