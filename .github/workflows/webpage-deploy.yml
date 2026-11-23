@@ -60,7 +60,7 @@ jobs:
         run: bash marketing/build.sh
 
       - name: Website tests
-        run: pytest tests/test_marketing_revision_copy.py tests/test_site_static.py tests/test_security_headers.py tests/test_locale_quality.py -v
+        run: pytest tests/test_marketing_revision_copy.py tests/test_site_static.py tests/test_security_headers.py tests/test_locale_quality.py tests/test_cloudflare_policy.py -v
 
   deploy:
     runs-on: ubuntu-latest
@@ -147,3 +147,34 @@ jobs:
           check 'content-security-policy' "form-action 'self'"
           check 'content-security-policy' "default-src 'self'"
           echo "Security headers verified on the live deployment (TLS 1.3 handshake)."
+
+      - name: Verify live bot/redirect/endpoint policy
+        run: |
+          code() { curl -s -o /dev/null -w '%{http_code} %{redirect_url}' --max-time 15 "$1"; }
+          body() { curl -s --max-time 15 "$@"; }
+
+          # Legacy domain consolidation (C12): single 301 hop, path kept.
+          r=$(code 'https://getassureai.com/')
+          echo "getassureai.com/ -> $r"; [[ "$r" == 301\ https://assureproof.com/* ]] || { echo "::error::getassureai.com root redirect broken"; exit 1; }
+          r=$(code 'https://getassureai.com/poc/')
+          echo "getassureai.com/poc/ -> $r"; [[ "$r" == 301\ https://assureproof.com/poc/* ]] || { echo "::error::getassureai.com path redirect broken"; exit 1; }
+          r=$(code 'http://getassureai.com/de/poc/')
+          echo "http getassureai -> $r"; [[ "$r" == 301\ https://assureproof.com/* ]] || { echo "::error::http getassureai redirect broken"; exit 1; }
+
+          # Discovery files.
+          grep -q 'Sitemap: https://assureproof.com/sitemap.xml' <(body 'https://assureproof.com/robots.txt') || { echo "::error::robots.txt sitemap missing"; exit 1; }
+          body 'https://assureproof.com/llms.txt' | grep -q 'configured per customer deployment' || { echo "::error::llms.txt stale"; exit 1; }
+          st=$(body 'https://assureproof.com/.well-known/security.txt')
+          echo "$st" | grep -q '^Contact: mailto:' || { echo "::error::security.txt Contact missing"; exit 1; }
+          echo "$st" | grep -q '^Expires:' || { echo "::error::security.txt Expires missing"; exit 1; }
+
+          # Endpoint protection: routing, validation, honeypot (sends no email).
+          s=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 'https://assureproof.com/api/anything')
+          echo "GET /api/anything -> $s"; [[ "$s" == 301 ]] || { echo "::error::GET /api/* fallback changed"; exit 1; }
+          s=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{"name":"ci","email":"ci@example.com","company_website":"spam.example"}' 'https://assureproof.com/contact-submit')
+          echo "POST honeypot contact -> $s"; [[ "$s" == 200 || "$s" == 429 ]] || { echo "::error::contact-submit honeypot routing broken"; exit 1; }
+          s=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d 'not-json' 'https://assureproof.com/api/z3-demo')
+          echo "POST invalid z3-demo -> $s"; [[ "$s" == 400 || "$s" == 429 ]] || { echo "::error::z3-demo validation broken"; exit 1; }
+          s=$(body -X POST -H 'Content-Type: application/json' -d '{"sourceA":{"value":100000},"sourceB":{"value":120000}}' 'https://assureproof.com/api/z3-demo')
+          echo "$s" | grep -q '"ok":true' || { echo "::error::z3-demo happy path broken"; exit 1; }
+          echo "Bot/redirect/endpoint policy verified live."
