@@ -53,6 +53,7 @@ SAME_AS_ENGLISH = {
     "uc.h.faq",
     # de same-word cases
     "contact.f_name",
+    "footer.contact",
     "footer.workflows",
     "pricing.pro",
     # fr: same word
