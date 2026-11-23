@@ -67,7 +67,7 @@ Requires wrangler auth on your machine (`npx wrangler login`).
 
 - The contact page posts JSON to `POST /contact-submit`, handled by the marketing
   Worker (legacy `/api/*` paths other than `/api/z3-demo` 301 to `/contact-us/`).
-- The Worker emails `sales@getassureai.com` via the Resend API using the
+- The Worker emails `sales@assureproof.com` via the Resend API using the
   `RESEND_API_KEY` Worker secret, with `reply_to` set to the submitter.
 - Set/rotate the secret once per account (persists across deploys):
 
