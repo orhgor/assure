@@ -238,6 +238,13 @@ export default {
       return Response.redirect(apex.toString(), 301);
     }
 
+    // Always HTTPS: http:// → https://, path and query kept (WP1).
+    if (url.protocol === "http:") {
+      const secure = new URL(url.toString());
+      secure.protocol = "https:";
+      return Response.redirect(secure.toString(), 301);
+    }
+
     // The fuel-retail page moved to a neutral URL (all locales).
     const fuel = url.pathname.match(/^(\/[a-z]{2})?\/use-cases\/fuel-retail\/?$/i);
     if (fuel) {

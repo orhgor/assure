@@ -39,17 +39,17 @@ LEGIT_ENGLISH = {
 }
 
 # Values kept as-is in every locale (never translated)
-KEEP_AS_IS = {"ParSure", "CrossSure", "Assure", "PDF", "Red-Hat", "Pro"}
+KEEP_AS_IS = {"ParSure", "CrossSure", "AssureProof", "PDF", "Red-Hat", "Pro"}
 
 BANNED = ["pilot", "beta", "coming soon", "waitlist", "free", "guaranteed",
           "zero errors", "100%", "garanti"]
 
-SYSTEM_PROMPT = """You are a professional B2B marketing translator for "Assure AI" (never translate the brand name).
+SYSTEM_PROMPT = """You are a professional B2B marketing translator for "AssureProof" (never translate the brand name).
 Translate English UI strings into the target locale. Professional and natural, not literal.
 Keep HTML tags and {placeholders} exactly as-is. No em dashes. Use full-width punctuation for zh/ja.
 Never use words meaning pilot, beta, coming soon, waitlist, free, guaranteed, zero errors, 100%, garanti.
 No certifications, timelines, or vendor/client names. Translate legal/privacy text faithfully, without softening it.
-Keep the product names ParSure, CrossSure and Assure untranslated.
+Keep the product names ParSure, CrossSure and AssureProof untranslated.
 Return valid JSON only: an object mapping each input key to its translation, same keys as input."""
 
 

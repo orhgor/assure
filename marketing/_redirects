@@ -1,0 +1,13 @@
+# Moved routes (WP1). Runtime 301s are enforced by the Worker
+# (marketing/cloudflare/marketing-worker.js); this file documents them and
+# keeps the mapping portable to Cloudflare Pages _redirects if ever needed.
+/contact /contact-us/ 301
+/contact/ /contact-us/ 301
+/government /use-cases/government/ 301
+/government/ /use-cases/government/ 301
+/app /contact-us/ 301
+/app/ /contact-us/ 301
+/api /contact-us/ 301
+/api/ /contact-us/ 301
+/use-cases/fuel-retail /use-cases/bonus-reconciliation/ 301
+/use-cases/fuel-retail/ /use-cases/bonus-reconciliation/ 301
