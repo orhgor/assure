@@ -17,3 +17,5 @@
 /assets/*
   Cache-Control: public, max-age=3600
 
+
+# Mirrored from the Worker security-header contract (WP8).
