@@ -19,33 +19,33 @@ behavior after every deploy.
 | Legacy paths | `/contact`, `/government`, `/app`, `/api` (and `/use-cases/fuel-retail`) 301 to their current routes | 301s observed |
 | Endpoint protection | `POST /contact-submit` (Resend) and `POST /api/z3-demo` are dispatched before the legacy `/app`//`/api` GET fallback; per-IP fixed-window limits (5/10 min, 30/min), `Retry-After` on 429, `company_website` honeypot accepted-and-dropped | 400 on invalid JSON, 200 on honeypot POST, 200 on valid z3-demo |
 
-## Email delivery (verified — fixed 2026-11-23)
+## Email delivery (verified — final setup 2026-11-23)
 
 Contact submissions are delivered by the **Resend API** from the Worker:
 
-- `from`: `AssureProof Website <website@getassureai.com>`
-- `to`: `sales@getassureai.com`
-- The verified sending domain in Resend is **getassureai.com**
-  (owner-confirmed; it receives and sends).
+- `from`: `AssureProof Website <website@getassureai.com>` — the verified
+  sending domain in Resend (**getassureai.com**).
+- `to`: `sales@assureproof.com` — the branded inbox, which receives mail
+  (owner: any assureproof.com mailbox works).
 
-**Incident record:** since the 2026-11-15 R2→Workers cutover the worker used
-`website@assureproof.com` / `sales@assureproof.com`. `assureproof.com` is
-**not verified** in Resend, so every form submission was rejected — a live
-probe on 2026-11-23 returned `502` with Resend's error: *"The assureproof.com
-domain is not verified."* The addresses were restored to the verified
-getassureai.com domain in the same PR;
-`test_worker_email_uses_the_verified_resend_domain` now fails the build if
-the addresses drift off the verified domain again.
+Two deliberate owner decisions, both recorded so they are not "fixed" later:
 
-**Public contact address (owner decision, 2026-11-23):** the working inbox
-`sales@getassureai.com` is also the published contact address — it appears
-on `/contact-us/` ("Prefer email?"), in the contact/PoC error copy, in the
-PoC FAQ (`faq.10.a`) and in `security.txt` (`Contact:
-mailto:sales@getassureai.com`). `assureproof.com` is intentionally **not** a
-sending domain — the owner keeps the primary domain out of send
-authorization for security (tighter SPF/DMARC posture) — so do not "fix"
-deliverability by verifying assureproof.com in Resend; sending stays on the
-verified getassureai.com domain.
+1. **assureproof.com is intentionally NOT a sending domain.** Keeping the
+   primary domain out of send authorization is a security posture (tighter
+   SPF/DMARC; nothing external can spoof mail from it). Do not verify
+   assureproof.com in Resend.
+2. **The published contact address is the branded
+   `sales@assureproof.com`** — shown on `/contact-us/` ("Prefer email?"),
+   in the contact/PoC error copy, in the PoC FAQ (`faq.10.a`) and in
+   `security.txt` (`Contact: mailto:sales@assureproof.com`). The contact
+   form delivers to the same mailbox, so there is exactly one contact route.
+
+**Incident record:** from the 2026-11-15 R2→Workers cutover until
+2026-11-23 the worker used `website@assureproof.com` as the FROM address;
+Resend rejected every submission with `502` (*"The assureproof.com domain
+is not verified."*). Fixed by moving the FROM address to the verified
+getassureai.com domain; `test_worker_email_uses_the_verified_resend_domain`
+guards the split (sending domain vs recipient inbox) so neither side drifts.
 | Security headers | CSP (`frame-ancestors 'none'`, no `unsafe-inline` in script-src), HSTS, X-Frame-Options DENY, nosniff, Referrer-Policy, Permissions-Policy on every response | header checks pass post-deploy |
 
 ## Discovery files (verified)

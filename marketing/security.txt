@@ -1,4 +1,4 @@
-Contact: mailto:sales@getassureai.com
+Contact: mailto:sales@assureproof.com
 Expires: 2027-11-23T00:00:00Z
 Canonical: https://assureproof.com/.well-known/security.txt
 Preferred-Languages: en
