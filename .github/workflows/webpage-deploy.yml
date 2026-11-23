@@ -26,11 +26,13 @@ on:
     branches: [main]
     paths:
       - 'marketing/**'
+      - 'tests/**'
       - '.github/workflows/webpage-deploy.yml'
   pull_request:
     branches: [main]
     paths:
       - 'marketing/**'
+      - 'tests/**'
       - '.github/workflows/webpage-deploy.yml'
 
 concurrency:
