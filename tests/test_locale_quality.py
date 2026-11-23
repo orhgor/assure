@@ -300,3 +300,53 @@ def test_dist_finance_detail_pages_are_translated() -> None:
             if any(marker in text for marker in markers):
                 bad.append(rel)
     assert not bad, f"English finance detail content: {bad[:10]}"
+# WP2 (plan v7): model-level claims are banned; determinism is scoped to the
+# figure check; Red-Hat frequency is deployment-configured, never absolute.
+MODEL_CLAIM_PATTERNS = [
+    re.compile(r"no hallucination|keine Halluzination|ハルシネーション|幻觉|alucinación|uydurma|هلوسة", re.I),
+    re.compile(r"no model drift|Modellabweichung|モデルのドリフト|模型漂移|deriva del modelo|model kayması|انحراف للنموذج", re.I),
+    re.compile(r"no temperature", re.I),
+    re.compile(r"runs on every draft", re.I),
+    re.compile(r"runs only when (requested|someone asks)", re.I),
+    re.compile(r"An optional, separate adversarial", re.I),
+]
+
+
+def _wp2_reachable_keys(en):
+    return {k for k in _reachable_keys(en) if k.startswith(("faq.a", "faq.q", "meta.", "flow.", "howto."))}
+
+
+def test_wp2_no_model_level_claims(en, reachable):
+    bad = {}
+    for locale in ("en",) + LOCALES:
+        data = _locale(locale)
+        hits = sorted(
+            f"{k}: {data[k][:50]}"
+            for k in _wp2_reachable_keys(en)
+            if k in data and any(rx.search(data[k]) for rx in MODEL_CLAIM_PATTERNS)
+        )
+        if hits:
+            bad[locale] = hits[:5]
+    assert not bad, f"model-level claims back (WP2): {bad}"
+
+
+def test_wp2_redhat_frequency_is_configured():
+    """faq.a4 must state BOTH alternatives (per-deployment configuration):
+    'can run on every draft' AND 'only when a reviewer requests it'."""
+    pair = {
+        "en": ("can run on every draft", "only when a reviewer requests it"),
+        "fr": ("sur chaque brouillon", "quand un relecteur la demande"),
+        "de": ("auf jedem Entwurf", "Anfrage eines Prüfers"),
+        "ja": ("全ドラフトで実行", "依頼時のみ"),
+        "zh": ("在每份草稿上运行", "仅在审阅人提出请求时运行"),
+        "es": ("en cada borrador", "cuando un revisor la solicite"),
+        "tr": ("her taslakta", "inceleyici istediğinde"),
+        "ar": ("على كل مسودة", "عندما يطلبها مراجع"),
+    }
+    bad = {}
+    for locale in ("en",) + LOCALES:
+        value = _locale(locale).get("faq.a4", "")
+        a, b = pair[locale]
+        if a not in value or b not in value:
+            bad[locale] = value[:60]
+    assert not bad, f"Red-Hat frequency not stated as deployment-configured: {bad}"
