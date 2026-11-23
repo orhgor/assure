@@ -1,0 +1,21 @@
+fix: send contact email from the verified Resend domain (getassureai.com)
+
+Resend rejects a from-address on a non-verified domain. assureproof.com is
+not verified in Resend, so every /contact-submit submission since the
+2026-11-15 R2->Workers cutover failed with 502 ("The assureproof.com domain
+is not verified.") - a live probe on 2026-11-23 reproduced it.
+
+- worker: SALES_INBOX -> sales@getassureai.com, EMAIL_FROM ->
+  AssureProof Website <website@getassureai.com> (the verified domain the
+  owner confirmed is integrated, receiving and sending).
+- test_site_email_addresses_use_assureproof_com was enforcing the broken
+  invariant; reshaped into test_worker_email_uses_the_verified_resend_domain:
+  worker addresses must stay on the verified domain, and the legacy domain
+  must still never leak onto built pages.
+- docs/runbooks/ship-webpage.md: the original getassureai.com addresses
+  were correct - the previous edit is reverted.
+- docs/bot-policy-audit.md: email-delivery section with the incident
+  record; the public-facing contact address (contact page, PoC error copy,
+  security.txt Contact) remains [CONFIRM].
+
+Local: pytest tests/ = 99 passed.

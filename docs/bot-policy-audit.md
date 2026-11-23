@@ -18,6 +18,31 @@ behavior after every deploy.
 | Trust-center move | `/security` and `/security/` (with optional locale prefix) 301 to the matching `/trust/` route; the rule precedes the legacy `/app`/`/api` fallback and the static-asset 404 fallthrough | `/security/` → `301 /trust/`; `/de/security/` → `301 /de/trust/` |
 | Legacy paths | `/contact`, `/government`, `/app`, `/api` (and `/use-cases/fuel-retail`) 301 to their current routes | 301s observed |
 | Endpoint protection | `POST /contact-submit` (Resend) and `POST /api/z3-demo` are dispatched before the legacy `/app`//`/api` GET fallback; per-IP fixed-window limits (5/10 min, 30/min), `Retry-After` on 429, `company_website` honeypot accepted-and-dropped | 400 on invalid JSON, 200 on honeypot POST, 200 on valid z3-demo |
+
+## Email delivery (verified — fixed 2026-11-23)
+
+Contact submissions are delivered by the **Resend API** from the Worker:
+
+- `from`: `AssureProof Website <website@getassureai.com>`
+- `to`: `sales@getassureai.com`
+- The verified sending domain in Resend is **getassureai.com**
+  (owner-confirmed; it receives and sends).
+
+**Incident record:** since the 2026-11-15 R2→Workers cutover the worker used
+`website@assureproof.com` / `sales@assureproof.com`. `assureproof.com` is
+**not verified** in Resend, so every form submission was rejected — a live
+probe on 2026-11-23 returned `502` with Resend's error: *"The assureproof.com
+domain is not verified."* The addresses were restored to the verified
+getassureai.com domain in the same PR;
+`test_worker_email_uses_the_verified_resend_domain` now fails the build if
+the addresses drift off the verified domain again.
+
+**Still [CONFIRM]:** the *public-facing* contact address shown on
+`/contact-us/`, in the PoC error copy, and in `security.txt` (`Contact:
+mailto:sales@assureproof.com`). Showing the working `sales@getassureai.com`
+inbox publicly is a branding decision for the owner — until then, visitors
+emailing `sales@assureproof.com` depend on that mailbox existing outside
+Resend.
 | Security headers | CSP (`frame-ancestors 'none'`, no `unsafe-inline` in script-src), HSTS, X-Frame-Options DENY, nosniff, Referrer-Policy, Permissions-Policy on every response | header checks pass post-deploy |
 
 ## Discovery files (verified)
