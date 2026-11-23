@@ -207,6 +207,25 @@ def test_architecture_pipeline_in_order():
     assert 'href="/security/"' in html
 
 
+def test_hero_ctas_point_to_evidence_and_poc():
+    """WP5: the hero's 'See the proof' button points to /evidence/ and the
+    pilot CTA to /poc/ — the hero buttons no longer target /#how."""
+    html, _ = _dist_text("index.html")
+    assert 'href="/evidence/" class="btn-primary"' in html
+    assert 'href="/poc/" class="btn-text"' in html
+    assert 'href="/#how" class="btn-text"' not in html
+    assert 'href="/#how" class="btn-primary"' not in html
+
+
+def test_evidence_page_renders_worked_examples():
+    html, t = _dist_text("evidence/index.html")
+    for token in ("Evidence and method", "Worked examples",
+                  "Invoice over contract cap", "Claim payout over sub-limit",
+                  "Commission multiplier", "Results from proof-of-concept reports are available on request."):
+        assert token in t, token
+    assert 'href="/poc/"' in html or 'href="/contact-us/"' in html
+
+
 def test_use_case_pages_link_to_architecture():
     for rel in ["use-cases/insurance/index.html", "use-cases/government/index.html",
                 "use-cases/procurement/index.html", "use-cases/finance/index.html",

@@ -355,3 +355,43 @@ def test_wp2_redhat_frequency_is_configured():
         if a not in value or b not in value:
             bad[locale] = value[:60]
     assert not bad, f"Red-Hat frequency not stated as deployment-configured: {bad}"
+
+
+def test_evidence_page_shows_status_not_benchmarks():
+    """/evidence/ (WP5) must state that PoC results are available on request
+    and label the worked examples as simulated — in every locale."""
+    missing = {}
+    for loc in ("en",) + LOCALES:
+        base = DIST if loc == "en" else DIST / loc
+        ev_page = base / "evidence" / "index.html"
+        if not ev_page.is_file():
+            missing[loc] = "page missing"
+            continue
+        html = ev_page.read_text(encoding="utf-8")
+        catalog = _locale(loc)
+        results = catalog.get("evidence.results", "")
+        label = catalog.get("proof.label", "")
+        problems = []
+        if not results or results not in html:
+            problems.append("results line")
+        if not label or label not in html:
+            problems.append("simulated label")
+        if problems:
+            missing[loc] = problems
+    assert not missing, f"/evidence/ status checks failed: {missing}"
+
+
+def test_evidence_document_languages_claim_matches_c5():
+    """/architecture/ must carry the C5 claim (all 8 UI languages) in every locale."""
+    missing = {}
+    for loc in ("en",) + LOCALES:
+        base = DIST if loc == "en" else DIST / loc
+        arch_page = base / "architecture" / "index.html"
+        if not arch_page.is_file():
+            missing[loc] = "page missing"
+            continue
+        html = arch_page.read_text(encoding="utf-8")
+        value = _locale(loc).get("arch.lim.languages", "")
+        if not value or value not in html:
+            missing[loc] = "C5 line"
+    assert not missing, f"C5 document-languages claim missing: {missing}"

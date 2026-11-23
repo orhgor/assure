@@ -1,0 +1,71 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<main id="main-content">
+  <section class="page-hero">
+    <div class="container">
+      <h1 data-i18n="evidence.title">{{ strings.get('evidence.title', 'Evidence and method') }}</h1>
+      <p class="lede" data-i18n="evidence.lede">{{ strings.get('evidence.lede', 'What the check measures, how a flag is validated against its source pages, and what we can show today.') }}</p>
+    </div>
+  </section>
+
+  <section class="section" aria-labelledby="evidence-method-title">
+    <div class="container">
+      <div class="section-header">
+        <h2 id="evidence-method-title" class="section-title" data-i18n="evidence.method.title">{{ strings.get('evidence.method.title', 'Method') }}</h2>
+      </div>
+      <div class="uc-mini-grid">
+        <article class="uc-mini"><p data-i18n="evidence.method.1">{{ strings.get('evidence.method.1', 'Every figure, date, rate and percentage in a draft is measured against the files it was written from.') }}</p></article>
+        <article class="uc-mini"><p data-i18n="evidence.method.2">{{ strings.get('evidence.method.2', 'A flag is validated against the source pages: it carries the page the figure came from and the page it conflicts with, so a reviewer can check both in seconds.') }}</p></article>
+        <article class="uc-mini"><p data-i18n="evidence.method.3">{{ strings.get('evidence.method.3', 'A person decides every flag. The decision — accept, correct or dispute — is logged with who made it, when, and the reason.') }}</p></article>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" aria-labelledby="evidence-results-title">
+    <div class="container">
+      <div class="section-header">
+        <h2 id="evidence-results-title" class="section-title" data-i18n="evidence.results.title">{{ strings.get('evidence.results.title', 'Results') }}</h2>
+      </div>
+      <p class="lede" data-i18n="evidence.results">{{ strings.get('evidence.results', 'Results from proof-of-concept reports are available on request.') }}</p>
+    </div>
+  </section>
+
+  <section class="section" aria-labelledby="evidence-examples-title">
+    <div class="container">
+      <div class="section-header">
+        <h2 id="evidence-examples-title" class="section-title" data-i18n="evidence.examples.title">{{ strings.get('evidence.examples.title', 'Worked examples') }}</h2>
+        <p class="section-sub" data-i18n="uc.example.label">{{ strings.get('uc.example.label', 'Illustrative example, simulated data, not a customer result') }}</p>
+      </div>
+      <div class="uc-mini-grid">
+        <article class="uc-mini">
+          <h3 data-i18n="evidence.ex1.title">{{ strings.get('evidence.ex1.title', 'Invoice over contract cap') }}</h3>
+          <p data-i18n="about.proof">{{ strings.get('about.proof', '') }}</p>
+        </article>
+        <article class="uc-mini">
+          <h3 data-i18n="evidence.ex2.title">{{ strings.get('evidence.ex2.title', 'Claim payout over sub-limit') }}</h3>
+          <p data-i18n="uc.ins.example">{{ strings.get('uc.ins.example', '') }}</p>
+        </article>
+        <article class="uc-mini">
+          <h3 data-i18n="evidence.ex3.title">{{ strings.get('evidence.ex3.title', 'Commission multiplier') }}</h3>
+          <p data-i18n="uc.fuel.example">{{ strings.get('uc.fuel.example', '') }}</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" aria-labelledby="evidence-capture-title">
+    <div class="container">
+      <div class="section-header">
+        <h2 id="evidence-capture-title" class="section-title" data-i18n="evidence.capture.title">{{ strings.get('evidence.capture.title', 'Product capture') }}</h2>
+      </div>
+      <div class="uc-example">
+        <p class="proof-label" data-i18n="proof.label">{{ strings.get('proof.label', 'Illustrative example, simulated data, not a customer result') }}</p>
+        <p data-i18n="evidence.capture.note">{{ strings.get('evidence.capture.note', 'The interactive replay stays on the home page, labeled as simulated. This space is reserved for a real review-screen capture.') }}</p>
+      </div>
+    </div>
+  </section>
+
+  {% include 'includes/demo_cta.html' %}
+</main>
+{% endblock %}
