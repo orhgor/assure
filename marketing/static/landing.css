@@ -2668,3 +2668,7 @@ button.btn-primary:hover {
   .uc-example { padding: 28px 24px; }
   .uc-block-next { margin-top: 48px; }
 }
+.uc-arch-link { margin: 28px 0 0; text-align: center; }
+@media (max-width: 760px) {
+  .uc-arch-link { margin-top: 20px; }
+}

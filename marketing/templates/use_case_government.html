@@ -9,9 +9,9 @@
 {% block content %}
 <main id="main-content" class="page">
   {% set uc_key = 'gov' %}
-  {% set flow_compact = true %}
   {% include 'includes/use_case_detail.html' %}
-  {% include 'includes/flow.html' %}
+
+  <p class="uc-arch-link"><a href="{{ locale_path }}architecture/" data-i18n="uc.arch.link">{{ strings.get('uc.arch.link', 'How the check works, end to end →') }}</a></p>
 
   <section class="demo-cta">
     <div class="container center">

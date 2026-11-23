@@ -46,6 +46,11 @@ SAME_AS_ENGLISH = {
     "crumb.solutions",
     "faq.title",
     "landing.nav.contact",
+    # glossary product names identical in every locale (WP3)
+    "arch.glos.parsure.t",
+    "arch.glos.draftsure.t",
+    "arch.glos.crosssure.t",
+    "arch.glos.z3.t",
     "pricing.faq.title",
     "proof.a.kicker",
     "proof.b.kicker",

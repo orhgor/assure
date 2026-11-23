@@ -15,12 +15,99 @@
         </div>
         <aside class="uc-summary">
           <p class="uc-summary-note" data-i18n="arch.where.body">{{ strings.get('arch.where.body', 'AssureProof runs in your own AWS account, on-premises, or in a private GPU environment, including air-gapped networks. You choose where the models run. With a self-hosted model, your documents stay inside that boundary.') }}</p>
+          <p class="uc-summary-note"><a href="{{ locale_path }}security/" data-i18n="arch.where.link">{{ strings.get('arch.where.link', 'Storage, encryption and retention: see Security and data.') }}</a></p>
         </aside>
       </div>
     </div>
   </section>
 
-  {% set flow_compact = true %}
-  {% include 'includes/flow.html' %}
+  <section class="flow-section flow-section--strip" id="arch-pipeline" aria-labelledby="arch-pipe-title">
+    <div class="container">
+      <div class="section-header">
+        <h2 class="section-title" id="arch-pipe-title" data-i18n="arch.pipe.title">{{ strings.get('arch.pipe.title', 'The pipeline, end to end') }}</h2>
+      </div>
+      <ol class="flow flow-strip" aria-label="{{ strings.get('arch.pipe.title', 'The pipeline, end to end') }}">
+        <li class="flow-step" data-step="01">
+          <span class="flow-num" aria-hidden="true">1</span>
+          <h3 data-i18n="arch.pipe.1.name">{{ strings.get('arch.pipe.1.name', 'Upload the document package') }}</h3>
+          <p data-i18n="arch.pipe.1.text">{{ strings.get('arch.pipe.1.text', 'PDFs, scans and images up to 25 MB and 200 pages per file.') }}</p>
+        </li>
+        <li class="flow-step" data-step="02">
+          <span class="flow-num" aria-hidden="true">2</span>
+          <h3 data-i18n="arch.pipe.2.name">{{ strings.get('arch.pipe.2.name', 'ParSure reads every page') }}</h3>
+          <p data-i18n="arch.pipe.2.text">{{ strings.get('arch.pipe.2.text', 'Each extracted field is pinned to the page it came from, so every figure keeps its source.') }}</p>
+        </li>
+        <li class="flow-step" data-step="03">
+          <span class="flow-num" aria-hidden="true">3</span>
+          <h3 data-i18n="arch.pipe.3.name">{{ strings.get('arch.pipe.3.name', 'DraftSure writes the draft') }}</h3>
+          <p data-i18n="arch.pipe.3.text">{{ strings.get('arch.pipe.3.text', 'The draft is written with a citation for every claim.') }}</p>
+        </li>
+        <li class="flow-step" data-step="04">
+          <span class="flow-num" aria-hidden="true">4</span>
+          <h3 data-i18n="arch.pipe.4.name">{{ strings.get('arch.pipe.4.name', 'CrossSure and Z3 check the figures') }}</h3>
+          <p data-i18n="arch.pipe.4.text">{{ strings.get('arch.pipe.4.text', 'Spreadsheets are compared in code. Z3 mathematically tests whether the figures and rules can all be true at the same time.') }}</p>
+        </li>
+        <li class="flow-step" data-step="05">
+          <span class="flow-num" aria-hidden="true">5</span>
+          <h3 data-i18n="arch.pipe.5.name">{{ strings.get('arch.pipe.5.name', 'Red-Hat review') }}</h3>
+          <p data-i18n="arch.pipe.5.text">{{ strings.get('arch.pipe.5.text', 'A separate language-model pass that lists weak claims. Whether it runs on every draft or only on request is configured per customer deployment.') }}</p>
+        </li>
+        <li class="flow-step" data-step="06">
+          <span class="flow-num" aria-hidden="true">6</span>
+          <h3 data-i18n="arch.pipe.6.name">{{ strings.get('arch.pipe.6.name', 'A person decides') }}</h3>
+          <p data-i18n="arch.pipe.6.text">{{ strings.get('arch.pipe.6.text', 'The reviewer accepts, corrects or disputes each flag on the review screen, with both source pages open.') }}</p>
+        </li>
+        <li class="flow-step" data-step="07">
+          <span class="flow-num" aria-hidden="true">7</span>
+          <h3 data-i18n="arch.pipe.7.name">{{ strings.get('arch.pipe.7.name', 'The decision is recorded') }}</h3>
+          <p data-i18n="arch.pipe.7.text">{{ strings.get('arch.pipe.7.text', 'Each decision is logged with who made it, when, the old and new value, and the reason.') }}</p>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="section" aria-labelledby="arch-glos-title">
+    <div class="container">
+      <div class="section-header">
+        <h2 id="arch-glos-title" class="section-title" data-i18n="arch.glos.title">{{ strings.get('arch.glos.title', 'Glossary') }}</h2>
+      </div>
+      <div class="uc-mini-grid">
+        <article class="uc-mini"><h3 data-i18n="arch.glos.parsure.t">{{ strings.get('arch.glos.parsure.t', 'ParSure') }}</h3><p data-i18n="arch.glos.parsure.d">{{ strings.get('arch.glos.parsure.d', 'The reading engine. Reads PDFs including scans, PNG, JPEG, TIFF and BMP images, and pins every extracted field to its source page.') }}</p></article>
+        <article class="uc-mini"><h3 data-i18n="arch.glos.draftsure.t">{{ strings.get('arch.glos.draftsure.t', 'DraftSure') }}</h3><p data-i18n="arch.glos.draftsure.d">{{ strings.get('arch.glos.draftsure.d', 'The drafting engine. Writes the draft with a citation for every claim.') }}</p></article>
+        <article class="uc-mini"><h3 data-i18n="arch.glos.crosssure.t">{{ strings.get('arch.glos.crosssure.t', 'CrossSure') }}</h3><p data-i18n="arch.glos.crosssure.d">{{ strings.get('arch.glos.crosssure.d', 'The spreadsheet engine. Reads XLSX, XLSM, XLS, CSV and TXT in code, without a model, and cross-checks figures across files.') }}</p></article>
+        <article class="uc-mini"><h3 data-i18n="arch.glos.z3.t">{{ strings.get('arch.glos.z3.t', 'Z3') }}</h3><p data-i18n="arch.glos.z3.d">{{ strings.get('arch.glos.z3.d', 'A formal logic solver (SMT) that mathematically proves whether the figures and rules in a draft can all be true at the same time.') }}</p></article>
+        <article class="uc-mini"><h3 data-i18n="arch.glos.redhat.t">{{ strings.get('arch.glos.redhat.t', 'Red-Hat review') }}</h3><p data-i18n="arch.glos.redhat.d">{{ strings.get('arch.glos.redhat.d', 'An adversarial language-model pass that lists weak claims. Configured per customer deployment.') }}</p></article>
+        <article class="uc-mini"><h3 data-i18n="arch.glos.screen.t">{{ strings.get('arch.glos.screen.t', 'Review screen') }}</h3><p data-i18n="arch.glos.screen.d">{{ strings.get('arch.glos.screen.d', 'Where a person sees each flagged figure with both source pages open and accepts, corrects or disputes it.') }}</p></article>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" aria-labelledby="arch-int-title">
+    <div class="container">
+      <div class="section-header">
+        <h2 id="arch-int-title" class="section-title" data-i18n="arch.int.title">{{ strings.get('arch.int.title', 'Integrations and capabilities') }}</h2>
+        <p class="section-sub" data-i18n="arch.int.intro">{{ strings.get('arch.int.intro', 'Available today:') }}</p>
+      </div>
+      <div class="uc-mini-grid">
+        <article class="uc-mini"><h3 data-i18n="arch.int.export">{{ strings.get('arch.int.export', 'CSV and signed JSON export — Available.') }}</h3></article>
+        <article class="uc-mini"><h3 data-i18n="arch.int.drafts">{{ strings.get('arch.int.drafts', 'Drafts as JSON or PDF — Available.') }}</h3></article>
+        <article class="uc-mini"><h3 data-i18n="arch.int.storage">{{ strings.get('arch.int.storage', 'S3 storage or your own disk — Available.') }}</h3></article>
+        <article class="uc-mini"><h3 data-i18n="arch.int.model">{{ strings.get('arch.int.model', 'Amazon Bedrock in your account, or a self-hosted model — Available.') }}</h3></article>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" aria-labelledby="arch-lim-title">
+    <div class="container">
+      <div class="section-header">
+        <h2 id="arch-lim-title" class="section-title" data-i18n="arch.lim.title">{{ strings.get('arch.lim.title', 'Product limits') }}</h2>
+      </div>
+      <div class="uc-mini-grid">
+        <article class="uc-mini"><p data-i18n="arch.lim.files">{{ strings.get('arch.lim.files', 'Up to 25 MB and 200 pages per file by default.') }}</p></article>
+        <article class="uc-mini"><p data-i18n="arch.lim.sheets">{{ strings.get('arch.lim.sheets', 'Spreadsheets (XLSX, XLSM, XLS, CSV, TXT) are read in code, without a model.') }}</p></article>
+      </div>
+      <p class="lede" data-i18n="arch.lim.statement">{{ strings.get('arch.lim.statement', 'The check covers figures, dates and citation support. Statements are judged by a support check against the cited source. A person reviews every flag and decides — AssureProof does not approve, pay or sign.') }}</p>
+    </div>
+  </section>
 </main>
 {% endblock %}

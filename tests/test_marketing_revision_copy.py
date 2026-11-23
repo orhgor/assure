@@ -156,6 +156,12 @@ def test_software_application_schema_has_category_and_operating_system():
 
 STEPS = ["Upload the document package", "Read and draft",
          "Check and cross-check", "A person decides"]
+
+# WP3: /architecture/ shows the component-named pipeline (7 steps) instead of
+# the de-branded four-step flow used on the marketing pages.
+ARCH_STEPS = ["Upload the document package", "ParSure reads every page",
+              "DraftSure writes the draft", "CrossSure and Z3 check the figures",
+              "Red-Hat review", "A person decides", "The decision is recorded"]
 EN_COPY_PAGES = ["index.html", "about/index.html", "architecture/index.html", "solutions/index.html",
                  "poc/index.html", "pricing/index.html", "security/index.html", "contact-us/index.html",
                  "use-cases/index.html", "use-cases/insurance/index.html", "use-cases/government/index.html"]
@@ -178,8 +184,7 @@ def test_home_copy_matches_the_code():
 
 
 def test_four_steps_in_order_on_core_pages():
-    for rel in ["index.html", "architecture/index.html", "solutions/index.html", "poc/index.html",
-                "use-cases/insurance/index.html", "use-cases/government/index.html"]:
+    for rel in ["index.html", "solutions/index.html", "poc/index.html"]:
         _, t = _dist_text(rel)
         at = t.find(STEPS[0])
         assert at >= 0, (rel, STEPS[0])
@@ -187,6 +192,28 @@ def test_four_steps_in_order_on_core_pages():
             nxt = t.find(step, at)
             assert nxt > at, (rel, "step missing or out of order: " + step)
             at = nxt
+
+
+def test_architecture_pipeline_in_order():
+    html, t = _dist_text("architecture/index.html")
+    at = t.find(ARCH_STEPS[0])
+    assert at >= 0, ARCH_STEPS[0]
+    for step in ARCH_STEPS[1:]:
+        nxt = t.find(step, at)
+        assert nxt > at, ("architecture", "pipeline step missing or out of order: " + step)
+        at = nxt
+    for token in ("Glossary", "Integrations and capabilities", "Product limits"):
+        assert token in t, token
+    assert 'href="/security/"' in html
+
+
+def test_use_case_pages_link_to_architecture():
+    for rel in ["use-cases/insurance/index.html", "use-cases/government/index.html",
+                "use-cases/procurement/index.html", "use-cases/finance/index.html",
+                "use-cases/bonus-reconciliation/index.html"]:
+        html, t = _dist_text(rel)
+        assert 'href="/architecture/"' in html, rel
+        assert "How the check works, end to end" in t, rel
 
 
 def test_no_export_lock_or_agent_claims():
