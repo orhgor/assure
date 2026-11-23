@@ -110,6 +110,12 @@ PAGES: list[dict] = [
         "suffix": "architecture/",
     },
     {
+        "template": "evidence.html",
+        "output": "evidence/index.html",
+        "kind": "landing",
+        "suffix": "evidence/",
+    },
+    {
         "template": "solutions.html",
         "output": "solutions/index.html",
         "kind": "landing",
@@ -158,6 +164,7 @@ TEMPLATE_TO_META = {
     "security.html": "security",
     "pricing.html": "pricing",
     "architecture.html": "architecture",
+    "evidence.html": "evidence",
     "solutions.html": "solutions",
     "poc.html": "poc",
     "use_case_finance.html": "use_case_finance",
