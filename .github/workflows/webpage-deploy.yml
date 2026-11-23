@@ -168,9 +168,9 @@ jobs:
           r=$(code 'https://assureproof.com/trust/')
           echo "/trust/ -> $r"; [[ "$r" == 200* ]] || { echo "::error::/trust/ not live"; exit 1; }
           r=$(code 'https://assureproof.com/security/')
-          echo "/security/ -> $r"; [[ "$r" == 301*\ /trust/* ]] || { echo "::error::/security/ legacy redirect broken"; exit 1; }
+          echo "/security/ -> $r"; [[ "$r" == 301*\ */trust/* ]] || { echo "::error::/security/ legacy redirect broken"; exit 1; }
           r=$(code 'https://assureproof.com/de/security/')
-          echo "/de/security/ -> $r"; [[ "$r" == 301*\ /de/trust/* ]] || { echo "::error::locale /security/ redirect broken"; exit 1; }
+          echo "/de/security/ -> $r"; [[ "$r" == 301*\ */de/trust/* ]] || { echo "::error::locale /security/ redirect broken"; exit 1; }
           st=$(body 'https://assureproof.com/.well-known/security.txt')
           echo "$st" | grep -q '^Contact: mailto:' || { echo "::error::security.txt Contact missing"; exit 1; }
           echo "$st" | grep -q '^Expires:' || { echo "::error::security.txt Expires missing"; exit 1; }
