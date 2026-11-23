@@ -117,3 +117,66 @@ def test_security_route_not_built():
     if not (DIST / "index.html").is_file():
         pytest.skip("dist not built")
     assert not (DIST / "security").exists(), "stale /security/ pages in dist"
+
+
+FLOW_BLOCK_MARKERS = ('id="how-it-works"', 'data-i18n="flow.title"')
+
+
+def test_no_four_step_flow_block_on_poc_and_architecture():
+    """/poc/ and /architecture/ must link out instead of duplicating the
+    landing four-step 'How it works' block - in every locale."""
+    bad = {}
+    for loc in LOCALES:
+        base = DIST if loc == "en" else DIST / loc
+        for page in ("poc/index.html", "architecture/index.html"):
+            path = base / page
+            if not path.is_file():
+                bad[(loc, page)] = "missing"
+                continue
+            html = path.read_text(encoding="utf-8")
+            hits = [m for m in FLOW_BLOCK_MARKERS if m in html]
+            if hits:
+                bad[(loc, page)] = hits
+    assert not bad, f"four-step flow block still rendered: {bad}"
+
+
+def test_discovery_routes_resolve():
+    """/evidence/ and /trust/ resolve in every locale; /llms.txt and
+    /.well-known/security.txt resolve at the root."""
+    missing = []
+    for loc in LOCALES:
+        base = DIST if loc == "en" else DIST / loc
+        for rel in ("evidence/index.html", "trust/index.html"):
+            if not (base / rel).is_file():
+                missing.append(f"{loc}/{rel}")
+    for rel in ("llms.txt", ".well-known/security.txt"):
+        if not (DIST / rel).is_file():
+            missing.append(rel)
+    assert not missing, missing
+
+
+def test_footer_links_evidence_in_every_locale():
+    """The footer must surface /evidence/ with the localized page title
+    ('Evidence and method'), in every locale."""
+    bad = {}
+    for loc in LOCALES:
+        base = DIST if loc == "en" else DIST / loc
+        page = base / "index.html"
+        if not page.is_file():
+            bad[loc] = "home missing"
+            continue
+        html = page.read_text(encoding="utf-8")
+        catalog = json.loads((LOCALES_DIR / f"{loc}.json").read_text(encoding="utf-8"))
+        label = catalog["evidence.title"]
+        href = 'href="/evidence/"' if loc == "en" else f'href="/{loc}/evidence/"'
+        visible = re.sub(r"<script[^>]*>.*?</script>", " ", html, flags=re.S)
+        visible = re.sub(r"<[^>]+>", " ", visible)
+        problems = []
+        if href not in html:
+            problems.append("link")
+        if label not in visible:
+            problems.append("label")
+        if problems:
+            bad[loc] = problems
+    assert not bad, f"footer evidence link failed: {bad}"
+
