@@ -59,6 +59,9 @@ done
 if [ -f "$ROOT/marketing/_headers" ]; then
   cp "$ROOT/marketing/_headers" "$DIST_DIR/_headers"
 fi
+if [ -f "$ROOT/marketing/_redirects" ]; then
+  cp "$ROOT/marketing/_redirects" "$DIST_DIR/_redirects"
+fi
 
 if [ -f "$ROOT/marketing/robots.txt" ]; then
   cp "$ROOT/marketing/robots.txt" "$DIST_DIR/robots.txt"
