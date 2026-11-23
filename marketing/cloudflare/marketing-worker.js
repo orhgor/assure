@@ -59,6 +59,54 @@ const SECURITY_HEADERS = {
   "Content-Security-Policy": CSP,
 };
 
+// --- Endpoint abuse control -------------------------------------------------
+// Best-effort per-IP fixed-window rate limiting for the POST endpoints.
+// Counters live per Worker isolate: they reset on deploy or isolate eviction
+// and are counted independently per Cloudflare PoP. Durable domain-wide
+// limits belong in a Cloudflare WAF rate-limiting rule (dashboard-managed).
+const RATE_LIMITS = {
+  "/contact-submit": { limit: 5, windowMs: 10 * 60 * 1000 },
+  "/api/z3-demo": { limit: 30, windowMs: 60 * 1000 },
+};
+const rateBuckets = new Map();
+
+function rateLimitCheck(pathname, ip) {
+  const rule = RATE_LIMITS[pathname];
+  if (!rule) return null;
+  const now = Date.now();
+  const key = pathname + "|" + ip;
+  const bucket = rateBuckets.get(key);
+  if (!bucket || now - bucket.start >= rule.windowMs) {
+    if (rateBuckets.size > 5000) {
+      for (const [k, b] of rateBuckets) {
+        if (now - b.start >= rule.windowMs) rateBuckets.delete(k);
+      }
+    }
+    rateBuckets.set(key, { start: now, count: 1 });
+    return null;
+  }
+  bucket.count += 1;
+  if (bucket.count > rule.limit) {
+    return Math.max(1, Math.ceil((bucket.start + rule.windowMs - now) / 1000));
+  }
+  return null;
+}
+
+function tooManyRequests(retryAfter, origin) {
+  const headers = {
+    "content-type": "application/json; charset=utf-8",
+    "Retry-After": String(retryAfter),
+  };
+  for (const [name, value] of Object.entries(corsHeaders(origin))) {
+    headers[name] = value;
+  }
+  return new Response(
+    JSON.stringify({ error: "Too many requests. Please try again later." }),
+    { status: 429, headers }
+  );
+}
+// ----------------------------------------------------------------------------
+
 // Locale folders in dist/ (mirrors marketing/locales; en lives at the root).
 const LOCALES = ["de", "es", "fr", "tr", "ja", "zh", "ar"];
 
@@ -210,6 +258,8 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     const origin = request.headers.get("Origin") || "";
+    const clientIp = request.headers.get("CF-Connecting-IP") || "unknown";
+
 
     // CORS preflight
     if (request.method === "OPTIONS") {
@@ -218,6 +268,10 @@ export default {
 
     // Contact form → Resend email to the sales inbox.
     if (request.method === "POST" && url.pathname === "/contact-submit") {
+      const retryAfter = rateLimitCheck("/contact-submit", clientIp);
+      if (retryAfter !== null) {
+        return tooManyRequests(retryAfter, origin);
+      }
       const res = await handleContactSubmit(request, env);
       // Add CORS headers to response
       const resHeaders = new Headers(res.headers);
@@ -229,6 +283,10 @@ export default {
 
     // Z3 demo endpoint for interactive hero proof card.
     if (request.method === "POST" && url.pathname === "/api/z3-demo") {
+      const retryAfter = rateLimitCheck("/api/z3-demo", clientIp);
+      if (retryAfter !== null) {
+        return tooManyRequests(retryAfter, origin);
+      }
       const res = await handleZ3Demo(request, env);
       const resHeaders = new Headers(res.headers);
       for (const [name, value] of Object.entries(corsHeaders(origin))) {
@@ -239,6 +297,14 @@ export default {
 
     if (request.method !== "GET" && request.method !== "HEAD") {
       return new Response("Method not allowed", { status: 405 });
+    }
+
+    // Legacy domain: getassureai.com (and www) → assureproof.com, one 301 hop
+    // that also upgrades http→https. Mirrors the dashboard redirect rule so the
+    // consolidation survives even if the zone-level rule is ever removed.
+    if (url.hostname === "getassureai.com" || url.hostname === "www.getassureai.com") {
+      const consolidated = new URL("https://assureproof.com" + url.pathname + url.search);
+      return Response.redirect(consolidated.toString(), 301);
     }
 
     // One host: www.assureproof.com → assureproof.com, path and query kept.

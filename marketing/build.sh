@@ -62,6 +62,10 @@ fi
 if [ -f "$ROOT/marketing/_redirects" ]; then
   cp "$ROOT/marketing/_redirects" "$DIST_DIR/_redirects"
 fi
+mkdir -p "$DIST_DIR/.well-known"
+if [ -f "$ROOT/marketing/security.txt" ]; then
+  cp "$ROOT/marketing/security.txt" "$DIST_DIR/.well-known/security.txt"
+fi
 
 if [ -f "$ROOT/marketing/robots.txt" ]; then
   cp "$ROOT/marketing/robots.txt" "$DIST_DIR/robots.txt"
