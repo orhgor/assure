@@ -327,6 +327,13 @@ export default {
       return Response.redirect(new URL(`${fuel[1] || ""}/use-cases/bonus-reconciliation/`, url.origin).toString(), 301);
     }
 
+    // The trust center moved from /security/ to /trust/ (final close-out).
+    const sec = url.pathname.match(/^\/(?:([a-z]{2})\/)?security\/?$/i);
+    if (sec && (!sec[1] || LOCALES.includes(sec[1]))) {
+      const prefix = sec[1] ? `/${sec[1]}` : "";
+      return Response.redirect(new URL(`${prefix}/trust/`, url.origin).toString(), 301);
+    }
+
     // Legacy and convenience redirects.
     if (url.pathname === "/contact" || url.pathname === "/contact/") {
       return Response.redirect(new URL("/contact-us/", url.origin).toString(), 301);

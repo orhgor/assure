@@ -26,8 +26,12 @@
     </div>
   </section>
 
-  {% set flow_compact = true %}
-  {% include 'includes/flow.html' %}
+  <section class="section">
+    <div class="container center">
+      <p data-i18n="poc.scope">{{ strings.get('poc.scope', 'Scope note first: one workflow, 5-10 sample cases (up to 50 files), agreed in writing before the run.') }}</p>
+      <p><a href="{{ locale_path }}architecture/" data-i18n="footer.architecture">{{ strings.get('footer.architecture', 'How it works in detail') }}</a></p>
+    </div>
+  </section>
 
   <section class="section">
     <div class="container">
@@ -77,7 +81,7 @@
               <label><input type="radio" name="cases" value="yes" required> <span data-i18n="poc.form.cases.yes">{{ strings.get('poc.form.cases.yes', 'Yes') }}</span></label>
               <label><input type="radio" name="cases" value="check"> <span data-i18n="poc.form.cases.check">{{ strings.get('poc.form.cases.check', 'Need to check') }}</span></label>
             </div>
-            <p class="text-small"><a href="{{ locale_path }}security/" data-i18n="poc.form.faq">{{ strings.get('poc.form.faq', 'How we handle your files') }}</a></p>
+            <p class="text-small"><a href="{{ locale_path }}trust/" data-i18n="poc.form.faq">{{ strings.get('poc.form.faq', 'How we handle your files') }}</a></p>
           </fieldset>
           <fieldset>
             <legend data-i18n="poc.form.review">{{ strings.get('poc.form.review', 'Who will join the 30-minute findings review?') }}</legend>

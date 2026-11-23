@@ -11,3 +11,5 @@
 /api/ /contact-us/ 301
 /use-cases/fuel-retail /use-cases/bonus-reconciliation/ 301
 /use-cases/fuel-retail/ /use-cases/bonus-reconciliation/ 301
+/security /trust/ 301
+/security/ /trust/ 301

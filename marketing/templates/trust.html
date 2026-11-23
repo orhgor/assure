@@ -88,6 +88,58 @@
         </div>
       </figure>
 
+      <!-- Trust facts: values are shared catalog keys reused from /architecture/
+           and /security/ copy so facts are maintained in exactly one place. -->
+      <section class="section">
+        <div class="container">
+          <div class="section-header">
+            <h2 class="section-title" data-i18n="trust.facts.title">{{ strings.get('trust.facts.title', 'Facts at a glance') }}</h2>
+          </div>
+          <dl class="trust-facts">
+            <div class="trust-fact">
+              <dt data-i18n="trust.facts.model">{{ strings.get('trust.facts.model', 'Model') }}</dt>
+              <dd data-i18n="security.diagram.model">{{ strings.get('security.diagram.model', 'Amazon Bedrock in your account, or a self-hosted model on your GPU') }}</dd>
+            </div>
+            <div class="trust-fact">
+              <dt data-i18n="trust.facts.storage">{{ strings.get('trust.facts.storage', 'File storage') }}</dt>
+              <dd data-i18n="security.diagram.store">{{ strings.get('security.diagram.store', 'Files on your own disk or in your S3 bucket') }}</dd>
+            </div>
+            <div class="trust-fact">
+              <dt data-i18n="trust.facts.redhat">{{ strings.get('trust.facts.redhat', 'Red-Hat review') }}</dt>
+              <dd data-i18n="arch.pipe.5.text">{{ strings.get('arch.pipe.5.text', 'A separate language-model pass that lists weak claims. Whether it runs on every draft or only on request is configured per customer deployment.') }}</dd>
+            </div>
+            <div class="trust-fact">
+              <dt data-i18n="trust.facts.limits">{{ strings.get('trust.facts.limits', 'File limits') }}</dt>
+              <dd data-i18n="arch.lim.files">{{ strings.get('arch.lim.files', 'Up to 25 MB and 200 pages per file by default.') }}</dd>
+            </div>
+          </dl>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="container">
+          <div class="section-header">
+            <h2 class="section-title" data-i18n="trust.subprocessors.title">{{ strings.get('trust.subprocessors.title', 'Subprocessors') }}</h2>
+          </div>
+          <ul class="trust-subs">
+            <li data-i18n="trust.sub.1">{{ strings.get('trust.sub.1', 'Cloudflare: serves this website and its contact endpoint.') }}</li>
+            <li data-i18n="trust.sub.2">{{ strings.get('trust.sub.2', 'Resend: delivers the contact form email to our inbox.') }}</li>
+            <li data-i18n="trust.sub.3">{{ strings.get('trust.sub.3', 'Google Analytics 4: aggregated website traffic statistics.') }}</li>
+            <li data-i18n="trust.sub.4">{{ strings.get('trust.sub.4', 'Amazon Bedrock: the model API, called in your own AWS account when you run AssureProof.') }}</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="container">
+          <div class="section-header">
+            <h2 class="section-title" data-i18n="trust.disclosure.title">{{ strings.get('trust.disclosure.title', 'Vulnerability disclosure') }}</h2>
+          </div>
+          <p data-i18n="trust.disclosure.text">{{ strings.get('trust.disclosure.text', 'Found a security issue? Contact details and our disclosure policy are published at /.well-known/security.txt.') }}</p>
+          <p data-i18n="trust.dpa.link">{{ strings.get('trust.dpa.link', 'Need our DPA or a security questionnaire? Ask via the contact form and we will send both.') }}</p>
+        </div>
+      </section>
+
       <div class="security-cta-row">
         <a href="{{ locale_path }}contact-us/" class="btn-primary" data-i18n="security.cta">{{ strings.get('security.cta', 'Talk to us about your security review') }}</a>
       </div>

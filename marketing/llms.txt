@@ -27,7 +27,7 @@ Runs in your own AWS account or on your own servers; model calls go to your Amaz
 - Bonus and rebate reconciliation: https://assureproof.com/use-cases/bonus-reconciliation/
 - About: https://assureproof.com/about/
 - Evidence and method: https://assureproof.com/evidence/
-- Security and data: https://assureproof.com/security/
+- Trust center: https://assureproof.com/trust/
 - Pricing: https://assureproof.com/pricing/
 - Proof of concept: https://assureproof.com/poc/
 - Contact: https://assureproof.com/contact-us/
