@@ -181,9 +181,19 @@ function pathLocale(pathname) {
 }
 
 /** Add the security headers + cache policy + CSP to an asset or 404 response. */
-function withSecurityHeaders(response, origin = "") {
+function withSecurityHeaders(response, origin = "", request = null) {
   const headers = new Headers(response.headers);
-  headers.set("Cache-Control", response.status === 404 ? "no-store" : "public, max-age=300");
+  // Versioned static assets (?v=...) are content-addressed: cache immutably.
+  // Unversioned static assets (fonts, og image) get a long-but-revalidating TTL.
+  // Everything else (HTML) stays short so deploys land quickly.
+  let cacheControl = response.status === 404 ? "no-store" : "public, max-age=300";
+  const path = request ? new URL(request.url).pathname : "";
+  if (response.status !== 404 && path.startsWith("/static/")) {
+    cacheControl = request.url.includes("?v=")
+      ? "public, max-age=31536000, immutable"
+      : "public, max-age=604800";
+  }
+  headers.set("Cache-Control", cacheControl);
   for (const [name, value] of Object.entries(SECURITY_HEADERS)) {
     headers.set(name, value);
   }
@@ -297,11 +307,18 @@ export default {
       for (const [name, value] of Object.entries(SECURITY_HEADERS)) {
         headers.set(name, value);
       }
-      // Apply consistent cache policy to HEAD responses
-      headers.set("Cache-Control", res.status === 404 ? "no-store" : "public, max-age=300");
+      // Apply the same cache policy to HEAD responses (mirrors withSecurityHeaders)
+      let cacheControl = res.status === 404 ? "no-store" : "public, max-age=300";
+      const path = new URL(request.url).pathname;
+      if (res.status !== 404 && path.startsWith("/static/")) {
+        cacheControl = request.url.includes("?v=")
+          ? "public, max-age=31536000, immutable"
+          : "public, max-age=604800";
+      }
+      headers.set("Cache-Control", cacheControl);
       return new Response(null, { status: res.status, headers });
     }
 
-    return withSecurityHeaders(res, origin);
+    return withSecurityHeaders(res, origin, request);
   },
 };
