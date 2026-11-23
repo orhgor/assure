@@ -171,6 +171,10 @@ jobs:
           echo "/security/ -> $r"; [[ "$r" == 301*\ */trust/* ]] || { echo "::error::/security/ legacy redirect broken"; exit 1; }
           r=$(code 'https://assureproof.com/de/security/')
           echo "/de/security/ -> $r"; [[ "$r" == 301*\ */de/trust/* ]] || { echo "::error::locale /security/ redirect broken"; exit 1; }
+          for u in evidence architecture poc; do
+            s=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 "https://assureproof.com/$u/")
+            echo "/$u/ -> $s"; [[ "$s" == 200 ]] || { echo "::error::/$u/ not live"; exit 1; }
+          done
           st=$(body 'https://assureproof.com/.well-known/security.txt')
           echo "$st" | grep -q '^Contact: mailto:' || { echo "::error::security.txt Contact missing"; exit 1; }
           echo "$st" | grep -q '^Expires:' || { echo "::error::security.txt Expires missing"; exit 1; }

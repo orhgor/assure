@@ -357,6 +357,27 @@ def test_wp2_redhat_frequency_is_configured():
     assert not bad, f"Red-Hat frequency not stated as deployment-configured: {bad}"
 
 
+def test_faq_a4_says_it_never_blocks_decisions_or_export():
+    """Close-out alignment: the Red-Hat FAQ answer must also state that the
+    review does not block decisions or export (matches /trust/ and WP2)."""
+    marker = {
+        "en": "never blocks a decision or an export",
+        "fr": "ne bloque jamais une décision ni un export",
+        "de": "blockiert niemals eine Entscheidung oder einen Export",
+        "ja": "妨げることはありません",
+        "zh": "绝不会阻碍决定或导出",
+        "es": "Nunca bloquea una decisión ni una exportación",
+        "tr": "hiçbir zaman engellemez",
+        "ar": "لا تمنع القرار أو التصدير أبدًا",
+    }
+    bad = {}
+    for locale in ("en",) + LOCALES:
+        value = _locale(locale).get("faq.a4", "")
+        if marker[locale] not in value:
+            bad[locale] = value[:60]
+    assert not bad, f"faq.a4 missing the no-block clause: {bad}"
+
+
 def test_evidence_page_shows_status_not_benchmarks():
     """/evidence/ (WP5) must state that PoC results are available on request
     and label the worked examples as simulated — in every locale."""
