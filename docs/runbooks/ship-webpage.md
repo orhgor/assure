@@ -54,8 +54,10 @@ Requires wrangler auth on your machine (`npx wrangler login`).
 
 ## Known gotchas
 - The Worker serves `dist/` through the `ASSETS` binding (content types are
-  automatic); legacy paths `/contact`, `/government`, `/app`, `/api` are
-  redirected in `marketing/cloudflare/marketing-worker.js`.
+  automatic); legacy paths `/contact`, `/government`, `/app`, `/api` and the
+  moved trust center `/security` (→ `/trust/`) are redirected in
+  `marketing/cloudflare/marketing-worker.js`. See
+  `docs/bot-policy-audit.md` for the full edge-policy audit.
 - `landing-i18n.js` flattens `data-i18n` elements at runtime; structured markup
   in such elements is protected by the `childElementCount` guard — keep it.
 - Cloudflare edge may serve stale HTML despite `max-age=300` if a zone cache rule
@@ -65,7 +67,7 @@ Requires wrangler auth on your machine (`npx wrangler login`).
 
 - The contact page posts JSON to `POST /contact-submit`, handled by the marketing
   Worker (legacy `/api/*` paths other than `/api/z3-demo` 301 to `/contact-us/`).
-- The Worker emails `sales@getassureai.com` via the Resend API using the
+- The Worker emails `sales@assureproof.com` via the Resend API using the
   `RESEND_API_KEY` Worker secret, with `reply_to` set to the submitter.
 - Set/rotate the secret once per account (persists across deploys):
 
@@ -73,7 +75,7 @@ Requires wrangler auth on your machine (`npx wrangler login`).
   cd marketing/cloudflare && npx wrangler secret put RESEND_API_KEY
   ```
 
-- `from` is `website@getassureai.com` — that address (or a catch-all) must be
+- `from` is `website@assureproof.com` — that address (or a catch-all) must be
   verified as a sending domain in the Resend dashboard or Resend rejects the send.
 - If the secret is missing (503) or Resend fails (502), the page shows an inline
   error so submissions are never silently lost.
