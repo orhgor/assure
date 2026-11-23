@@ -91,6 +91,7 @@
   "arch.int.storage": "S3 存储或您自己的磁盘 — 可用。",
   "arch.int.title": "集成与能力",
   "arch.lim.files": "默认每个文件最大 25 MB、200 页。",
+  "arch.lim.languages": "文档阅读支持全部 8 种界面语言。",
   "arch.lim.sheets": "电子表格（XLSX、XLSM、XLS、CSV、TXT）以代码读取，不使用模型。",
   "arch.lim.statement": "检查覆盖数字、日期与引用支持。陈述通过针对所引来源的支持性检查来判定。每一个标记都由人审阅并决定——AssureProof 不批准、不付款、不签署。",
   "arch.lim.title": "产品限制",

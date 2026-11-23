@@ -77,6 +77,7 @@
   "arch.int.storage": "S3 storage or your own disk — Available.",
   "arch.int.title": "Integrations and capabilities",
   "arch.lim.files": "Up to 25 MB and 200 pages per file by default.",
+  "arch.lim.languages": "All 8 UI languages are supported for document reading.",
   "arch.lim.sheets": "Spreadsheets (XLSX, XLSM, XLS, CSV, TXT) are read in code, without a model.",
   "arch.lim.statement": "The check covers figures, dates and citation support. Statements are judged by a support check against the cited source. A person reviews every flag and decides — AssureProof does not approve, pay or sign.",
   "arch.lim.title": "Product limits",

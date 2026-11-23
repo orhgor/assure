@@ -91,6 +91,7 @@
   "arch.int.storage": "S3-Speicher oder eigene Festplatte — Verfügbar.",
   "arch.int.title": "Integrationen und Fähigkeiten",
   "arch.lim.files": "Bis 25 MB und 200 Seiten pro Datei standardmäßig.",
+  "arch.lim.languages": "Alle 8 Oberflächensprachen werden für das Lesen von Dokumenten unterstützt.",
   "arch.lim.sheets": "Tabellen (XLSX, XLSM, XLS, CSV, TXT) werden im Code gelesen, ohne Modell.",
   "arch.lim.statement": "Die Prüfung deckt Zahlen, Daten und die Stützung von Zitaten ab. Aussagen werden durch einen Support-Check gegen die zitierte Quelle beurteilt. Eine Person prüft jede Markierung und entscheidet — AssureProof genehmigt nicht, zahlt nicht und unterschreibt nicht.",
   "arch.lim.title": "Produktgrenzen",
