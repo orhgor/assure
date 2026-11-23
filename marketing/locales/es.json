@@ -91,6 +91,7 @@
   "arch.int.storage": "Almacenamiento S3 o su propio disco — Disponible.",
   "arch.int.title": "Integraciones y capacidades",
   "arch.lim.files": "Hasta 25 MB y 200 páginas por archivo de forma predeterminada.",
+  "arch.lim.languages": "La lectura de documentos admite los 8 idiomas de la interfaz.",
   "arch.lim.sheets": "Las hojas de cálculo (XLSX, XLSM, XLS, CSV, TXT) se leen en código, sin modelo.",
   "arch.lim.statement": "La verificación cubre cifras, fechas y el respaldo de las citas. Las afirmaciones se juzgan mediante una verificación de respaldo contra la fuente citada. Una persona revisa cada marca y decide: AssureProof no aprueba, no paga ni firma.",
   "arch.lim.title": "Límites del producto",

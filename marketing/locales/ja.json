@@ -91,6 +91,7 @@
   "arch.int.storage": "S3 ストレージまたはお客様のディスク — 利用可能。",
   "arch.int.title": "統合と機能",
   "arch.lim.files": "既定では 1 ファイルあたり 25 MB・200 ページまで。",
+  "arch.lim.languages": "文書の読み取りは UI の 8 か国語すべてに対応しています。",
   "arch.lim.sheets": "スプレッドシート（XLSX/XLSM/XLS/CSV/TXT）はモデルなしでコードで読み取ります。",
   "arch.lim.statement": "照合の対象は数値・日付・引用のサポートです。記述は引用されたソースに対するサポートチェックで判定されます。人がすべてのフラグを審査して判断します。AssureProof が承認・支払・署名をすることはありません。",
   "arch.lim.title": "製品の制限",

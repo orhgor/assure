@@ -91,6 +91,7 @@
   "arch.int.storage": "S3 depolama veya kendi diskiniz — Mevcut.",
   "arch.int.title": "Entegrasyonlar ve yetenekler",
   "arch.lim.files": "Varsayılan olarak dosya başına en fazla 25 MB ve 200 sayfa.",
+  "arch.lim.languages": "Belge okuma, arayüzün 8 dilinin tümünü destekler.",
   "arch.lim.sheets": "Hesap tabloları (XLSX, XLSM, XLS, CSV, TXT) model olmadan, kodda okunur.",
   "arch.lim.statement": "Denetim; sayıları, tarihleri ve kaynak gösterimlerinin desteğini kapsar. İddialar, atıf yapılan kaynağa karşı destek denetimiyle değerlendirilir. Her işareti bir kişi inceler ve karar verir — AssureProof onaylamaz, ödeme yapmaz ve imza atmaz.",
   "arch.lim.title": "Ürün sınırları",
