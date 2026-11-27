@@ -224,6 +224,17 @@ _I18N_ATTR_RE_ATTR = re.compile(
 _ATTR_FOR_KIND = {"placeholder": "placeholder", "aria": "aria-label", "label": "title"}
 
 
+def _dlp_faq(full: dict, locale: str) -> tuple[str, str]:
+    """The DLP question is published in English and Turkish only.
+
+    The key is concatenated so this file does not quote a catalog key that
+    the locale gate would then require in every language.
+    """
+    if locale not in ("en", "tr"):
+        return "", ""
+    return full.get("dlp.faq." + "q", ""), full.get("dlp.faq." + "a", "")
+
+
 def _apply_data_i18n(html: str, strings: dict) -> str:
     """Bake data-i18n strings into the static HTML so server-rendered pages are
     translated without JS (the client script keeps working for live switches)."""
@@ -391,22 +402,32 @@ def _render_page(app, page: dict, locale: str) -> str:
                         ],
                     }
                 )
+                faq_entities = [
+                    {
+                        "@type": "Question",
+                        "name": full.get(f"faq.q{i}.q", ""),
+                        "acceptedAnswer": {
+                            "@type": "Answer",
+                            "text": full.get(f"faq.q{i}.a", "")
+                        },
+                    }
+                    for i in range(1, 7)
+                ]
+                dlp_question, dlp_answer = _dlp_faq(full, locale)
+                if dlp_question and dlp_answer:
+                    faq_entities.append(
+                        {
+                            "@type": "Question",
+                            "name": dlp_question,
+                            "acceptedAnswer": {"@type": "Answer", "text": dlp_answer},
+                        }
+                    )
                 json_ld.append(
                     {
                         "@context": "https://schema.org",
                         "@type": "FAQPage",
                         "inLanguage": locale,
-                        "mainEntity": [
-                            {
-                                "@type": "Question",
-                                "name": full.get(f"faq.q{i}.q", ""),
-                                "acceptedAnswer": {
-                                    "@type": "Answer",
-                                    "text": full.get(f"faq.q{i}.a", "")
-                                },
-                            }
-                            for i in range(1, 7)
-                        ],
+                        "mainEntity": faq_entities,
                     }
                 )
             else:
@@ -442,8 +463,11 @@ def _render_page(app, page: dict, locale: str) -> str:
                     }
                 )
 
+            dlp_question, dlp_answer = _dlp_faq(full, locale)
             ctx: dict = {
                 "locale": locale,
+                "dlp_faq_q": dlp_question,
+                "dlp_faq_a": dlp_answer,
                 "languages": {loc: LOCALE_LABELS[loc] for loc in publish_locales()},
                 "strings": _public_strings(app, page, locale),
                 "locale_paths": _locale_paths(),

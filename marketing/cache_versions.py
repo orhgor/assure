@@ -2,4 +2,4 @@
 of the workbench values. Change these, not scattered HTML literals."""
 
 LANDING_CSS = "165"
-LANDING_JS = "54"
+LANDING_JS = "55"

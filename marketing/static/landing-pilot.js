@@ -1,3 +1,25 @@
+function pageLocale() {
+  var html = document.documentElement;
+  return (html.getAttribute("data-locale") || html.getAttribute("lang") || "en").toLowerCase();
+}
+
+function z3ErrorMessage(kind, detail) {
+  if (pageLocale().indexOf("tr") === 0) {
+    if (kind === "rate") {
+      return "Çok fazla istek gönderildi. Lütfen " + detail + " saniye bekleyip yeniden deneyin.";
+    }
+    if (kind === "server") return "Sunucu hatası: " + detail;
+    if (kind === "verify") return "Doğrulama başarısız. Yerel hesap gösteriliyor.";
+    return "Doğrulama hizmeti kullanılamıyor. Yerel hesap gösteriliyor.";
+  }
+  if (kind === "rate") {
+    return "Too many requests. Please wait " + detail + "s and try again.";
+  }
+  if (kind === "server") return "Server error: " + detail;
+  if (kind === "verify") return "Verification failed. Showing local calculation.";
+  return "Verification service unavailable. Showing local calculation.";
+}
+
 function bindZ3Recalc() {
   var btn = document.getElementById("z3-recalculate-btn");
   var sourceAInput = document.getElementById("proof-source-a-value");
@@ -54,9 +76,9 @@ function bindZ3Recalc() {
       .then(function (res) {
         if (res.status === 429) {
           var retryAfter = res.headers.get("Retry-After") || 60;
-          throw { status: 429, retryAfter: retryAfter, message: "Too many requests. Please wait " + retryAfter + "s and try again." };
+          throw { status: 429, retryAfter: retryAfter, message: z3ErrorMessage("rate", retryAfter) };
         }
-        if (!res.ok) throw { status: res.status, message: "Server error: " + res.status };
+        if (!res.ok) throw { status: res.status, message: z3ErrorMessage("server", res.status) };
         return res.json();
       })
       .then(function (data) {
@@ -70,7 +92,7 @@ function bindZ3Recalc() {
             z3ResultText.style.color = "var(--success, #16a34a)";
           }
         } else {
-          if (z3ResultText) z3ResultText.textContent = data.error || "Verification failed. Showing local calculation.";
+          if (z3ResultText) z3ResultText.textContent = data.error || z3ErrorMessage("verify");
           updateDeltaLocal(a, b);
         }
       })
@@ -79,7 +101,7 @@ function bindZ3Recalc() {
           if (z3ResultText) z3ResultText.textContent = err.message;
           z3ResultText.style.color = "var(--warning, #d97706)";
         } else {
-          if (z3ResultText) z3ResultText.textContent = "Verification service unavailable. Showing local calculation.";
+          if (z3ResultText) z3ResultText.textContent = z3ErrorMessage("unavailable");
           z3ResultText.style.color = "var(--warning, #d97706)";
         }
         updateDeltaLocal(a, b);

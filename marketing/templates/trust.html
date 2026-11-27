@@ -140,6 +140,20 @@
         </div>
       </section>
 
+      {% if dlp_faq_q %}
+      <section class="section" id="dlp-faq">
+        <div class="container">
+          <h2 class="section-title" data-i18n="faq.title">{{ strings.get('faq.title', 'Questions') }}</h2>
+          <div class="faq-list">
+            <details class="faq-item">
+              <summary>{{ dlp_faq_q }}</summary>
+              <p>{{ dlp_faq_a }}</p>
+            </details>
+          </div>
+        </div>
+      </section>
+      {% endif %}
+
       <div class="security-cta-row">
         <a href="{{ locale_path }}contact-us/" class="btn-primary" data-i18n="security.cta">{{ strings.get('security.cta', 'Talk to us about your security review') }}</a>
       </div>
