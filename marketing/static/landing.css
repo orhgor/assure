@@ -736,7 +736,7 @@ a:hover { color: var(--accent-blue-hover); }
   color: var(--terminal-text-muted);
 }
 
-/* Z3 Conflict Terminal */
+/* Conflict check */
 .conflict-z3-terminal {
   background: var(--terminal-bg);
   border: 1px solid var(--terminal-border);
@@ -956,6 +956,9 @@ a:hover { color: var(--accent-blue-hover); }
   margin-top: var(--space-4);
   width: 100%;
   text-align: center;
+  font-size: 0.875rem;
+  line-height: 1.25;
+  padding: 12px 14px;
 }
 
 /* Use case icon tone variants */
@@ -2034,7 +2037,7 @@ a:hover { color: var(--accent-blue-hover); }
 }
 
 /* ==========================================================================
-   What It Does Grid — Check first, larger
+   What it does — Read, Cross-check, Check, Draft
    ========================================================================== */
 .what-it-does-grid {
   display: grid;
@@ -2162,6 +2165,12 @@ a:hover { color: var(--accent-blue-hover); }
   align-items: stretch;
 }
 
+@media (min-width: 801px) {
+  #use-cases .use-cases-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
 .use-case-card,
 .security-pillar,
 .flow-step,
@@ -2191,15 +2200,17 @@ a:hover { color: var(--accent-blue-hover); }
 
 .use-case-actions {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
+  flex-wrap: nowrap;
   gap: 12px;
   padding-top: 24px;
-  align-items: center;
+  align-items: stretch;
 }
 
 .use-case-actions .btn-primary,
 .use-case-actions .btn-secondary {
-  flex: 1 1 140px;
+  flex: 0 0 auto;
+  width: 100%;
 }
 
 .security-pillars {
@@ -2235,8 +2246,50 @@ a.btn-text:hover {
   min-height: 48px;
   border-radius: 999px;
   padding: 12px 28px;
-  white-space: normal;
+  white-space: nowrap;
   text-align: center;
+}
+
+.hero-sample-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 0 4px;
+  background: none;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  color: var(--text);
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 0.22em;
+  white-space: nowrap;
+}
+
+.hero-sample-link:hover {
+  background: none;
+  color: var(--text-secondary);
+}
+
+.hero-section .hero-eyebrow {
+  display: block;
+  width: max-content;
+  max-width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+  white-space: nowrap;
+  text-align: center;
+}
+
+@media (max-width: 720px) {
+  .hero-section .hero-eyebrow {
+    width: auto;
+    white-space: normal;
+    text-wrap: balance;
+  }
+  .hero-cta-group .btn-primary,
+  .hero-sample-link { white-space: normal; }
 }
 
 a.btn-primary,

@@ -429,10 +429,10 @@ def _render_page(app, page: dict, locale: str) -> str:
                 faq_entities = [
                     {
                         "@type": "Question",
-                        "name": full.get(f"faq.q{i}.q", ""),
+                        "name": full.get(f"faq.q{i}", ""),
                         "acceptedAnswer": {
                             "@type": "Answer",
-                            "text": full.get(f"faq.q{i}.a", "")
+                            "text": full.get(f"faq.a{i}", ""),
                         },
                     }
                     for i in range(1, 7)
