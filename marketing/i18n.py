@@ -63,7 +63,17 @@ def catalog(lang: str | None = None) -> dict[str, str]:
     # (own copy of the marketing site; the workbench keeps its own).
     from marketing.privacy_enterprise import privacy_body_html, privacy_summary
 
-    if "privacy.enterprise.body_html" not in base:
+    # en.json stores a one-sentence privacy.enterprise.body_html. Spreading
+    # that English catalog into every locale hid marketing/content/privacy/<locale>.html.
+    # A value in the locale's own catalog still wins. Turkish is the page this
+    # corrects; other locales keep the previous body so their pages stay put.
+    own = CATALOGS.get(locale, {})
+    if locale == "tr" and "privacy.enterprise.body_html" not in own:
+        try:
+            base["privacy.enterprise.body_html"] = privacy_body_html(locale)
+        except OSError:
+            pass
+    elif "privacy.enterprise.body_html" not in base:
         try:
             base["privacy.enterprise.body_html"] = privacy_body_html(locale)
         except OSError:
