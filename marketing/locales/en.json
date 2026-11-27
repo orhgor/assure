@@ -342,7 +342,7 @@
   "home.whatitdoes.title": "What it does",
   "platform.title": "Platform",
   "platform.read.title": "Read every page",
-  "platform.read.desc": "PDFs, scans and images, each field pinned to its source page, in all 8 interface languages.",
+  "platform.read.desc": "PDFs, scans and images, each field pinned to its source page.",
   "platform.cross.title": "Cross-check in code",
   "platform.cross.desc": "Spreadsheets are compared in code, without a model. Packets are compared across documents.",
   "platform.logic.title": "Formal logic check",

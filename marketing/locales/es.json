@@ -391,7 +391,7 @@
   "home.whatitdoes.title": "Qué hace",
   "platform.title": "La plataforma",
   "platform.read.title": "Lee cada página",
-  "platform.read.desc": "PDF, escaneos e imágenes, cada campo fijado a su página de origen, en los 8 idiomas de la interfaz.",
+  "platform.read.desc": "PDF, escaneos e imágenes, cada campo fijado a su página de origen.",
   "platform.cross.title": "Cruce por código",
   "platform.cross.desc": "Las hojas de cálculo se comparan por código, sin un modelo. Los paquetes se comparan entre documentos.",
   "platform.logic.title": "Lógica formal",
