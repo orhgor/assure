@@ -391,7 +391,7 @@
   "home.whatitdoes.title": "Was es tut",
   "platform.title": "Die Plattform",
   "platform.read.title": "Liest jede Seite",
-  "platform.read.desc": "PDFs, Scans und Bilder, jedes Feld an seine Quellseite geheftet, in allen 8 Sprachen der Oberfläche.",
+  "platform.read.desc": "PDFs, Scans und Bilder, jedes Feld an seine Quellseite geheftet.",
   "platform.cross.title": "Abgleich im Code",
   "platform.cross.desc": "Tabellen werden im Code verglichen, ohne Modell. Pakete werden dokumentübergreifend verglichen.",
   "platform.logic.title": "Formale Logikprüfung",

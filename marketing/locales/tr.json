@@ -393,7 +393,7 @@
   "home.whatitdoes.title": "Ne işe yarar",
   "platform.title": "Platform kapsamı",
   "platform.read.title": "Her sayfayı okur",
-  "platform.read.desc": "PDF, tarama ve görseller; her alan kaynak sayfasına sabitlenir, arayüzün 8 dilinde.",
+  "platform.read.desc": "PDF, tarama ve görseller; her alan kaynak sayfasına sabitlenir.",
   "platform.cross.title": "Kodla çapraz kontrol",
   "platform.cross.desc": "E-tablolar model olmadan kodla karşılaştırılır. Paketler belgeler arasında karşılaştırılır.",
   "platform.logic.title": "Biçimsel mantık kontrolü",

@@ -391,7 +391,7 @@
   "home.whatitdoes.title": "功能介绍",
   "platform.title": "平台能力",
   "platform.read.title": "读取每一页",
-  "platform.read.desc": "PDF、扫描件和图像，每个字段固定在源页面，覆盖界面的全部 8 种语言。",
+  "platform.read.desc": "PDF、扫描件和图像，每个字段固定在源页面。",
   "platform.cross.title": "用代码交叉核对",
   "platform.cross.desc": "电子表格以代码比对，不使用模型。文件包在文档之间比对。",
   "platform.logic.title": "形式逻辑检查",

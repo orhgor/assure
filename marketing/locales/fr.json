@@ -391,7 +391,7 @@
   "home.whatitdoes.title": "Ce qu'il fait",
   "platform.title": "La plateforme",
   "platform.read.title": "Lit chaque page",
-  "platform.read.desc": "PDF, scans et images, chaque champ ancré à sa page source, dans les 8 langues de l'interface.",
+  "platform.read.desc": "PDF, scans et images, chaque champ ancré à sa page source.",
   "platform.cross.title": "Croisement par le code",
   "platform.cross.desc": "Les tableurs sont comparés par le code, sans modèle. Les dossiers sont comparés entre documents.",
   "platform.logic.title": "Contrôle de logique formelle",

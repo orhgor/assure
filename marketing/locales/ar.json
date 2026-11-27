@@ -391,7 +391,7 @@
   "home.whatitdoes.title": "ماذا يفعل",
   "platform.title": "نطاق المنصة",
   "platform.read.title": "يقرأ كل صفحة",
-  "platform.read.desc": "ملفات PDF والمسوحات والصور، كل حقل مثبت في صفحة مصدره، بلغات الواجهة الثماني.",
+  "platform.read.desc": "ملفات PDF والمسوحات والصور، كل حقل مثبت في صفحة مصدره.",
   "platform.cross.title": "مطابقة بالكود",
   "platform.cross.desc": "تُقارن جداول البيانات بالكود دون نموذج. وتُقارن الحزم عبر المستندات.",
   "platform.logic.title": "فحص المنطق الصوري",

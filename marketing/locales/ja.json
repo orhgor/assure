@@ -391,7 +391,7 @@
   "home.whatitdoes.title": "機能",
   "platform.title": "プラットフォームの範囲",
   "platform.read.title": "すべてのページを読む",
-  "platform.read.desc": "PDF、スキャン、画像。各フィールドを出典ページに固定。インターフェースの8言語に対応。",
+  "platform.read.desc": "PDF、スキャン、画像。各フィールドを出典ページに固定。",
   "platform.cross.title": "コードで相互照合",
   "platform.cross.desc": "スプレッドシートはモデルを使わずコードで比較。パケットは文書をまたいで比較します。",
   "platform.logic.title": "形式論理の検査",
