@@ -345,7 +345,7 @@ def test_wp2_redhat_frequency_is_configured():
         "ja": ("全ドラフトで実行", "依頼時のみ"),
         "zh": ("在每份草稿上运行", "仅在审阅人提出请求时运行"),
         "es": ("en cada borrador", "cuando un revisor la solicite"),
-        "tr": ("her taslakta", "inceleyici istediğinde"),
+        "tr": ("her taslakta", "inceleyen kişi istediğinde"),
         "ar": ("على كل مسودة", "عندما يطلبها مراجع"),
     }
     bad = {}

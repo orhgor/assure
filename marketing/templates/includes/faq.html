@@ -11,10 +11,12 @@
                 <summary data-i18n="faq.q6">{{ strings.get('faq.q6', 'Where does AssureProof run?') }}</summary>
                 <p data-i18n="faq.a6">{{ strings.get('faq.a6', 'In your own AWS account (using Amazon Bedrock), on a private GPU, or on your own on-premises servers — including air-gapped networks. You choose the deployment model; documents never leave your boundary unless you connect an external endpoint yourself.') }}</p>
             </details>
+            {% if dlp_faq_q %}
             <details class="faq-item">
-                <summary data-i18n="faq.dlp.q">{{ strings.get('faq.dlp.q', 'Do you train models on our documents?') }}</summary>
-                <p data-i18n="faq.dlp.a">{{ strings.get('faq.dlp.a', 'No. We do not use your documents to train models. With a self-hosted model, document text does not leave your network. Data is encrypted in transit with TLS 1.3 and at rest with AES-256, and you can use your own encryption keys.') }}</p>
+                <summary>{{ dlp_faq_q }}</summary>
+                <p>{{ dlp_faq_a }}</p>
             </details>
+            {% endif %}
             <details class="faq-item">
                 <summary data-i18n="faq.q5">{{ strings.get('faq.q5', 'Does a contradiction block export?') }}</summary>
                 <p data-i18n="faq.a5">{{ strings.get('faq.a5', 'No. AssureProof marks the contradiction and a person decides. A reviewer can accept a value over a Z3 or Red-Hat review objection, and that decision is recorded with who made it and when. You can export fields as CSV or JSON, with the JSON signed so it can be verified, and drafts as JSON or PDF.') }}</p>
