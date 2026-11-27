@@ -4,41 +4,20 @@
     {% set nav_current = 'pricing' %}
 {% endblock %}
 
+{% block body_attrs %} pricing-page{% endblock %}
+
 {% block content %}
 <main id="main-content">
   <section class="page-hero">
     <div class="container">
       <h1 data-i18n="pricing.title">{{ strings.get('pricing.title', 'Pricing') }}</h1>
-      <p class="lede" data-i18n="pricing.lead">{{ strings.get('pricing.lead', 'Priced per team and per workflow, based on the documents you need checked.') }}</p>
-    </div>
-  </section>
-
-  <section class="section">
-    <div class="container">
-      <div class="section-header">
-        <h2 class="section-title" data-i18n="pricing.pro">{{ strings.get('pricing.pro', 'Enterprise') }}</h2>
-      </div>
-
-      <div class="price-grid">
-        <section class="card">
-          <p class="lede" data-i18n="pricing.price">{{ strings.get('pricing.price', 'Custom pricing for your team and workflows.') }}</p>
-          <ul class="privacy-list" style="list-style: none; padding: 0; margin: var(--space-6) 0; display: grid; gap: var(--space-4);">
-            <li data-i18n="pricing.pro.3">{{ strings.get('pricing.pro.3', 'Figures keep the page, cell or row they came from, so anyone on the team can review the check without hunting for the original.') }}</li>
-            <li data-i18n="pricing.pro.4">{{ strings.get('pricing.pro.4', 'Contradictions are marked on the review screen. A person decides, and the decision is recorded.') }}</li>
-          </ul>
-          <p class="price-note" style="color: var(--text-muted); font-size: 0.875rem; margin-top: var(--space-4);" data-i18n="pricing.selective">{{ strings.get('pricing.selective', 'Start with one workflow and a small set of sample cases. Once you give a written "Yes, proceed", we run the assessment on your documents in your environment, with a scope agreed up front and a written review at the end.') }}</p>
-          <p style="margin-top: var(--space-6);"><a href="{{ locale_path }}contact-us/" class="btn-primary" data-i18n="pricing.contact">{{ strings.get('pricing.contact', 'Get a price for your workflow') }}</a></p>
-        </section>
-      </div>
-    </div>
-  </section>
-
-  <section class="section">
-    <div class="container">
-      <div class="section-header">
-        <h2 class="section-title" data-i18n="pricing.poc.title">{{ strings.get('pricing.poc.title', 'How a proof of concept starts') }}</h2>
-      </div>
-      <p class="section-sub" data-i18n="pricing.poc.body">{{ strings.get('pricing.poc.body', 'Start with one workflow and a small set of sample cases. Once you give a written "Yes, proceed", we run the check on your documents in your environment, with a scope agreed up front and a written review at the end.') }}</p>
+      <p class="lede" data-i18n="pricing.lead">{{ strings.get('pricing.lead', 'What the quote is based on.') }}</p>
+      <ul class="pricing-drivers">
+        <li data-i18n="pricing.driver.volume">{{ strings.get('pricing.driver.volume', 'Document volume') }}</li>
+        <li data-i18n="pricing.driver.deploy">{{ strings.get('pricing.driver.deploy', 'Deployment: your AWS account or your own cloud') }}</li>
+        <li data-i18n="pricing.driver.support">{{ strings.get('pricing.driver.support', 'Support') }}</li>
+      </ul>
+      <p class="pricing-cta"><a href="{{ locale_path }}contact-us/" class="btn-primary" data-i18n="pricing.contact">{{ strings.get('pricing.contact', 'Get a price') }}</a></p>
     </div>
   </section>
 
@@ -62,12 +41,6 @@
             <p data-i18n="pricing.faq.3.a">{{ strings.get('pricing.faq.3.a', 'In your own AWS account, on a private GPU, or on your own servers, including air-gapped networks. You choose where the models run. Details are on the Security page.') }}</p>
           </details>
       </div>
-    </div>
-  </section>
-
-  <section class="section">
-    <div class="container center">
-      <a href="{{ locale_path }}poc/" class="btn-primary btn-lg" data-i18n="pricing.contact">{{ strings.get('pricing.contact', 'Get a price for your workflow') }}</a>
     </div>
   </section>
 </main>

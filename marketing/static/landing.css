@@ -54,6 +54,8 @@
 
   /* Section rhythm: about 120px desktop, 72px mobile */
   --section-padding-y: clamp(72px, 7vw, 120px);
+  /* Sticky header: 64px bar + 1px border. Desktop grows to 72px. */
+  --header-offset: 65px;
 
   /* Container */
   --container-max: 1120px;
@@ -2438,6 +2440,7 @@ button.btn-primary:hover {
 }
 
 @media (min-width: 1100px) {
+  :root { --header-offset: 73px; }
   .desktop-nav { gap: 18px; }
   .desktop-nav a { font-size: 15px; }
   .header-cta { font-size: 14px; padding: 0 16px; min-height: 40px; }
@@ -2706,4 +2709,40 @@ button.btn-primary:hover {
 }
 @media (max-width: 760px) {
   .trust-facts { grid-template-columns: 1fr; }
+}
+
+/* Anchor jumps clear the sticky header. */
+#main-content,
+section[id],
+article[id],
+h1[id],
+h2[id],
+h3[id] {
+  scroll-margin-top: var(--header-offset);
+}
+
+.nowrap { white-space: nowrap; }
+
+.pricing-page {
+  background: var(--bg);
+}
+.poc-brief {
+  max-width: 40rem;
+}
+.pricing-drivers {
+  margin: 20px 0 28px;
+  padding-left: 1.25rem;
+  display: grid;
+  gap: 10px;
+  max-width: 40rem;
+  color: var(--text-secondary);
+  font-size: 1.0625rem;
+}
+.pricing-cta { margin: 0; }
+.pricing-page .page-hero { padding-bottom: 8px; }
+.pricing-page .section { padding-top: 32px; }
+
+.trust-dlp {
+  margin: 28px 0 0;
+  max-width: 68ch;
 }
