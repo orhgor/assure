@@ -8,27 +8,8 @@
 <main id="main-content" class="page">
   <section class="page-hero uc-hero">
     <div class="container">
-      <div class="uc-hero-grid">
-        <div class="uc-hero-copy">
-          <h1 data-i18n="poc.title">{{ strings.get('poc.title', 'Try AssureProof on your own documents') }}</h1>
-          <p class="lede" data-i18n="poc.lead">{{ strings.get('poc.lead', 'Pick one workflow and share a few sample cases. We check them in your environment and walk you through what we find. The assessment starts once you\'ve given a written "Yes, proceed".') }}</p>
-        </div>
-        <aside class="uc-summary">
-          <p class="uc-summary-label" data-i18n="poc.offer.title">{{ strings.get('poc.offer.title', 'What a proof of concept includes') }}</p>
-          <ul class="uc-summary-list">
-            <li data-i18n="poc.assessment.1">{{ strings.get('poc.assessment.1', 'One workflow') }}</li>
-            <li data-i18n="poc.assessment.2">{{ strings.get('poc.assessment.2', 'A small set of sample cases') }}</li>
-            <li data-i18n="poc.assessment.3">{{ strings.get('poc.assessment.3', 'Your written "Yes, proceed"') }}</li>
-          </ul>
-          <p class="uc-summary-note" data-i18n="poc.offer.body">{{ strings.get('poc.offer.body', 'One workflow and 5-10 sample cases (up to 50 files), run in your environment with a scope agreed in writing, followed by a findings review with your team.') }}</p>
-        </aside>
-      </div>
-    </div>
-  </section>
-
-  <section class="section">
-    <div class="container center">
-      <p data-i18n="poc.scope">{{ strings.get('poc.scope', 'Scope note first: one workflow, 5-10 sample cases (up to 50 files), agreed in writing before the run.') }}</p>
+      <h1 data-i18n="poc.title">{{ strings.get('poc.title', 'Try AssureProof on your own documents') }}</h1>
+      <p class="lede poc-brief" data-i18n-html="poc.scope">{{ strings.get('poc.scope', 'One workflow and 5–10 sample cases (up to 50 files). The check starts after your written “Yes, proceed”.') | safe }}</p>
       <p><a href="{{ locale_path }}architecture/" data-i18n="footer.architecture">{{ strings.get('footer.architecture', 'How it works in detail') }}</a></p>
     </div>
   </section>
@@ -36,7 +17,7 @@
   <section class="section">
     <div class="container">
       <div class="section-header">
-        <h2 class="section-title" data-i18n="poc.scope.title">{{ strings.get('poc.scope.title', 'Your scope note (starts with a written "Yes, proceed")') }}</h2>
+        <h2 class="section-title" data-i18n="poc.compare.title">{{ strings.get('poc.compare.title', 'Sample comparison') }}</h2>
       </div>
       <div class="price-grid price-grid--duo">
         <section class="card">

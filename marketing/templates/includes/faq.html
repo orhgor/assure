@@ -1,4 +1,4 @@
-{# FAQ section with 6 questions, used on landing page #}
+{# Homepage questions: what it is, where it runs, DLP, then the technical ones. #}
 <section id="faq" class="faq-section">
     <div class="container">
         <h2 class="section-title" data-i18n="faq.title">{{ strings.get('faq.title', 'Questions') }}</h2>
@@ -6,22 +6,6 @@
             <details class="faq-item">
                 <summary data-i18n="faq.q1">{{ strings.get('faq.q1', 'What is AssureProof?') }}</summary>
                 <p data-i18n="faq.a1">{{ strings.get('faq.a1', 'AssureProof reads your contracts, invoices, claims and bids together and marks every figure that does not match across them, with both source pages open. A person reviews each flag and decides. It runs in your own AWS account or on your own servers, including air-gapped networks.') }}</p>
-            </details>
-            <details class="faq-item">
-                <summary data-i18n="faq.q2">{{ strings.get('faq.q2', 'What is Z3?') }}</summary>
-                <p data-i18n="faq.a2">{{ strings.get('faq.a2', 'Z3 is a formal logic solver (SMT solver) that mathematically proves whether a set of figures and constraints can all be true at the same time. It gives a deterministic yes/no answer — no probability, no hallucination.') }}</p>
-            </details>
-            <details class="faq-item">
-                <summary data-i18n="faq.q3">{{ strings.get('faq.q3', 'What does &ldquo;deterministic&rdquo; mean here?') }}</summary>
-                <p data-i18n="faq.a3">{{ strings.get('faq.a3', 'The same inputs always produce the same output. There is no randomness, no temperature setting, and no model drift. If the figures conflict today, they will conflict tomorrow.') }}</p>
-            </details>
-            <details class="faq-item">
-                <summary data-i18n="faq.q4">{{ strings.get('faq.q4', 'What is Red-Hat review?') }}</summary>
-                <p data-i18n="faq.a4">{{ strings.get('faq.a4', 'A separate adversarial pass in which a language model tries to find flaws in the draft — missing citations, overstated claims, or numbers that do not trace back to a source page. The Red-Hat review is configured per customer deployment: it can run on every draft or only when a reviewer requests it. It never blocks a decision or an export.') }}</p>
-            </details>
-            <details class="faq-item">
-                <summary data-i18n="faq.q5">{{ strings.get('faq.q5', 'Does a contradiction block export?') }}</summary>
-                <p data-i18n="faq.a5">{{ strings.get('faq.a5', 'Yes. Export is automatically locked while any contradiction is unresolved. A person (or an authorized agent) must accept or reject each finding before the file can be downloaded. The file stays downloadable the entire time — you just cannot export a conflicted version.') }}</p>
             </details>
             <details class="faq-item">
                 <summary data-i18n="faq.q6">{{ strings.get('faq.q6', 'Where does AssureProof run?') }}</summary>
@@ -33,6 +17,22 @@
                 <p>{{ dlp_faq_a }}</p>
             </details>
             {% endif %}
+            <details class="faq-item">
+                <summary data-i18n="faq.q5">{{ strings.get('faq.q5', 'Does a contradiction block export?') }}</summary>
+                <p data-i18n="faq.a5">{{ strings.get('faq.a5', 'No. AssureProof marks the contradiction and a person decides. A reviewer can accept a value over a Z3 or Red-Hat review objection, and that decision is recorded with who made it and when. You can export fields as CSV or JSON, with the JSON signed so it can be verified, and drafts as JSON or PDF.') }}</p>
+            </details>
+            <details class="faq-item">
+                <summary data-i18n="faq.q2">{{ strings.get('faq.q2', 'What is Z3?') }}</summary>
+                <p data-i18n="faq.a2">{{ strings.get('faq.a2', 'Z3 is a formal logic solver (SMT solver) that mathematically proves whether a set of figures and constraints can all be true at the same time. The figure check itself is deterministic: the same figures and rules always give the same answer.') }}</p>
+            </details>
+            <details class="faq-item">
+                <summary data-i18n="faq.q3">{{ strings.get('faq.q3', 'What does “deterministic” mean here?') }}</summary>
+                <p data-i18n="faq.a3">{{ strings.get('faq.a3', 'The figure check itself is deterministic: the same figures and rules always give the same answer. Reading the documents and drafting use language models, so every figure keeps its source page for a person to confirm. If the figures conflict today, they will conflict tomorrow.') }}</p>
+            </details>
+            <details class="faq-item">
+                <summary data-i18n="faq.q4">{{ strings.get('faq.q4', 'What is Red-Hat review?') }}</summary>
+                <p data-i18n="faq.a4">{{ strings.get('faq.a4', 'A separate adversarial pass in which a language model tries to find flaws in the draft — missing citations, overstated claims, or numbers that do not trace back to a source page. The Red-Hat review is configured per customer deployment: it can run on every draft or only when a reviewer requests it. It never blocks a decision or an export.') }}</p>
+            </details>
         </div>
     </div>
 </section>

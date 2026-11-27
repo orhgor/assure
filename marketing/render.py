@@ -147,6 +147,9 @@ PAGES: list[dict] = [
 
 _I18N_ATTR_RE = re.compile(r'data-i18n(?:-html|-placeholder|-aria|-label)?="([^"]+)"')
 _GET_KEY_RE = re.compile(r"strings\.get\(\s*['\"]([a-zA-Z0-9_.]+)['\"]")
+_UC_KEY_RE = re.compile(r"set uc_key = '([a-z]+)'")
+_UC_DYN_ATTR_RE = re.compile(r"uc\.\{\{\s*uc_key\s*\}\}\.([a-z0-9.]+)")
+_UC_DYN_GET_RE = re.compile(r"uc\.'\s*~\s*uc_key\s*~\s*'\.([a-z0-9.]+)")
 _INCLUDE_RE = re.compile(r"{%-?\s*include\s+['\"]([^']+?)['\"]\s*%-?\}")
 _EXTENDS_RE = re.compile(r"{%-?\s*extends\s+['\"]([^']+?)['\"]\s*%-?\}")
 TEMPLATES_DIR = ROOT / "marketing" / "templates"
@@ -290,9 +293,23 @@ def _postprocess(
     return html
 
 
-def _used_string_keys(app, template_name: str, seen: set | None = None) -> set[str]:
-    """Collect i18n keys a template (and its includes) actually reference."""
+def _used_string_keys(
+    app,
+    template_name: str,
+    seen: set | None = None,
+    uc_keys: set | None = None,
+    uc_suffixes: set | None = None,
+) -> set[str]:
+    """Collect i18n keys a template (and its includes) actually reference.
+
+    Use-case pages build keys as ``uc.<uc_key>.<suffix>``. Those are not
+    literal strings in the template, so they have to be expanded or the
+    English page renders the empty default.
+    """
+    root = seen is None
     seen = seen if seen is not None else set()
+    uc_keys = uc_keys if uc_keys is not None else set()
+    uc_suffixes = uc_suffixes if uc_suffixes is not None else set()
     if template_name in seen:
         return set()
     seen.add(template_name)
@@ -305,10 +322,17 @@ def _used_string_keys(app, template_name: str, seen: set | None = None) -> set[s
         keys.add(match.group(1))
     for match in _GET_KEY_RE.finditer(source):
         keys.add(match.group(1))
+    uc_keys.update(_UC_KEY_RE.findall(source))
+    uc_suffixes.update(_UC_DYN_ATTR_RE.findall(source))
+    uc_suffixes.update(_UC_DYN_GET_RE.findall(source))
     for match in _INCLUDE_RE.finditer(source):
-        keys |= _used_string_keys(app, match.group(1), seen)
+        keys |= _used_string_keys(app, match.group(1), seen, uc_keys, uc_suffixes)
     for match in _EXTENDS_RE.finditer(source):
-        keys |= _used_string_keys(app, match.group(1), seen)
+        keys |= _used_string_keys(app, match.group(1), seen, uc_keys, uc_suffixes)
+    if root:
+        for uc_key in uc_keys:
+            for suffix in uc_suffixes:
+                keys.add(f"uc.{uc_key}.{suffix}")
     return keys
 
 
