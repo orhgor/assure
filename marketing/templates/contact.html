@@ -18,7 +18,7 @@
     <div class="contact-grid">
       <div class="contact-card card" style="max-width: 100%; margin: 0 auto;">
         <h2 style="margin-bottom: var(--space-6);" data-i18n="contact.form_title">{{ strings.get('contact.form_title', 'Request form') }}</h2>
-        <form class="contact-form" id="contact-form" novalidate data-error="{{ strings.get('contact.error', 'Could not send your request. Please try again or write to sales@assureproof.com.') }}">
+        <form class="contact-form" id="contact-form" novalidate{% if locale == 'tr' %} data-error="{{ strings.get('contact.error', 'Could not send your request. Please try again or write to sales@assureproof.com.') }}"{% endif %}>
           <input type="text" name="company_website" id="cf-website" tabindex="-1" autocomplete="off" hidden aria-hidden="true">
           <div class="form-field">
             <label for="cf-name" data-i18n="contact.f_name">{{ strings.get('contact.f_name', 'Name') }}</label>

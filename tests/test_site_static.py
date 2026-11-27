@@ -25,7 +25,7 @@ LOCALES = ("en", "es", "zh", "fr", "de", "ja", "tr", "ar")
 BANNED_CLAIMS = re.compile(
     r"export locked|export blocked|export is automatically locked|locks export|stops export|"
     r"or an agent|person or agent|optional adversarial|stress-test|live conflict example|"
-    r"chatgpt|claude|gemini|zero bytes|0 bytes|100% custody|zero data leakage|any format|300-page|"
+    r"(?<!like )(?<!\()chatgpt(?! or copilot)(?!, copilot)|claude|gemini|zero bytes|0 bytes|100% custody|zero data leakage|any format|300-page|"
     r"soc ?2|iso 27001|trusted by|free pilot|free poc|dec 10|dec 20|zero it setup|me \+ title|"
     # The contact address moved back to the branded sales@assureproof.com
     # inbox, so no getassureai reference belongs on a page again.

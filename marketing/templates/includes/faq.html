@@ -27,6 +27,12 @@
                 <summary data-i18n="faq.q6">{{ strings.get('faq.q6', 'Where does AssureProof run?') }}</summary>
                 <p data-i18n="faq.a6">{{ strings.get('faq.a6', 'In your own AWS account (using Amazon Bedrock), on a private GPU, or on your own on-premises servers — including air-gapped networks. You choose the deployment model; documents never leave your boundary unless you connect an external endpoint yourself.') }}</p>
             </details>
+            {% if dlp_faq_q %}
+            <details class="faq-item">
+                <summary>{{ dlp_faq_q }}</summary>
+                <p>{{ dlp_faq_a }}</p>
+            </details>
+            {% endif %}
         </div>
     </div>
 </section>
