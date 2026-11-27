@@ -62,6 +62,65 @@
     </section>
 
     <!-- ==========================================================================
+         PLATFORM — capabilities already documented on architecture, trust, FAQ
+         ========================================================================== -->
+    <section id="platform" class="section platform-section" aria-labelledby="platform-title">
+        <div class="container">
+            <h2 class="section-title" id="platform-title" data-i18n="platform.title">{{ strings.get('platform.title', 'Platform') }}</h2>
+            <div class="platform-grid">
+                <article class="differs-card">
+                    <div class="what-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg></div>
+                    <h3 data-i18n="platform.read.title">{{ strings.get('platform.read.title', 'Read every page') }}</h3>
+                    <p class="platform-module" data-i18n="arch.glos.parsure.t">{{ strings.get('arch.glos.parsure.t', 'ParSure') }}</p>
+                    <p data-i18n="platform.read.desc">{{ strings.get('platform.read.desc', 'PDFs, scans and images, each field pinned to its source page, in all 8 interface languages.') }}</p>
+                </article>
+                <article class="differs-card">
+                    <div class="what-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5"/><path d="M8 21H3v-5"/><path d="M21 3 14 10"/><path d="M3 21l7-7"/></svg></div>
+                    <h3 data-i18n="platform.cross.title">{{ strings.get('platform.cross.title', 'Cross-check in code') }}</h3>
+                    <p class="platform-module" data-i18n="arch.glos.crosssure.t">{{ strings.get('arch.glos.crosssure.t', 'CrossSure') }}</p>
+                    <p data-i18n="platform.cross.desc">{{ strings.get('platform.cross.desc', 'Spreadsheets are compared in code, without a model. Packets are compared across documents.') }}</p>
+                </article>
+                <article class="differs-card">
+                    <div class="what-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h10"/><path d="m16 15 2 2 4-4"/></svg></div>
+                    <h3 data-i18n="platform.logic.title">{{ strings.get('platform.logic.title', 'Formal logic check') }}</h3>
+                    <p data-i18n="platform.logic.desc">{{ strings.get('platform.logic.desc', 'Figures and rules tested for whether they can all be true at the same time.') }}</p>
+                </article>
+                <article class="differs-card">
+                    <div class="what-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></div>
+                    <h3 data-i18n="platform.draft.title">{{ strings.get('platform.draft.title', 'Cited drafts') }}</h3>
+                    <p class="platform-module" data-i18n="arch.glos.draftsure.t">{{ strings.get('arch.glos.draftsure.t', 'DraftSure') }}</p>
+                    <p data-i18n="platform.draft.desc">{{ strings.get('platform.draft.desc', 'A draft with a citation for every claim, checked against the source page.') }}</p>
+                </article>
+                <article class="differs-card">
+                    <div class="what-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg></div>
+                    <h3 data-i18n="platform.review.title">{{ strings.get('platform.review.title', 'Second adversarial review') }}</h3>
+                    <p data-i18n="platform.review.desc">{{ strings.get('platform.review.desc', 'A separate pass lists weak claims. It does not block a decision.') }}</p>
+                </article>
+                <article class="differs-card">
+                    <div class="what-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="4"/><path d="M2 21a7 7 0 0 1 14 0"/><path d="m16 11 2 2 4-4"/></svg></div>
+                    <h3 data-i18n="platform.decide.title">{{ strings.get('platform.decide.title', 'A person decides') }}</h3>
+                    <p data-i18n="platform.decide.desc">{{ strings.get('platform.decide.desc', 'Accept, correct or dispute each flag. Every decision is logged with who and when.') }}</p>
+                </article>
+                <article class="differs-card">
+                    <div class="what-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M12 18v-6"/><path d="m9 15 3 3 3-3"/></svg></div>
+                    <h3 data-i18n="platform.export.title">{{ strings.get('platform.export.title', 'Signed export') }}</h3>
+                    <p data-i18n="platform.export.desc">{{ strings.get('platform.export.desc', 'Fields as CSV or signed JSON. Drafts as JSON or PDF.') }}</p>
+                </article>
+                <article class="differs-card">
+                    <div class="what-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="8" x="2" y="2" rx="2"/><rect width="20" height="8" x="2" y="14" rx="2"/><path d="M6 6h.01"/><path d="M6 18h.01"/></svg></div>
+                    <h3 data-i18n="platform.where.title">{{ strings.get('platform.where.title', 'Your environment') }}</h3>
+                    <p data-i18n="platform.where.desc">{{ strings.get('platform.where.desc', 'Your AWS account, on-premises or a private GPU, including air-gapped networks. You choose where the models run.') }}</p>
+                </article>
+                <article class="differs-card">
+                    <div class="what-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15.5 7.5 2.3 2.3a1 1 0 0 0 1.4 0l2.1-2.1a1 1 0 0 0 0-1.4L19 4"/><path d="m21 2-9.6 9.6"/><circle cx="7.5" cy="15.5" r="5.5"/></svg></div>
+                    <h3 data-i18n="platform.keys.title">{{ strings.get('platform.keys.title', 'Your keys') }}</h3>
+                    <p data-i18n="platform.keys.desc">{{ strings.get('platform.keys.desc', 'Encrypted in transit and at rest, with your own keys. Documents are not used to train models.') }}</p>
+                </article>
+            </div>
+        </div>
+    </section>
+
+    <!-- ==========================================================================
          EXAMPLE CARD — What a check looks like
          ========================================================================== -->
     <section id="example" class="section">

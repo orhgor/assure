@@ -268,7 +268,7 @@ def test_home_order_and_faq_schema():
     order = ["Catch the figure that doesn't match before you pay or approve.",
              "How it works", "Read and cross-check", "Check and draft",
              "What it does", "Read", "Cross-check", "Check", "Draft",
-             "What a check looks like",
+             "Platform", "What a check looks like",
              "What sets AssureProof apart from other document and AI tools?",
              "Catch the mismatch before the money or the approval goes out.",
              "You choose where your documents and models run.", "Questions",

@@ -2068,11 +2068,51 @@ a:hover { color: var(--accent-blue-hover); }
   color: var(--text);
 }
 
-.what-it-does-grid .differs-card p {
+.what-it-does-grid .differs-card p,
+.platform-grid .differs-card p {
   font-size: 0.9375rem;
-  line-height: 1.6;
+  line-height: 1.45;
   color: var(--text-secondary);
   flex: 1;
+  margin: 0;
+}
+
+.platform-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 24px;
+  align-items: stretch;
+}
+
+.platform-grid .differs-card h3,
+.what-it-does-grid .differs-card h3 {
+  margin-bottom: 4px;
+}
+
+.platform-grid .differs-card p.platform-module {
+  flex: 0 0 auto;
+  margin: 0 0 8px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: var(--text-muted);
+  line-height: 1.3;
+}
+
+.home-landing h2.section-title {
+  text-wrap: balance;
+  margin-bottom: 32px;
+}
+
+@media (max-width: 800px) {
+  .home-landing h2.section-title {
+    font-size: 2rem;
+    line-height: 1.2;
+  }
+}
+
+.home-landing .section-header {
+  margin-bottom: 32px;
 }
 
 @media (max-width: 1024px) {
@@ -2088,6 +2128,7 @@ a:hover { color: var(--accent-blue-hover); }
    ========================================================================== */
 .flow-section,
 .what-it-does-section,
+.platform-section,
 .use-cases-section,
 .security-section,
 .faq-section,
@@ -2475,6 +2516,7 @@ button.btn-primary:hover {
 @media (max-width: 800px) {
   .flow,
   .what-it-does-grid,
+  .platform-grid,
   .use-cases-grid { grid-template-columns: minmax(0, 1fr); }
 }
 
