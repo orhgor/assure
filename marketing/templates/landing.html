@@ -19,8 +19,8 @@
             <p class="hero-sub" data-i18n="home.hero.sub">{{ strings.get('home.hero.sub', 'AssureProof reads your contracts, invoices, claims and bids together and marks every figure that does not match across them, with both source pages open. A person reviews each flag and decides. It runs in your own AWS account or on your own servers, including air-gapped networks.') }}</p>
 
             <div class="hero-cta-group">
-                <a href="{{ locale_path }}evidence/" class="btn-primary" data-i18n="landing.hero.cta_primary">{{ strings.get('landing.hero.cta_primary', 'See the proof') }}</a>
-                <a href="{{ locale_path }}poc/" class="btn-text" data-i18n="about.cta">{{ strings.get('about.cta', 'Try it on your own files') }}</a>
+                <a href="{{ locale_path }}poc/" class="btn-primary" data-i18n="landing.hero.cta_secondary">{{ strings.get('landing.hero.cta_secondary', 'Try it on your own files') }}</a>
+                <a href="{{ locale_path }}evidence/" class="hero-sample-link" data-i18n="landing.hero.cta_primary">{{ strings.get('landing.hero.cta_primary', 'See a sample check →') }}</a>
             </div>
         </div>
     </section>
@@ -37,25 +37,84 @@
         <div class="container">
             <h2 class="section-title" id="what-it-does-title" data-i18n="home.whatitdoes.title">{{ strings.get('home.whatitdoes.title', 'What it does') }}</h2>
             <div class="what-it-does-grid">
-                <article class="differs-card differs-card--check">
-                    <div class="what-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></div>
-                    <h3 data-i18n="home.whatitdoes.check.title">{{ strings.get('home.whatitdoes.check.title', 'Check') }}</h3>
-                    <p data-i18n="home.whatitdoes.check.desc">{{ strings.get('home.whatitdoes.check.desc', 'Figures and statements tested against your files.') }}</p>
-                </article>
                 <article class="differs-card">
-                    <div class="what-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg></div>
+                    <div class="what-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg></div>
                     <h3 data-i18n="home.whatitdoes.read.title">{{ strings.get('home.whatitdoes.read.title', 'Read') }}</h3>
                     <p data-i18n="home.whatitdoes.read.desc">{{ strings.get('home.whatitdoes.read.desc', 'PDFs, scans and images, every field kept with its page.') }}</p>
                 </article>
                 <article class="differs-card">
-                    <div class="what-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></div>
+                    <div class="what-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5"/><path d="M8 21H3v-5"/><path d="M21 3 14 10"/><path d="M3 21l7-7"/></svg></div>
+                    <h3 data-i18n="home.whatitdoes.crosscheck.title">{{ strings.get('home.whatitdoes.crosscheck.title', 'Cross-check') }}</h3>
+                    <p data-i18n="home.whatitdoes.crosscheck.desc">{{ strings.get('home.whatitdoes.crosscheck.desc', 'Spreadsheets and packets compared against each other.') }}</p>
+                </article>
+                <article class="differs-card">
+                    <div class="what-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></div>
+                    <h3 data-i18n="home.whatitdoes.check.title">{{ strings.get('home.whatitdoes.check.title', 'Check') }}</h3>
+                    <p data-i18n="home.whatitdoes.check.desc">{{ strings.get('home.whatitdoes.check.desc', 'Figures and statements tested against your files.') }}</p>
+                </article>
+                <article class="differs-card">
+                    <div class="what-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></div>
                     <h3 data-i18n="home.whatitdoes.draft.title">{{ strings.get('home.whatitdoes.draft.title', 'Draft') }}</h3>
                     <p data-i18n="home.whatitdoes.draft.desc">{{ strings.get('home.whatitdoes.draft.desc', 'Reports and summaries with a source for each claim.') }}</p>
                 </article>
+            </div>
+        </div>
+    </section>
+
+    <!-- ==========================================================================
+         PLATFORM — capabilities already documented on architecture, trust, FAQ
+         ========================================================================== -->
+    <section id="platform" class="section platform-section" aria-labelledby="platform-title">
+        <div class="container">
+            <h2 class="section-title" id="platform-title" data-i18n="platform.title">{{ strings.get('platform.title', 'Platform') }}</h2>
+            <div class="platform-grid">
                 <article class="differs-card">
-                    <div class="what-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5"/><path d="M8 21H3v-5"/><path d="M21 3 14 10"/><path d="M3 21l7-7"/></svg></div>
-                    <h3 data-i18n="home.whatitdoes.crosscheck.title">{{ strings.get('home.whatitdoes.crosscheck.title', 'Cross-check') }}</h3>
-                    <p data-i18n="home.whatitdoes.crosscheck.desc">{{ strings.get('home.whatitdoes.crosscheck.desc', 'Spreadsheets and packets compared against each other.') }}</p>
+                    <div class="what-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg></div>
+                    <h3 data-i18n="platform.read.title">{{ strings.get('platform.read.title', 'Read every page') }}</h3>
+                    <p class="platform-module" data-i18n="arch.glos.parsure.t">{{ strings.get('arch.glos.parsure.t', 'ParSure') }}</p>
+                    <p data-i18n="platform.read.desc">{{ strings.get('platform.read.desc', 'PDFs, scans and images, each field pinned to its source page, in all 8 interface languages.') }}</p>
+                </article>
+                <article class="differs-card">
+                    <div class="what-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5"/><path d="M8 21H3v-5"/><path d="M21 3 14 10"/><path d="M3 21l7-7"/></svg></div>
+                    <h3 data-i18n="platform.cross.title">{{ strings.get('platform.cross.title', 'Cross-check in code') }}</h3>
+                    <p class="platform-module" data-i18n="arch.glos.crosssure.t">{{ strings.get('arch.glos.crosssure.t', 'CrossSure') }}</p>
+                    <p data-i18n="platform.cross.desc">{{ strings.get('platform.cross.desc', 'Spreadsheets are compared in code, without a model. Packets are compared across documents.') }}</p>
+                </article>
+                <article class="differs-card">
+                    <div class="what-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h10"/><path d="m16 15 2 2 4-4"/></svg></div>
+                    <h3 data-i18n="platform.logic.title">{{ strings.get('platform.logic.title', 'Formal logic check') }}</h3>
+                    <p data-i18n="platform.logic.desc">{{ strings.get('platform.logic.desc', 'Figures and rules tested for whether they can all be true at the same time.') }}</p>
+                </article>
+                <article class="differs-card">
+                    <div class="what-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></div>
+                    <h3 data-i18n="platform.draft.title">{{ strings.get('platform.draft.title', 'Cited drafts') }}</h3>
+                    <p class="platform-module" data-i18n="arch.glos.draftsure.t">{{ strings.get('arch.glos.draftsure.t', 'DraftSure') }}</p>
+                    <p data-i18n="platform.draft.desc">{{ strings.get('platform.draft.desc', 'A draft with a citation for every claim, checked against the source page.') }}</p>
+                </article>
+                <article class="differs-card">
+                    <div class="what-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg></div>
+                    <h3 data-i18n="platform.review.title">{{ strings.get('platform.review.title', 'Second adversarial review') }}</h3>
+                    <p data-i18n="platform.review.desc">{{ strings.get('platform.review.desc', 'A separate pass lists weak claims. It does not block a decision.') }}</p>
+                </article>
+                <article class="differs-card">
+                    <div class="what-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="4"/><path d="M2 21a7 7 0 0 1 14 0"/><path d="m16 11 2 2 4-4"/></svg></div>
+                    <h3 data-i18n="platform.decide.title">{{ strings.get('platform.decide.title', 'A person decides') }}</h3>
+                    <p data-i18n="platform.decide.desc">{{ strings.get('platform.decide.desc', 'Accept, correct or dispute each flag. Every decision is logged with who and when.') }}</p>
+                </article>
+                <article class="differs-card">
+                    <div class="what-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M12 18v-6"/><path d="m9 15 3 3 3-3"/></svg></div>
+                    <h3 data-i18n="platform.export.title">{{ strings.get('platform.export.title', 'Signed export') }}</h3>
+                    <p data-i18n="platform.export.desc">{{ strings.get('platform.export.desc', 'Fields as CSV or signed JSON. Drafts as JSON or PDF.') }}</p>
+                </article>
+                <article class="differs-card">
+                    <div class="what-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="8" x="2" y="2" rx="2"/><rect width="20" height="8" x="2" y="14" rx="2"/><path d="M6 6h.01"/><path d="M6 18h.01"/></svg></div>
+                    <h3 data-i18n="platform.where.title">{{ strings.get('platform.where.title', 'Your environment') }}</h3>
+                    <p data-i18n="platform.where.desc">{{ strings.get('platform.where.desc', 'Your AWS account, on-premises or a private GPU, including air-gapped networks. You choose where the models run.') }}</p>
+                </article>
+                <article class="differs-card">
+                    <div class="what-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15.5 7.5 2.3 2.3a1 1 0 0 0 1.4 0l2.1-2.1a1 1 0 0 0 0-1.4L19 4"/><path d="m21 2-9.6 9.6"/><circle cx="7.5" cy="15.5" r="5.5"/></svg></div>
+                    <h3 data-i18n="platform.keys.title">{{ strings.get('platform.keys.title', 'Your keys') }}</h3>
+                    <p data-i18n="platform.keys.desc">{{ strings.get('platform.keys.desc', 'Encrypted in transit and at rest, with your own keys. Documents are not used to train models.') }}</p>
                 </article>
             </div>
         </div>
@@ -71,7 +130,7 @@
             <!-- Hero Interactive Proof Card -->
             <div class="proof-terminal" role="group" aria-label="{{ strings.get('proof.duo.aria', 'Source A — contract cap 120,000 EUR, compared with Source B — invoice 142,500 EUR') }}" id="hero-proof-card">
                 <div class="proof-terminal-header">
-                    <span class="proof-badge" data-i18n="proof.verdict">{{ strings.get('proof.verdict', 'Z3 Conflict Detected') }}</span>
+                    <span class="proof-badge" data-i18n="proof.verdict">{{ strings.get('proof.verdict', 'Conflict found: invoice is over the contract cap') }}</span>
                     <span class="proof-delta-badge" id="proof-delta-badge">+22,500 EUR</span>
                 </div>
                 <div class="proof-terminal-grid">
@@ -87,7 +146,7 @@
                         </div>
                     </div>
                     <div class="conflict-delta">
-                        <div class="delta-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></div>
+                        <div class="delta-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></div>
                         <div class="delta-value" id="proof-delta-value">+22,500</div>
                         <div class="delta-label" id="proof-delta-currency">EUR</div>
                     </div>
@@ -157,7 +216,7 @@
             <div class="use-cases-grid">
                 <!-- Card 1: Government -->
                 <div class="use-case-card">
-                    <div class="use-case-icon use-case-icon--gov" aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect width="16" height="20" x="4" y="2" rx="2" ry="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M12 6h.01"/><path d="M16 6h.01"/><path d="M8 10h.01"/><path d="M12 10h.01"/><path d="M16 10h.01"/><path d="M8 14h.01"/><path d="M12 14h.01"/><path d="M16 14h.01"/></svg></div>
+                    <div class="use-case-icon use-case-icon--gov" aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect width="16" height="20" x="4" y="2" rx="2" ry="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M12 6h.01"/><path d="M16 6h.01"/><path d="M8 10h.01"/><path d="M12 10h.01"/><path d="M16 10h.01"/><path d="M8 14h.01"/><path d="M12 14h.01"/><path d="M16 14h.01"/></svg></div>
                     <h3 data-i18n="use-cases.gov.title">{{ strings.get('use-cases.gov.title', 'Government Document Checks') }}</h3>
                     <p data-i18n="use-cases.gov.desc">{{ strings.get('use-cases.gov.desc', 'Verify procurement bids and regulatory packets before sign-off.') }}</p>
 
@@ -172,7 +231,7 @@
 
                 <!-- Card 2: Insurance Claims -->
                 <div class="use-case-card">
-                    <div class="use-case-icon use-case-icon--ins" aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg></div>
+                    <div class="use-case-icon use-case-icon--ins" aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg></div>
                     <h3 data-i18n="use-cases.insurance.title">{{ strings.get('use-cases.insurance.title', 'Insurance Claims Review') }}</h3>
                     <p data-i18n="use-cases.insurance.desc">{{ strings.get('use-cases.insurance.desc', 'Audit complex claims against policy limits, endorsements, and medical bills.') }}</p>
 
@@ -187,7 +246,7 @@
 
                 <!-- Card 3: Bonus Reconciliation -->
                 <div class="use-case-card">
-                    <div class="use-case-icon use-case-icon--bonus" aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 2v20"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
+                    <div class="use-case-icon use-case-icon--bonus" aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 2v20"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
                     <h3 data-i18n="use-cases.fuel.title">{{ strings.get('use-cases.fuel.title', 'Bonus & Commission Reconciliation') }}</h3>
 
                     <div class="use-case-conflict">
@@ -214,7 +273,7 @@
             <div class="security-pillars">
                 <div class="security-pillar">
                     <div class="pillar-icon">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5.25 14.25h13.5m-13.5 0a3 3 0 01-3-3m3 3a3 3 0 01-3-3m3 3a3 3 0 010 6h13.5a3 3 0 100-6m-16.5-3a3 3 0 013-3h13.5a3 3 0 013 3m-19.5 0a4.5 4.5 0 01.9-2.7L5.737 5.1a3.375 3.375 0 012.7-1.35h7.126c1.062 0 2.062.5 2.7 1.35l2.587 3.45a4.5 4.5 0 01.9 2.7"/></svg>
+                        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect width="20" height="8" x="2" y="2" rx="2"/><rect width="20" height="8" x="2" y="14" rx="2"/><path d="M6 6h.01"/><path d="M6 18h.01"/></svg>
                     </div>
                     <h3 data-i18n="security.pillar1.title">{{ strings.get('security.pillar1.title', 'Your cloud or air-gapped') }}</h3>
                     <p data-i18n="security.pillar1.desc">{{ strings.get('security.pillar1.desc', 'Deploy in your AWS VPC, on a private GPU cluster, or on-premises data center. When running local models, zero bytes ever leave your network boundary.') }}</p>
@@ -222,7 +281,7 @@
 
                 <div class="security-pillar">
                     <div class="pillar-icon">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z"/></svg>
+                        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m15.5 7.5 2.3 2.3a1 1 0 0 0 1.4 0l2.1-2.1a1 1 0 0 0 0-1.4L19 4"/><path d="m21 2-9.6 9.6"/><circle cx="7.5" cy="15.5" r="5.5"/></svg>
                     </div>
                     <h3 data-i18n="security.pillar2.title">{{ strings.get('security.pillar2.title', 'Your keys (BYOK)') }}</h3>
                     <p data-i18n="security.pillar2.desc">{{ strings.get('security.pillar2.desc', 'Bring your own encryption keys. Data encrypted in transit with TLS 1.3 and at rest with AES-256.') }}</p>
@@ -230,7 +289,7 @@
 
                 <div class="security-pillar">
                     <div class="pillar-icon">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.745 3.745 0 01-3.296-1.043A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 01-3.296-1.043A3.745 3.745 0 0112 3c1.268 0-2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12z"/></svg>
+                        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg>
                     </div>
                     <h3 data-i18n="security.pillar3.title">{{ strings.get('security.pillar3.title', 'No training on your data') }}</h3>
                     <p data-i18n="security.pillar3.desc">{{ strings.get('security.pillar3.desc', 'Your documents are never logged, pooled, or used to train external foundation models.') }}</p>

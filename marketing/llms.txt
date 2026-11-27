@@ -7,8 +7,8 @@ Extraction tools read data out of a file. RAG tools answer questions and cite so
 ## How it works
 - ParSure reads PDFs, including scans, and PNG, JPEG, TIFF and BMP images (up to 25 MB and 200 pages per file by default). Each extracted field keeps its page. Handwritten and illegible values are flagged; illegible values are not guessed.
 - DraftSure writes the draft when you ask for one. Each draft claim must cite a source, page and field, or a quote from the page; a citation that does not resolve fails the claim.
-- CrossSure checks figures. Z3 is software that decides whether a set of figures can all be true at the same time. It checks the arithmetic and date relations between the draft's figures and the values read from your files, and reports pass, fail, skipped, timeout or error. A skipped or errored check is never reported as a pass. CrossSure also reads spreadsheets (XLSX, XLSM, XLS, CSV, TXT) in code, without a model.
-- Red-Hat review is a second language-model pass that lists weak claims. Whether it runs on every draft or only when a reviewer requests it is configured per customer deployment.
+- A formal logic check decides whether a set of figures can all be true at the same time. It checks the arithmetic and date relations between the draft's figures and the values read from your files, and reports pass, fail, skipped, timeout or error. A skipped or errored check is never reported as a pass. Spreadsheets (XLSX, XLSM, XLS, CSV, TXT) are read in code, without a model.
+- A second adversarial review is a language-model pass that lists weak claims. Whether it runs on every draft or only when a reviewer requests it is configured per customer deployment.
 - A person accepts, corrects or disputes each flagged field. Each action is logged with who, when, old and new value and reason.
 
 ## Deployment

@@ -154,8 +154,8 @@ def test_software_application_schema_has_category_and_operating_system():
         assert "offers" not in app, locale
         assert "aggregateRating" not in app, locale
 
-STEPS = ["Upload the document package", "Read and draft",
-         "Check and cross-check", "A person decides"]
+STEPS = ["Upload the document package", "Read and cross-check",
+         "Check and draft", "A person decides"]
 
 # WP3: /architecture/ shows the component-named pipeline (7 steps) instead of
 # the de-branded four-step flow used on the marketing pages.
@@ -177,8 +177,9 @@ def _dist_text(rel: str) -> tuple[str, str]:
 
 def test_home_copy_matches_the_code():
     html, t = _dist_text("index.html")
-    for token in ("Catch the figure that doesn't match before you pay or approve.", "See the proof", "Try it on your own files →", "What sets AssureProof apart from other document and AI tools?",
-                  "Illustrative example, simulated data, not a customer result"):
+    for token in ("Catch the figure that doesn't match before you pay or approve.", "See a sample check", "Try it on your own files →", "What sets AssureProof apart from other document and AI tools?",
+                  "Illustrative example, simulated data, not a customer result",
+                  "For finance, claims, procurement and public sector teams"):
         assert token in t, token
     assert '<meta property="og:image" content="https://assureproof.com/static/og-image.png">' in html
 
@@ -208,11 +209,13 @@ def test_architecture_pipeline_in_order():
 
 
 def test_hero_ctas_point_to_evidence_and_poc():
-    """WP5: the hero's 'See the proof' button points to /evidence/ and the
-    pilot CTA to /poc/ — the hero buttons no longer target /#how."""
-    html, _ = _dist_text("index.html")
-    assert 'href="/evidence/" class="btn-primary"' in html
-    assert 'href="/poc/" class="btn-text"' in html
+    """The hero primary button opens /poc/. The sample-check link opens /evidence/."""
+    html, visible = _dist_text("index.html")
+    assert 'href="/poc/" class="btn-primary"' in html
+    assert 'href="/evidence/" class="hero-sample-link"' in html
+    assert "See a sample check" in visible
+    assert "Try it on your own files" in visible
+    assert "See the proof" not in visible
     assert 'href="/#how" class="btn-text"' not in html
     assert 'href="/#how" class="btn-primary"' not in html
 
@@ -263,7 +266,9 @@ def test_locale_poc_pages_have_full_head():
 def test_home_order_and_faq_schema():
     html, t = _dist_text("index.html")
     order = ["Catch the figure that doesn't match before you pay or approve.",
-             "How it works", "What it does", "What a check looks like",
+             "How it works", "Read and cross-check", "Check and draft",
+             "What it does", "Read", "Cross-check", "Check", "Draft",
+             "Platform", "What a check looks like",
              "What sets AssureProof apart from other document and AI tools?",
              "Catch the mismatch before the money or the approval goes out.",
              "You choose where your documents and models run.", "Questions",
